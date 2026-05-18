@@ -1,0 +1,19 @@
+{
+  "name": "war-council-mcp",
+  "version": "0.1.0",
+  "description": "MCP server exposing model-delegation tools for a local Ollama Conductor",
+  "type": "module",
+  "main": "server.js",
+  "bin": {
+    "war-council-mcp": "server.js"
+  },
+  "scripts": {
+    "start": "node server.js",
+    "test": "node test-direct.js"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.0.4",
+    "ws": "^8.20.0"
+  },
+  "license": "MIT"
+}

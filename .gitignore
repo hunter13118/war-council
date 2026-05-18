@@ -1,0 +1,10 @@
+node_modules/
+.env
+*.log
+dist/
+.DS_Store
+Thumbs.db
+__pycache__/
+*.pyc
+.venv/
+battle-log/assets/generated/

@@ -1,0 +1,507 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>⚔️ War Council — Battle Log</title>
+<style>
+  :root {
+    --bg-primary: #0a0a0f;
+    --bg-secondary: #12121a;
+    --bg-card: #1a1a28;
+    --border: #2a2a3a;
+    --text: #e0e0f0;
+    --text-dim: #8888aa;
+    --accent-fire: #ff4444;
+    --accent-gold: #ffd700;
+    --accent-cyan: #00e5ff;
+    --accent-purple: #aa44ff;
+    --accent-green: #44ff88;
+    --accent-orange: #ff8844;
+    --glow-fire: 0 0 20px rgba(255, 68, 68, 0.3);
+    --glow-cyan: 0 0 20px rgba(0, 229, 255, 0.3);
+    --glow-gold: 0 0 20px rgba(255, 215, 0, 0.3);
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    font-family: 'JetBrains Mono', 'Fira Code', 'Cascadia Code', monospace;
+    background: var(--bg-primary);
+    color: var(--text);
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  /* === Header === */
+  .header {
+    background: linear-gradient(135deg, var(--bg-secondary), #1a0a2a);
+    border-bottom: 1px solid var(--border);
+    padding: 16px 24px;
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    position: sticky;
+    top: 0;
+    z-index: 100;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.5);
+  }
+
+  .header h1 {
+    font-size: 1.4rem;
+    background: linear-gradient(90deg, var(--accent-fire), var(--accent-gold));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    text-shadow: 0 0 30px rgba(255, 68, 68, 0.2);
+  }
+
+  .header .status {
+    margin-left: auto;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 0.8rem;
+    color: var(--text-dim);
+  }
+
+  .status-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: var(--accent-green);
+    animation: pulse 2s infinite;
+  }
+
+  .status-dot.disconnected { background: var(--accent-fire); animation: none; }
+
+  @keyframes pulse {
+    0%, 100% { opacity: 1; transform: scale(1); }
+    50% { opacity: 0.5; transform: scale(0.8); }
+  }
+
+  /* === Main Layout === */
+  .layout {
+    display: grid;
+    grid-template-columns: 280px 1fr;
+    height: calc(100vh - 64px);
+    overflow: hidden;
+  }
+
+  /* === Sidebar (Agent Roster) === */
+  .sidebar {
+    background: var(--bg-secondary);
+    border-right: 1px solid var(--border);
+    padding: 16px;
+    overflow-y: auto;
+  }
+
+  .sidebar h2 {
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 2px;
+    color: var(--text-dim);
+    margin-bottom: 12px;
+  }
+
+  .agent-card {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 10px 12px;
+    margin-bottom: 8px;
+    transition: all 0.3s ease;
+  }
+
+  .agent-card.active {
+    border-color: var(--accent-cyan);
+    box-shadow: var(--glow-cyan);
+  }
+
+  .agent-card .name {
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: var(--accent-cyan);
+  }
+
+  .agent-card .model {
+    font-size: 0.7rem;
+    color: var(--text-dim);
+    margin-top: 2px;
+  }
+
+  .agent-card .stats {
+    font-size: 0.7rem;
+    color: var(--text-dim);
+    margin-top: 4px;
+    display: flex;
+    gap: 8px;
+  }
+
+  .agent-card .stats .calls { color: var(--accent-gold); }
+  .agent-card .stats .tps { color: var(--accent-green); }
+
+  /* === Timeline (Main Area) === */
+  .timeline {
+    padding: 20px;
+    overflow-y: auto;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  .event-card {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 14px 18px;
+    animation: slideIn 0.3s ease;
+    position: relative;
+  }
+
+  .event-card::before {
+    content: '';
+    position: absolute;
+    left: 0;
+    top: 0;
+    bottom: 0;
+    width: 3px;
+    background: var(--accent-cyan);
+  }
+
+  .event-card.tool_start::before { background: var(--accent-gold); }
+  .event-card.tool_complete::before { background: var(--accent-green); }
+  .event-card.tool_error::before { background: var(--accent-fire); }
+  .event-card.council::before { background: var(--accent-purple); }
+
+  .event-card .event-header {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 6px;
+  }
+
+  .event-card .event-icon {
+    font-size: 1.2rem;
+  }
+
+  .event-card .event-tool {
+    font-weight: 600;
+    font-size: 0.9rem;
+  }
+
+  .event-card .event-time {
+    margin-left: auto;
+    font-size: 0.7rem;
+    color: var(--text-dim);
+  }
+
+  .event-card .event-body {
+    font-size: 0.85rem;
+    color: #ccddee;
+    margin-top: 6px;
+    padding: 6px 8px;
+    background: rgba(0, 180, 255, 0.06);
+    border-left: 2px solid rgba(0, 180, 255, 0.3);
+    border-radius: 2px;
+    white-space: pre-wrap;
+    max-height: 120px;
+    overflow: hidden;
+    transition: max-height 0.3s;
+  }
+
+  .event-card .event-body.expanded {
+    max-height: none;
+  }
+
+  .event-card .event-meta {
+    display: flex;
+    gap: 12px;
+    margin-top: 8px;
+    font-size: 0.7rem;
+  }
+
+  .event-meta .duration { color: var(--accent-gold); }
+  .event-meta .tokens { color: var(--accent-cyan); }
+  .event-meta .tps { color: var(--accent-green); }
+  .event-meta .error { color: var(--accent-fire); }
+
+  @keyframes slideIn {
+    from { opacity: 0; transform: translateY(-10px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  /* === Empty State === */
+  .empty-state {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    height: 100%;
+    color: var(--text-dim);
+    text-align: center;
+    gap: 12px;
+  }
+
+  .empty-state .icon { font-size: 3rem; opacity: 0.3; }
+  .empty-state p { font-size: 0.9rem; }
+
+  /* === Stats Bar === */
+  .stats-bar {
+    background: var(--bg-card);
+    border-top: 1px solid var(--border);
+    padding: 8px 16px;
+    display: flex;
+    gap: 24px;
+    font-size: 0.75rem;
+    color: var(--text-dim);
+  }
+
+  .stats-bar .stat-value { color: var(--accent-gold); font-weight: 600; }
+
+  /* === Scrollbar === */
+  ::-webkit-scrollbar { width: 6px; }
+  ::-webkit-scrollbar-track { background: var(--bg-primary); }
+  ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+  ::-webkit-scrollbar-thumb:hover { background: var(--text-dim); }
+
+  /* === Responsive === */
+  @media (max-width: 768px) {
+    .layout { grid-template-columns: 1fr; }
+    .sidebar { display: none; }
+  }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <h1>⚔️ War Council — Battle Log</h1>
+  <a href="/war-table" style="margin-left: 16px; color: #8888aa; text-decoration: none; font-size: 0.75rem; border: 1px solid #3a3a5a; padding: 4px 10px; border-radius: 4px; transition: all 0.2s;" onmouseover="this.style.color='#ffd700';this.style.borderColor='#ffd700'" onmouseout="this.style.color='#8888aa';this.style.borderColor='#3a3a5a'">⚔️ WAR TABLE</a>
+  <div class="status">
+    <div class="status-dot" id="statusDot"></div>
+    <span id="statusText">Connecting...</span>
+  </div>
+</div>
+
+<div class="layout">
+  <div class="sidebar">
+    <h2>Agent Roster</h2>
+    <div id="roster"></div>
+
+    <h2 style="margin-top: 20px;">Session Stats</h2>
+    <div id="sessionStats" style="font-size: 0.75rem; color: var(--text-dim);"></div>
+  </div>
+
+  <div class="timeline" id="timeline">
+    <div class="empty-state" id="emptyState">
+      <div class="icon">⚔️</div>
+      <p>Awaiting orders, Commander.</p>
+      <p style="font-size: 0.75rem;">Events will appear here when the army is activated.</p>
+    </div>
+  </div>
+</div>
+
+<div class="stats-bar">
+  <span>Total calls: <span class="stat-value" id="totalCalls">0</span></span>
+  <span>Errors: <span class="stat-value" id="totalErrors">0</span></span>
+  <span>Avg latency: <span class="stat-value" id="avgLatency">—</span></span>
+  <span>Session: <span class="stat-value" id="sessionDuration">0m</span></span>
+</div>
+
+<script>
+const AGENTS = {
+  'consult_fast': { name: 'Scout (7B)', model: 'qwen2.5-coder:7b', icon: '🏃', color: 'var(--accent-green)' },
+  'consult_specialist': { name: 'Specialist (14B)', model: 'qwen2.5-coder:14b', icon: '⚔️', color: 'var(--accent-cyan)' },
+  'consult_reasoning': { name: 'Sage (R1 14B)', model: 'deepseek-r1:14b', icon: '🧠', color: 'var(--accent-purple)' },
+  'consult_cloud': { name: 'Cloud Oracle', model: 'gemini/groq', icon: '☁️', color: 'var(--accent-gold)' },
+  'strategic_plan': { name: 'Strategist', model: 'gemini-2.5-flash', icon: '📋', color: 'var(--accent-gold)' },
+  'rapid_fan_out': { name: 'Swarm', model: 'groq-70b × N', icon: '🐝', color: 'var(--accent-orange)' },
+  'council_deliberate': { name: 'War Council', model: 'multi-model', icon: '👥', color: 'var(--accent-purple)' },
+  'council_debate': { name: 'Arena', model: 'adversarial', icon: '⚡', color: 'var(--accent-fire)' },
+  'run_chain': { name: 'Chain Runner', model: 'pipeline', icon: '🔗', color: 'var(--accent-cyan)' },
+  'smart_route': { name: 'Router', model: 'decision-tree', icon: '🧭', color: 'var(--accent-green)' },
+  'self_eval': { name: 'Quality Gate', model: 'groq-70b', icon: '✅', color: 'var(--accent-green)' },
+  'memory_query': { name: 'Memory', model: 'nomic-embed', icon: '📚', color: 'var(--accent-cyan)' },
+  'run_tests': { name: 'Test Runner', model: 'jest+pw+py', icon: '🧪', color: 'var(--accent-green)' },
+  'visual_consult': { name: 'Eye', model: 'qwen2.5vl', icon: '👁️', color: 'var(--accent-purple)' },
+};
+
+const state = {
+  events: [],
+  agentStats: {},
+  totalCalls: 0,
+  totalErrors: 0,
+  latencies: [],
+  sessionStart: Date.now(),
+};
+
+function getAgent(toolName) {
+  return AGENTS[toolName] || { name: toolName, model: '?', icon: '🔧', color: 'var(--text-dim)' };
+}
+
+function getEventIcon(type) {
+  switch (type) {
+    case 'tool_start': return '▶️';
+    case 'tool_complete': return '✅';
+    case 'tool_error': return '❌';
+    default: return '📝';
+  }
+}
+
+function formatTime(iso) {
+  const d = new Date(iso);
+  return d.toLocaleTimeString('en-US', { hour12: false }) + '.' + String(d.getMilliseconds()).padStart(3, '0');
+}
+
+function renderEvent(event) {
+  const agent = getAgent(event.tool);
+  const card = document.createElement('div');
+  card.className = `event-card ${event.type}${event.tool?.includes('council') ? ' council' : ''}`;
+
+  let meta = '';
+  if (event.durationMs) meta += `<span class="duration">⏱️ ${event.durationMs}ms</span>`;
+  if (event.tokensOut) meta += `<span class="tokens">📝 ${event.tokensOut} tok</span>`;
+  if (event.tps) meta += `<span class="tps">⚡ ${event.tps} tok/s</span>`;
+  if (event.error) meta += `<span class="error">💀 ${event.error}</span>`;
+
+  let body = '';
+  if (event.preview) body = event.preview;
+  if (event.error && event.type === 'tool_error') body = event.error;
+
+  card.innerHTML = `
+    <div class="event-header">
+      <span class="event-icon">${agent.icon}</span>
+      <span class="event-tool" style="color: ${agent.color}">${agent.name}</span>
+      <span style="font-size: 0.7rem; color: var(--text-dim);">${event.type === 'tool_start' ? 'ACTIVATED' : event.type === 'tool_complete' ? 'COMPLETE' : event.type === 'tool_error' ? 'FAILED' : event.type.toUpperCase()}</span>
+      <span class="event-time">${formatTime(event.timestamp)}</span>
+    </div>
+    ${body ? `<div class="event-body">${escapeHtml(body)}</div>` : ''}
+    ${meta ? `<div class="event-meta">${meta}</div>` : ''}
+  `;
+
+  card.addEventListener('click', () => {
+    const bodyEl = card.querySelector('.event-body');
+    if (bodyEl) bodyEl.classList.toggle('expanded');
+  });
+
+  return card;
+}
+
+function escapeHtml(str) {
+  return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+}
+
+function updateRoster() {
+  const roster = document.getElementById('roster');
+  roster.innerHTML = '';
+
+  const sortedAgents = Object.entries(state.agentStats)
+    .sort((a, b) => b[1].lastActive - a[1].lastActive);
+
+  for (const [toolName, stats] of sortedAgents) {
+    const agent = getAgent(toolName);
+    const isRecent = Date.now() - stats.lastActive < 10000;
+    const card = document.createElement('div');
+    card.className = `agent-card${isRecent ? ' active' : ''}`;
+    card.innerHTML = `
+      <div class="name">${agent.icon} ${agent.name}</div>
+      <div class="model">${agent.model}</div>
+      <div class="stats">
+        <span class="calls">${stats.calls} calls</span>
+        ${stats.avgMs ? `<span class="tps">${Math.round(stats.avgMs)}ms avg</span>` : ''}
+      </div>
+    `;
+    roster.appendChild(card);
+  }
+}
+
+function updateStats() {
+  document.getElementById('totalCalls').textContent = state.totalCalls;
+  document.getElementById('totalErrors').textContent = state.totalErrors;
+
+  if (state.latencies.length > 0) {
+    const avg = Math.round(state.latencies.reduce((a, b) => a + b, 0) / state.latencies.length);
+    document.getElementById('avgLatency').textContent = `${avg}ms`;
+  }
+
+  const minutes = Math.round((Date.now() - state.sessionStart) / 60000);
+  document.getElementById('sessionDuration').textContent = `${minutes}m`;
+}
+
+function addEvent(event) {
+  state.events.push(event);
+
+  // Update agent stats
+  if (event.tool) {
+    if (!state.agentStats[event.tool]) {
+      state.agentStats[event.tool] = { calls: 0, totalMs: 0, lastActive: 0 };
+    }
+    const s = state.agentStats[event.tool];
+    if (event.type === 'tool_start') {
+      s.calls++;
+      state.totalCalls++;
+    }
+    if (event.type === 'tool_error') state.totalErrors++;
+    if (event.durationMs) {
+      s.totalMs += event.durationMs;
+      s.avgMs = s.totalMs / s.calls;
+      state.latencies.push(event.durationMs);
+    }
+    s.lastActive = Date.now();
+  }
+
+  // Render
+  const timeline = document.getElementById('timeline');
+  const emptyState = document.getElementById('emptyState');
+  if (emptyState) emptyState.remove();
+
+  const card = renderEvent(event);
+  timeline.appendChild(card);
+
+  // Auto-scroll
+  timeline.scrollTop = timeline.scrollHeight;
+
+  updateRoster();
+  updateStats();
+}
+
+// === SSE Connection ===
+let eventSource;
+
+function connect() {
+  eventSource = new EventSource('/events');
+
+  eventSource.onopen = () => {
+    document.getElementById('statusDot').className = 'status-dot';
+    document.getElementById('statusText').textContent = 'Connected — Listening';
+  };
+
+  eventSource.onmessage = (e) => {
+    try {
+      const event = JSON.parse(e.data);
+      addEvent(event);
+    } catch {}
+  };
+
+  eventSource.onerror = () => {
+    document.getElementById('statusDot').className = 'status-dot disconnected';
+    document.getElementById('statusText').textContent = 'Disconnected — Reconnecting...';
+    setTimeout(connect, 3000);
+  };
+}
+
+// Load history then connect
+fetch('/history')
+  .then(r => r.json())
+  .then(events => {
+    state.sessionStart = events.length > 0 ? new Date(events[0].timestamp).getTime() : Date.now();
+    events.forEach(addEvent);
+    connect();
+  })
+  .catch(() => connect());
+
+// Update session timer every 30s
+setInterval(updateStats, 30000);
+</script>
+</body>
+</html>
