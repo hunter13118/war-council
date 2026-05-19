@@ -15,7 +15,7 @@
  *   POST /emit     → Push a manual event (for testing)
  */
 import { createServer } from "node:http";
-import { readFile, readdir, stat } from "node:fs/promises";
+import { readFile, readdir, stat, mkdir } from "node:fs/promises";
 import { resolve, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 import { existsSync, createReadStream } from "node:fs";
@@ -27,8 +27,14 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
 const PORT = parseInt(process.argv.find((a, i) => process.argv[i - 1] === "--port") || "3737", 10);
-const REPO_ROOT = resolve(__dirname, "..", "..", "..");
-const LOG_PATH = resolve(REPO_ROOT, ".cline-context", "battle-log.jsonl");
+const REPO_ROOT = resolve(__dirname, "..");
+const LOG_DIR = resolve(REPO_ROOT, ".cline-context");
+const LOG_PATH = resolve(LOG_DIR, "battle-log.jsonl");
+
+// Ensure .cline-context directory exists (auto-create on first use)
+async function ensureLogDir() {
+  await mkdir(LOG_DIR, { recursive: true });
+}
 
 // In-memory event buffer (last 500 events)
 const eventBuffer = [];
@@ -266,6 +272,7 @@ const server = createServer(async (req, res) => {
       broadcast(event);
       // Persist to JSONL so events survive restarts
       try {
+        await ensureLogDir();
         const { appendFile: af } = await import("node:fs/promises");
         await af(LOG_PATH, JSON.stringify(event) + "\n");
         lastSize = (await stat(LOG_PATH)).size; // Update cursor to avoid re-reading
