@@ -1365,9 +1365,13 @@ let ttsSpeaking = false;
 function queueTts(text, voice, isImportant, agentKey) {
   if (replayingHistory) return;
   if (!text || text.length < 3) return;
+  console.debug('[TTS-QUEUE]', agentKey, '| voice:', voice, '| len:', text.length, '| important:', isImportant);
 
   // VIP filter applies to both TTS and babble
-  if (vipModeEnabled && !isImportant) return;
+  if (vipModeEnabled && !isImportant) {
+    console.debug('[TTS-QUEUE] BLOCKED by VIP filter:', agentKey);
+    return;
+  }
 
   // Voice replacement: when voices off, queue babble speech instead (if SFX enabled)
   if (!voicesEnabled) {
@@ -1398,15 +1402,16 @@ async function processTtsQueue() {
     return;
   }
 
-  // Real Edge TTS (with one retry for cold-start failures)
-  const trimmed = item.text.length > 200 ? item.text.substring(0, 197) + '...' : item.text;
-  const ttsPayload = JSON.stringify({ text: trimmed, voice: item.voice });
+  // Real Edge TTS (with one retry for cold-start failures + fallback voice)
+  const trimmed = item.text.length > 500 ? item.text.substring(0, 497) + '...' : item.text;
+  const FALLBACK_VOICES = ['en-US-GuyNeural', 'en-US-AriaNeural', 'en-US-JennyNeural'];
 
-  async function attemptTts(retries) {
+  async function attemptTts(voice, retries) {
+    const payload = JSON.stringify({ text: trimmed, voice: voice });
     const res = await fetch('/tts', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: ttsPayload,
+      body: payload,
     });
     if (res.ok && res.status === 200) {
       const blob = await res.blob();
@@ -1414,22 +1419,33 @@ async function processTtsQueue() {
     }
     if (retries > 0) {
       await new Promise(r => setTimeout(r, 1000));
-      return attemptTts(retries - 1);
+      return attemptTts(voice, retries - 1);
     }
     return null;
   }
 
   try {
-    const blob = await attemptTts(1);
+    let blob = await attemptTts(item.voice, 1);
+    // Fallback: try alternate voices if primary fails
+    if (!blob) {
+      for (const fallback of FALLBACK_VOICES) {
+        if (fallback === item.voice) continue;
+        console.debug('[TTS-FALLBACK]', item.voice, '→', fallback);
+        blob = await attemptTts(fallback, 0);
+        if (blob) break;
+      }
+    }
     if (blob) {
+      console.debug('[TTS-PLAY]', item.voice, '| blob:', blob.size, 'bytes');
       const url = URL.createObjectURL(blob);
       const audio = new Audio(url);
       audio.volume = 0.7;
-      audio.onended = () => { URL.revokeObjectURL(url); processTtsQueue(); };
-      audio.onerror = () => { URL.revokeObjectURL(url); processTtsQueue(); };
-      audio.play().catch(() => processTtsQueue());
+      audio.onended = () => { console.debug('[TTS-DONE]', item.voice); URL.revokeObjectURL(url); processTtsQueue(); };
+      audio.onerror = (e) => { console.debug('[TTS-ERROR]', item.voice, e.message); URL.revokeObjectURL(url); processTtsQueue(); };
+      audio.play().catch((e) => { console.debug('[TTS-PLAY-FAIL]', item.voice, e.message); processTtsQueue(); });
       return; // Wait for onended
     }
+    console.debug('[TTS-EMPTY]', item.voice, '— no blob after fallbacks');
     // TTS returned empty — surface warning
     const statusEl = document.getElementById('connStatus');
     if (statusEl && voicesEnabled) {
@@ -1737,21 +1753,21 @@ function showObjection(agent1, text1, agent2, text2, opts = {}) {
     // Typewriter agent 1's argument — voice fires simultaneously
     args[0].style.opacity = '1'; args[0].style.transform = 'translateY(0)';
     const isVip1 = (agent1 === 'self_eval' || agent1 === 'hypeman');
-    if (voicesEnabled) queueTts(text1.slice(0, 200), voiceMap[agent1] || 'en-US-AriaNeural', isVip1, agent1);
+    if (voicesEnabled) queueTts(text1, voiceMap[agent1] || 'en-US-AriaNeural', isVip1, agent1);
     await typewriterWithBabble(args[0], text1, { speed: 20, basePitch: 320 });
     await waitForTtsIdle();
 
     // Typewriter agent 2's argument — voice fires simultaneously
     args[1].style.opacity = '1'; args[1].style.transform = 'translateY(0)';
     const isVip2 = (agent2 === 'self_eval' || agent2 === 'hypeman');
-    if (voicesEnabled) queueTts(text2.slice(0, 200), voiceMap[agent2] || 'en-US-AriaNeural', isVip2, agent2);
+    if (voicesEnabled) queueTts(text2, voiceMap[agent2] || 'en-US-AriaNeural', isVip2, agent2);
     await typewriterWithBabble(args[1], text2, { speed: 20, basePitch: 420 });
     await waitForTtsIdle();
 
     // Typewriter verdict — voice fires simultaneously
     if (verdictEl && verdictTextEl && opts.verdict) {
       verdictEl.style.opacity = '1';
-      if (voicesEnabled) queueTts(opts.verdict.slice(0, 200), voiceMap['self_eval'] || 'en-US-AriaNeural', true, 'self_eval');
+      if (voicesEnabled) queueTts(opts.verdict, voiceMap['self_eval'] || 'en-US-AriaNeural', true, 'self_eval');
       await typewriterWithBabble(verdictTextEl, opts.verdict, { speed: 18, basePitch: 280 });
       await waitForTtsIdle();
     }
@@ -1872,7 +1888,7 @@ document.getElementById('objectionOverlay').addEventListener('click', () => {
       const agentKey = agents[i].name ? agents[i].name.toLowerCase().replace(/\s/g, '_') : 'council_deliberate';
       bubble.textContent = '';
       // Fire TTS at same time as typewriter (replaces babble)
-      if (voicesEnabled) queueTts(text.slice(0, 200), voiceMap[agentKey] || 'en-US-AriaNeural', false, agentKey);
+      if (voicesEnabled) queueTts(text, voiceMap[agentKey] || 'en-US-AriaNeural', false, agentKey);
       // Typewriter
       for (let c = 0; c < Math.min(text.length, 120); c++) {
         bubble.textContent += text[c];
@@ -1888,7 +1904,7 @@ document.getElementById('objectionOverlay').addEventListener('click', () => {
       await delay(600);
       verdictEl.textContent = '⚖️ ' + opts.verdict;
       verdictEl.classList.add('visible');
-      if (voicesEnabled) queueTts(opts.verdict.slice(0, 200), voiceMap['self_eval'] || 'en-US-AriaNeural', true, 'self_eval');
+      if (voicesEnabled) queueTts(opts.verdict, voiceMap['self_eval'] || 'en-US-AriaNeural', true, 'self_eval');
       await waitForTtsIdle();
     }
 

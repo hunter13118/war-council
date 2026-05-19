@@ -13,6 +13,14 @@ const BASE = 'http://localhost:3737';
 
 test.describe('War Council — Live Demo Walkthrough', () => {
   test('Full feature showcase', async ({ page }) => {
+    // Capture TTS debug logs
+    const ttsLogs = [];
+    page.on('console', msg => {
+      if (msg.text().includes('[TTS-')) {
+        ttsLogs.push(msg.text());
+      }
+    });
+
     // === SCENE 1: Load War Table ===
     await page.goto(`${BASE}/war-table`, { waitUntil: 'domcontentloaded', timeout: 10000 });
     await page.waitForTimeout(PAUSE);
@@ -117,6 +125,12 @@ test.describe('War Council — Live Demo Walkthrough', () => {
 
     // === SCENE 10: Final pause — admire the war table ===
     await page.waitForTimeout(5000);
+
+    // === TTS LOG DUMP ===
+    console.log('\n=== TTS DEBUG LOG ===');
+    ttsLogs.forEach(l => console.log(l));
+    console.log(`Total TTS queue calls: ${ttsLogs.length}`);
+    console.log('=== END TTS LOG ===\n');
   });
 });
 
