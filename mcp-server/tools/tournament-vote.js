@@ -4,6 +4,7 @@
 import { ARSENAL } from "../shared/config.js";
 import { ollamaGenerate, ollamaGenerateWithRetry, formatConsultResult } from "../shared/ollama.js";
 import { emitBattleEvent } from "../shared/battle-events.js";
+import { buildJudgePrompt, parseJudgeVerdict } from "../shared/judge.js";
 
 export const schema = {
   name: "tournament_vote",
@@ -66,39 +67,12 @@ export async function handler(args, ctx) {
   let winnerKey = voterKeys[0];
   let loserKey = voterKeys[voterKeys.length - 1];
   try {
-    const judgePrompt = `You are a tournament judge. Multiple AI models answered the same question. Pick the BEST response and explain why in 2-3 sentences.
-
-QUESTION: ${args.prompt}
-
-${results.map((r, i) => `--- CONTESTANT ${i + 1} (${r.voterKey}) ---\n${r.text.slice(0, 500)}`).join("\n\n")}
-
-Respond in this exact format:
-WINNER: <contestant number>
-REASON: <2-3 sentence explanation>`;
-
+    const judgePrompt = buildJudgePrompt(args.prompt, results);
     const judgeResult = await ollamaGenerateWithRetry(ARSENAL.reasoning, judgePrompt, { maxTokens: 512 });
-    const judgeFullText = judgeResult.fullText || judgeResult.text;
-    judgeVerdict = judgeResult.text || judgeResult.thinking || "";
-
-    const cleanedVerdict = judgeFullText.replace(/<think>[\s\S]*?<\/think>/g, "").trim();
-    const winnerMatch = (cleanedVerdict || judgeFullText).match(/WINNER:\s*(?:contestant\s*)?(\d+)/i);
-    const reasonMatch = (cleanedVerdict || judgeFullText).match(/REASON:\s*(.+?)(?:\n|$)/is);
-
-    if (reasonMatch) {
-      judgeVerdict = reasonMatch[1].trim();
-    } else {
-      const thinkingContent = judgeResult.thinking || "";
-      const sentences = thinkingContent.split(/[.!?]+/).filter((s) => s.trim().length > 20);
-      const lastFew = sentences.slice(-3).join(". ").trim();
-      if (lastFew) judgeVerdict = lastFew.slice(0, 300);
-    }
-    if (winnerMatch) {
-      const winIdx = parseInt(winnerMatch[1], 10) - 1;
-      if (winIdx >= 0 && winIdx < results.length) {
-        winnerKey = results[winIdx].voterKey;
-        loserKey = results.find((r, i) => i !== winIdx)?.voterKey || voterKeys[0];
-      }
-    }
+    const parsed = parseJudgeVerdict(judgeResult, results, voterKeys);
+    winnerKey = parsed.winnerKey;
+    loserKey = parsed.loserKey;
+    judgeVerdict = parsed.verdict;
   } catch (e) {
     judgeVerdict = `(judge error: ${e.message})`;
   }
