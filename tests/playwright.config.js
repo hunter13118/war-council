@@ -29,7 +29,7 @@ export default defineConfig({
         launchOptions: { slowMo: 200 },
         viewport: { width: 1920, height: 1080 },
       },
-      timeout: 120000,
+      timeout: 180000,
     },
   ],
   webServer: {

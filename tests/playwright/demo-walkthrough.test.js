@@ -17,8 +17,10 @@ test.describe('War Council — Live Demo Walkthrough', () => {
     await page.goto(`${BASE}/war-table`, { waitUntil: 'domcontentloaded', timeout: 10000 });
     await page.waitForTimeout(PAUSE);
 
-    // === SCENE 2: Toggle DEMON mode ===
+    // === SCENE 2: Toggle DEMON mode + VOICES ===
     await page.click('button:has-text("DEMON")');
+    await page.waitForTimeout(1500);
+    await page.check('#voiceToggle');
     await page.waitForTimeout(PAUSE);
 
     // === SCENE 3: Seat some agents at the table ===
@@ -54,8 +56,8 @@ test.describe('War Council — Live Demo Walkthrough', () => {
       verdict: 'WINNER: consult_reasoning. The lazy-init hybrid approach addresses both extensibility AND performance. Pure dynamic loading sacrifices startup speed unnecessarily.',
       winner: 'consult_reasoning'
     });
-    // Wait for the full tournament animation (typewriter + verdict)
-    await page.waitForTimeout(25000);
+    // Wait for the full tournament animation (typewriter + verdict + TTS voices)
+    await page.waitForTimeout(35000);
 
     // === SCENE 5: Tournament result (updates ELO + crowns) ===
     await emitEvent(page, {
@@ -98,7 +100,7 @@ test.describe('War Council — Live Demo Walkthrough', () => {
       verdict: 'WINNER: consult_specialist. Structured logging is objectively superior for production systems. Console.log is fine for scripts, not servers.',
       winner: 'consult_specialist'
     });
-    await page.waitForTimeout(20000);
+    await page.waitForTimeout(30000);
 
     // === SCENE 9: Council deliberation ===
     await emitEvent(page, {
@@ -111,7 +113,7 @@ test.describe('War Council — Live Demo Walkthrough', () => {
       ],
       synthesis: 'Keep SSE for dashboard events. Add optional token streaming at the tool level with stream:true flag. No WebSocket needed.'
     });
-    await page.waitForTimeout(15000);
+    await page.waitForTimeout(25000);
 
     // === SCENE 10: Final pause — admire the war table ===
     await page.waitForTimeout(5000);
