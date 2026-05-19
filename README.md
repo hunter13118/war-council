@@ -2,19 +2,27 @@
 
 Local-first, Ollama-powered multi-model agent framework. Runs entirely on the workstation (RTX 5090, 32 GB VRAM). No cloud dependencies, no API keys, no subscription fees.
 
+> **"The want to beat Claude and the want to see it happen in real time with visual aid."**
+
 ---
 
 ## What This Is
 
 A complete toolkit for turning local LLMs into a coordinated war council:
 
-1. **MCP Server** (`mcp-server/`) — Model Context Protocol server that exposes delegation tools so a Conductor model can invoke specialist models without manual swapping.
+1. **MCP Server** (`mcp-server/`) — Model Context Protocol server that exposes delegation tools so a Conductor model can invoke specialist models without manual swapping. Plugin architecture with auto-discovery.
 
-2. **War Table Dashboard** (`battle-log/`) — Real-time SSE-powered visualization of multi-model deliberation: who's thinking, what they said, tournament voting, battle logs with JSONL persistence.
+2. **War Table Dashboard** (`battle-log/`) — Real-time SSE-powered visualization of multi-model deliberation: Ace Attorney courtroom tournaments, Council Deliberation Theatre, Memory Constellation Graph, Token Economy HUD, Activity Timeline, TTS voices, ELO rankings.
 
 3. **Copilot Agent Framework** (`.github/agents/`) — 19 specialized sub-agents for VS Code Copilot, each with domain expertise. Tournament system for architectural decisions. Full TDD enforcement.
 
-4. **Cline/Roo Integration** (`docs/CLINE_SETUP.md`) — Wire the MCP server into Roo Code or Cline for local-first agentic coding.
+4. **Memory Engine** (`memory-engine/`) — RAG system with vector store, file/conversation indexing, and cosine similarity search. Prompts are auto-augmented with relevant memory chunks.
+
+5. **Benchmark Arena** (`mcp-server/benchmark/`) — Standardized coding challenges for model evaluation. Track win rates over time across your model arsenal.
+
+6. **Cloud Failover** (`mcp-server/shared/cloud.js`) — Gemini + Groq integration with rate limiting and automatic failover when Ollama is overloaded.
+
+7. **Cline/Roo Integration** (`docs/CLINE_SETUP.md`) — Wire the MCP server into Roo Code or Cline for local-first agentic coding.
 
 ---
 
@@ -85,20 +93,43 @@ These agents work with GitHub Copilot's chat interface. They're the "war council
 war-council/
 ├── .github/
 │   ├── agents/           # 19 specialized Copilot sub-agents
-│   ├── copilot-instructions.md.reference  # Full instruction template
+│   └── copilot-instructions.md  # Master operating manual
 ├── mcp-server/           # MCP protocol server for Ollama delegation
 │   ├── server.js         # Main MCP server (stdio transport)
-│   ├── council-deliberation.js
-│   ├── decision-router.js
-│   └── task-chains.js
-├── battle-log/           # War Table dashboard (SSE + HTML)
-│   ├── server.js         # HTTP + SSE server
+│   ├── tool-registry.js  # Auto-discovery plugin system
+│   ├── tools/            # Tool plugins (auto-loaded)
+│   │   ├── consult-fast.js
+│   │   ├── consult-specialist.js
+│   │   ├── consult-reasoning.js
+│   │   ├── tournament-vote.js
+│   │   ├── council-deliberate.js
+│   │   ├── council-debate.js
+│   │   ├── benchmark-run.js
+│   │   └── ...
+│   ├── benchmark/        # Coding challenge suite
+│   │   ├── challenges.js # 8 standardized eval problems
+│   │   └── runner.js     # Execution + scoring engine
+│   ├── shared/           # Shared modules
+│   │   ├── config.js     # Arsenal config loader
+│   │   ├── ollama.js     # Ollama API client
+│   │   ├── cloud.js      # Gemini + Groq failover
+│   │   ├── rate-limiter.js
+│   │   ├── rag-augment.js
+│   │   └── battle-events.js
+│   └── council-deliberation.js
+├── memory-engine/        # RAG vector store + indexers
+│   ├── store.js          # JSON-backed vector store
+│   ├── retriever.js      # Embedding + search
+│   ├── indexer.js        # File walker + chunker
+│   └── conversation-indexer.js
+├── battle-log/           # War Table dashboard
+│   ├── server.js         # HTTP + SSE + TTS proxy
 │   ├── war-table.html    # Main dashboard UI
-│   ├── index.html        # Battle log viewer
-│   └── assets/           # Generated pixel-art agent sprites
+│   └── assets/           # Generated pixel-art sprites
+├── tests/                # 340+ unit tests
 ├── docs/                 # Setup guides
-├── scripts/              # Asset generation, utilities
-└── .prompt.md.reference  # Persona/style template
+├── scripts/              # Asset generation utilities
+└── arsenal.json          # Model configuration
 ```
 
 ## License

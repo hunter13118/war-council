@@ -17,7 +17,9 @@
     "test:ui:live": "cd tests && npx playwright test --config=playwright.config.js --project=live",
     "test:all": "cd tests && npm run test:all",
     "test:mcp": "cd mcp-server && npm test",
-    "install:all": "cd mcp-server && npm install && cd ../tests && npm install"
+    "install:all": "cd mcp-server && npm install && cd ../tests && npm install",
+    "setup": "node scripts/setup.js",
+    "test:benchmark": "cd mcp-server && node --test tests/benchmark.test.js"
   },
   "repository": {
     "type": "git",
