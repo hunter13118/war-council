@@ -21,6 +21,16 @@ export default defineConfig({
       testMatch: /.*\.live\.test\.js/,
       // Live tests need the battle-log server running
     },
+    {
+      name: 'demo',
+      testMatch: /demo-walkthrough\.test\.js/,
+      use: {
+        headless: false,
+        launchOptions: { slowMo: 200 },
+        viewport: { width: 1920, height: 1080 },
+      },
+      timeout: 120000,
+    },
   ],
   webServer: {
     command: 'node ../battle-log/server.js --port 3737',
