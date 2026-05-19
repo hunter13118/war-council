@@ -1398,29 +1398,39 @@ async function processTtsQueue() {
     return;
   }
 
-  // Real Edge TTS
+  // Real Edge TTS (with one retry for cold-start failures)
   const trimmed = item.text.length > 200 ? item.text.substring(0, 197) + '...' : item.text;
+  const ttsPayload = JSON.stringify({ text: trimmed, voice: item.voice });
 
-  try {
+  async function attemptTts(retries) {
     const res = await fetch('/tts', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ text: trimmed, voice: item.voice }),
+      body: ttsPayload,
     });
-
     if (res.ok && res.status === 200) {
       const blob = await res.blob();
-      if (blob.size > 0) {
-        const url = URL.createObjectURL(blob);
-        const audio = new Audio(url);
-        audio.volume = 0.7;
-        audio.onended = () => { URL.revokeObjectURL(url); processTtsQueue(); };
-        audio.onerror = () => { URL.revokeObjectURL(url); processTtsQueue(); };
-        audio.play().catch(() => processTtsQueue());
-        return; // Wait for onended
-      }
+      if (blob.size > 0) return blob;
     }
-    // TTS returned empty or non-200 — surface warning
+    if (retries > 0) {
+      await new Promise(r => setTimeout(r, 1000));
+      return attemptTts(retries - 1);
+    }
+    return null;
+  }
+
+  try {
+    const blob = await attemptTts(1);
+    if (blob) {
+      const url = URL.createObjectURL(blob);
+      const audio = new Audio(url);
+      audio.volume = 0.7;
+      audio.onended = () => { URL.revokeObjectURL(url); processTtsQueue(); };
+      audio.onerror = () => { URL.revokeObjectURL(url); processTtsQueue(); };
+      audio.play().catch(() => processTtsQueue());
+      return; // Wait for onended
+    }
+    // TTS returned empty — surface warning
     const statusEl = document.getElementById('connStatus');
     if (statusEl && voicesEnabled) {
       statusEl.textContent = 'TTS unavailable — voice token may have expired';
@@ -1440,6 +1450,12 @@ document.getElementById('voiceToggle').addEventListener('change', (e) => {
     // Resume AudioContext (required after user gesture)
     audioCtx.resume();
     assignVoicesIfNeeded();
+    // Warmup: pre-establish Edge TTS WebSocket connection so first real call isn't slow
+    fetch('/tts', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ text: '.', voice: 'en-US-GuyNeural' }),
+    }).catch(() => {}); // Fire-and-forget warmup
   }
 });
 
