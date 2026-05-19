@@ -44,12 +44,13 @@ export async function handler(args, ctx) {
     ...(result.chunks.length > 0
       ? [
           "Retrieved chunks:",
-          ...result.chunks.map((c, i) => `  ${i + 1}. [${c.score.toFixed(3)}] ${c.file}:${c.startLine}`),
+          ...result.chunks.map((c, i) => `  ${i + 1}. [${c.score.toFixed(3)}] ${c.source}`),
+          "",
+          "----- CONTEXT (top chunks) -----",
+          ...result.chunks.map((c) => c.text),
           "",
         ]
       : ["(no chunks above relevance threshold)", ""]),
-    "----- AUGMENTED PROMPT (paste this as system context to a worker) -----",
-    result.augmentedPrompt,
   ];
   return { content: [{ type: "text", text: lines.join("\n") }] };
 }
