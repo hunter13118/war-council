@@ -1,0 +1,89 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "war-council://schemas/verification-result.v1",
+  "title": "Verification Pipeline Result",
+  "description": "Complete result from the multi-stage verification-before-commit pipeline",
+  "type": "object",
+  "required": ["taskId", "timestamp", "overall", "stages"],
+  "properties": {
+    "taskId": {
+      "type": "string",
+      "description": "ID of the task whose output is being verified"
+    },
+    "timestamp": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "overall": {
+      "type": "string",
+      "enum": ["passed", "failed", "skipped"],
+      "description": "Aggregate verdict"
+    },
+    "stages": {
+      "type": "array",
+      "items": { "$ref": "#/definitions/StageResult" },
+      "minItems": 1,
+      "description": "Results from each verification stage in order"
+    },
+    "durationMs": {
+      "type": "integer",
+      "minimum": 0,
+      "description": "Total verification pipeline duration"
+    },
+    "autoCommitted": {
+      "type": "boolean",
+      "description": "Whether the result triggered an auto-commit"
+    },
+    "commitSha": {
+      "type": ["string", "null"],
+      "description": "Git SHA if auto-committed"
+    }
+  },
+  "definitions": {
+    "StageResult": {
+      "type": "object",
+      "required": ["name", "pass"],
+      "properties": {
+        "name": {
+          "type": "string",
+          "enum": ["syntax", "lint", "lint_autofix", "tests", "review", "architecture_rules"],
+          "description": "Verification stage name"
+        },
+        "pass": {
+          "type": "boolean"
+        },
+        "skipped": {
+          "type": "boolean",
+          "default": false,
+          "description": "Stage was skipped (e.g., no tests found)"
+        },
+        "reason": {
+          "type": "string",
+          "description": "Why stage passed/failed/was skipped"
+        },
+        "durationMs": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "errors": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "message": { "type": "string" },
+              "file": { "type": "string" },
+              "line": { "type": "integer" },
+              "severity": { "type": "string", "enum": ["error", "warning", "info"] }
+            }
+          },
+          "description": "Specific errors found in this stage"
+        },
+        "fixes": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Auto-fixes applied during this stage"
+        }
+      }
+    }
+  }
+}

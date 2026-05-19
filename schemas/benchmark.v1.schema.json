@@ -1,0 +1,63 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "war-council://schemas/benchmark.v1",
+  "title": "BenchmarkSuite",
+  "description": "Repeatable performance benchmark definitions and results",
+  "definitions": {
+    "BenchmarkDef": {
+      "type": "object",
+      "required": ["id", "description", "tool", "args", "iterations", "metrics"],
+      "properties": {
+        "id": { "type": "string" },
+        "description": { "type": "string" },
+        "tool": { "type": "string" },
+        "args": { "type": "object" },
+        "iterations": { "type": "integer", "minimum": 1 },
+        "warmup": { "type": "integer", "minimum": 0, "default": 0 },
+        "metrics": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "baseline": { "type": "object", "additionalProperties": { "type": "number" } },
+        "requiresKey": { "type": ["string", "null"] }
+      }
+    },
+    "BenchmarkResult": {
+      "type": "object",
+      "required": ["benchmarkId", "runDate", "iterations", "results", "verdict"],
+      "properties": {
+        "benchmarkId": { "type": "string" },
+        "runDate": { "type": "string", "format": "date-time" },
+        "iterations": { "type": "integer" },
+        "results": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "object",
+            "properties": {
+              "mean": { "type": "number" },
+              "p50": { "type": "number" },
+              "p95": { "type": "number" },
+              "stddev": { "type": "number" }
+            }
+          }
+        },
+        "baseline": { "type": "object", "additionalProperties": { "type": "number" } },
+        "verdict": { "enum": ["pass", "regressed", "improved"] },
+        "delta": {
+          "type": "object",
+          "additionalProperties": { "type": "string" }
+        }
+      }
+    }
+  },
+  "type": "object",
+  "required": ["name", "version", "benchmarks"],
+  "properties": {
+    "name": { "type": "string" },
+    "version": { "type": "string" },
+    "benchmarks": {
+      "type": "array",
+      "items": { "$ref": "#/definitions/BenchmarkDef" }
+    }
+  }
+}

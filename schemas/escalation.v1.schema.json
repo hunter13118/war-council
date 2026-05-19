@@ -1,0 +1,51 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "war-council://schemas/escalation.v1",
+  "title": "EscalationRequest",
+  "description": "When an agent needs to hand off to a higher tier",
+  "type": "object",
+  "required": ["type", "source", "target", "context", "policy"],
+  "properties": {
+    "type": {
+      "enum": ["confidence_low", "timeout", "error", "complexity", "domain_mismatch"]
+    },
+    "source": {
+      "type": "object",
+      "required": ["agent", "tier", "taskId"],
+      "properties": {
+        "agent": { "type": "string" },
+        "tier": { "type": "string" },
+        "taskId": { "type": "string" }
+      }
+    },
+    "target": {
+      "type": "object",
+      "required": ["tier", "reason"],
+      "properties": {
+        "agent": { "type": ["string", "null"] },
+        "tier": { "type": "string" },
+        "reason": { "type": "string" }
+      }
+    },
+    "context": {
+      "type": "object",
+      "required": ["originalTask"],
+      "properties": {
+        "originalTask": { "type": "string" },
+        "partialResult": { "type": ["string", "null"] },
+        "confidence": { "$ref": "war-council://schemas/confidence.v1" },
+        "errorMessage": { "type": ["string", "null"] },
+        "attemptCount": { "type": "integer", "minimum": 1 }
+      }
+    },
+    "policy": {
+      "type": "object",
+      "required": ["maxEscalations", "currentDepth", "fallbackAction"],
+      "properties": {
+        "maxEscalations": { "type": "integer", "minimum": 1, "default": 3 },
+        "currentDepth": { "type": "integer", "minimum": 0 },
+        "fallbackAction": { "enum": ["fail", "return_partial", "queue_for_human"] }
+      }
+    }
+  }
+}

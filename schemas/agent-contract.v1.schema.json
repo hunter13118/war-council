@@ -1,0 +1,78 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "war-council://schemas/agent-contract.v1",
+  "title": "AgentContract",
+  "description": "Defines what an agent CAN and CANNOT do — its role boundaries",
+  "type": "object",
+  "required": ["name", "version", "role", "tier", "boundaries", "outputSchema"],
+  "properties": {
+    "name": { "type": "string" },
+    "version": { "type": "string", "pattern": "^\\d+\\.\\d+\\.\\d+$" },
+    "role": { "type": "string" },
+    "tier": { "enum": ["fast", "specialist", "reasoning", "heavy"] },
+    "domain": {
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "boundaries": {
+      "type": "object",
+      "required": ["allowedActions", "forbiddenActions", "contextLimits"],
+      "properties": {
+        "allowedActions": {
+          "type": "array",
+          "items": {
+            "enum": [
+              "generate_code", "review_code", "write_tests", "run_tests",
+              "analyze_error", "suggest_refactor", "search_code", "delegate",
+              "coordinate", "arbitrate", "architectural_decision", "deploy"
+            ]
+          }
+        },
+        "forbiddenActions": {
+          "type": "array",
+          "items": {
+            "enum": [
+              "delete_files", "push_to_remote", "modify_config",
+              "access_secrets", "communicate_externally", "modify_code",
+              "write_code", "deploy"
+            ]
+          }
+        },
+        "contextLimits": {
+          "type": "object",
+          "required": ["maxInputTokens", "maxOutputTokens"],
+          "properties": {
+            "maxInputTokens": { "type": "integer", "minimum": 0 },
+            "maxOutputTokens": { "type": "integer", "minimum": 0 },
+            "maxContextFiles": { "type": "integer", "minimum": 0 }
+          }
+        }
+      }
+    },
+    "outputSchema": {
+      "type": "object",
+      "required": ["format"],
+      "properties": {
+        "format": { "enum": ["structured", "freeform", "code-only"] },
+        "requiredFields": { "type": "array", "items": { "type": "string" } },
+        "codeBlockLanguage": { "type": ["string", "null"] }
+      }
+    },
+    "escalation": {
+      "type": "object",
+      "properties": {
+        "escalatesTo": { "type": ["string", "null"] },
+        "escalationThreshold": { "type": "number", "minimum": 0, "maximum": 1 },
+        "maxRetries": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "qualityGates": {
+      "type": "object",
+      "properties": {
+        "selfEvalRequired": { "type": "boolean", "default": false },
+        "peerReviewRequired": { "type": "boolean", "default": false },
+        "testsMustPass": { "type": "boolean", "default": false }
+      }
+    }
+  }
+}

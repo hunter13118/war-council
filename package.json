@@ -6,8 +6,14 @@
   "scripts": {
     "start:mcp": "cd mcp-server && node server.js",
     "start:dashboard": "cd battle-log && node server.js",
-    "test": "cd mcp-server && npm test",
-    "install:all": "cd mcp-server && npm install"
+    "test": "cd tests && node --test",
+    "test:schemas": "cd tests && node --test schemas.test.js",
+    "test:docs": "cd tests && node --test documents.test.js",
+    "test:integrity": "cd tests && node --test integrity.test.js",
+    "test:consistency": "cd tests && node --test consistency.test.js",
+    "test:samples": "cd tests && node --test samples.test.js",
+    "test:mcp": "cd mcp-server && npm test",
+    "install:all": "cd mcp-server && npm install && cd ../tests && npm install"
   },
   "repository": {
     "type": "git",

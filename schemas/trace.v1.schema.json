@@ -1,0 +1,55 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "war-council://schemas/trace.v1",
+  "title": "Trace",
+  "description": "Distributed trace — tree of spans representing a complete operation",
+  "type": "object",
+  "required": ["traceId", "rootSpanId", "startTime", "status", "spans"],
+  "properties": {
+    "traceId": { "type": "string", "format": "uuid" },
+    "rootSpanId": { "type": "string" },
+    "startTime": { "type": "string", "format": "date-time" },
+    "endTime": { "type": ["string", "null"], "format": "date-time" },
+    "durationMs": { "type": "integer", "minimum": 0 },
+    "status": { "enum": ["ok", "error", "timeout", "in_progress"] },
+    "spans": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["spanId", "operation", "startTime", "status"],
+        "properties": {
+          "spanId": { "type": "string" },
+          "parentSpanId": { "type": ["string", "null"] },
+          "operation": { "type": "string" },
+          "startTime": { "type": "string", "format": "date-time" },
+          "endTime": { "type": ["string", "null"], "format": "date-time" },
+          "durationMs": { "type": "integer", "minimum": 0 },
+          "status": { "enum": ["ok", "error", "timeout", "in_progress"] },
+          "attributes": {
+            "type": "object",
+            "additionalProperties": true
+          },
+          "children": {
+            "type": "array",
+            "items": { "type": "string" }
+          }
+        }
+      }
+    },
+    "summary": {
+      "type": "object",
+      "properties": {
+        "totalTokens": {
+          "type": "object",
+          "properties": {
+            "in": { "type": "integer" },
+            "out": { "type": "integer" }
+          }
+        },
+        "modelsUsed": { "type": "array", "items": { "type": "string" } },
+        "escalations": { "type": "integer", "minimum": 0 },
+        "retries": { "type": "integer", "minimum": 0 }
+      }
+    }
+  }
+}

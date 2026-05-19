@@ -1,0 +1,50 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "war-council://schemas/verification.v1",
+  "title": "VerificationContract",
+  "description": "Self-eval, peer review, and quality gate schemas",
+  "definitions": {
+    "VerificationRequest": {
+      "type": "object",
+      "required": ["type", "taskId", "code", "context"],
+      "properties": {
+        "type": { "enum": ["self_eval", "peer_review", "test_gate", "human_approval"] },
+        "taskId": { "type": "string" },
+        "code": { "type": "string" },
+        "context": { "type": "string" },
+        "criteria": {
+          "type": "array",
+          "items": { "enum": ["correctness", "security", "style", "test_coverage", "performance"] },
+          "default": ["correctness", "security"]
+        }
+      }
+    },
+    "VerificationResponse": {
+      "type": "object",
+      "required": ["verdict", "confidence", "summary"],
+      "properties": {
+        "verdict": { "enum": ["PASS", "FAIL", "CONDITIONAL"] },
+        "confidence": { "type": "number", "minimum": 0, "maximum": 1 },
+        "issues": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["severity", "category", "description"],
+            "properties": {
+              "severity": { "enum": ["critical", "warning", "nit"] },
+              "category": { "enum": ["correctness", "security", "style", "performance", "coverage"] },
+              "description": { "type": "string" },
+              "location": { "type": ["string", "null"] },
+              "suggestion": { "type": ["string", "null"] }
+            }
+          }
+        },
+        "summary": { "type": "string" },
+        "passConditions": {
+          "type": "array",
+          "items": { "type": "string" }
+        }
+      }
+    }
+  }
+}

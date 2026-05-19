@@ -1,0 +1,66 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "war-council://schemas/memory-write.v1",
+  "title": "MemoryWriteContract",
+  "description": "Schema for writing to the Sovereign Memory vector store",
+  "definitions": {
+    "MemoryWriteRequest": {
+      "type": "object",
+      "required": ["operation", "source", "content"],
+      "properties": {
+        "operation": { "enum": ["index_file", "index_chunk", "index_conversation", "delete"] },
+        "source": {
+          "type": "object",
+          "required": ["type", "filePath"],
+          "properties": {
+            "type": { "enum": ["code", "conversation", "decision", "artifact"] },
+            "filePath": { "type": "string" },
+            "startLine": { "type": "integer", "minimum": 0 },
+            "endLine": { "type": "integer", "minimum": 0 }
+          }
+        },
+        "content": { "type": "string", "minLength": 1 },
+        "metadata": {
+          "type": "object",
+          "properties": {
+            "language": { "type": ["string", "null"] },
+            "tags": { "type": "array", "items": { "type": "string" } },
+            "importance": { "enum": ["high", "medium", "low"], "default": "medium" },
+            "expiresAt": { "type": ["string", "null"], "format": "date-time" }
+          }
+        },
+        "embedding": {
+          "type": "object",
+          "properties": {
+            "model": { "type": "string", "default": "nomic-embed-text" },
+            "dimensions": { "type": "integer", "default": 768 },
+            "vector": { "type": "array", "items": { "type": "number" } }
+          }
+        }
+      }
+    },
+    "MemoryChunk": {
+      "type": "object",
+      "required": ["id", "file", "text", "embedding", "metadata"],
+      "properties": {
+        "id": { "type": "string", "format": "uuid" },
+        "file": { "type": "string" },
+        "startLine": { "type": "integer", "minimum": 0 },
+        "endLine": { "type": "integer", "minimum": 0 },
+        "text": { "type": "string" },
+        "embedding": { "type": "array", "items": { "type": "number" } },
+        "metadata": {
+          "type": "object",
+          "required": ["source", "indexedAt"],
+          "properties": {
+            "source": { "enum": ["code", "conversation", "decision"] },
+            "language": { "type": ["string", "null"] },
+            "tags": { "type": "array", "items": { "type": "string" } },
+            "indexedAt": { "type": "string", "format": "date-time" },
+            "importance": { "enum": ["high", "medium", "low"] }
+          }
+        }
+      }
+    }
+  }
+}

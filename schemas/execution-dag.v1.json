@@ -1,0 +1,165 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "war-council://schemas/execution-dag.v1",
+  "title": "Execution DAG",
+  "description": "A directed acyclic graph of execution nodes representing a deterministic workflow",
+  "type": "object",
+  "required": ["id", "name", "version", "entryNode", "nodes"],
+  "properties": {
+    "id": {
+      "type": "string",
+      "pattern": "^dag-[a-z0-9-]+$",
+      "description": "Unique DAG identifier"
+    },
+    "name": {
+      "type": "string",
+      "description": "Human-readable DAG name"
+    },
+    "version": {
+      "type": "string",
+      "pattern": "^\\d+\\.\\d+$"
+    },
+    "description": {
+      "type": "string"
+    },
+    "entryNode": {
+      "type": "string",
+      "description": "Node ID where execution begins"
+    },
+    "nodes": {
+      "type": "object",
+      "additionalProperties": {
+        "$ref": "#/definitions/DAGNode"
+      },
+      "minProperties": 1
+    }
+  },
+  "definitions": {
+    "DAGNode": {
+      "type": "object",
+      "required": ["type", "config", "dependencies"],
+      "properties": {
+        "type": {
+          "type": "string",
+          "enum": ["task", "gate", "branch", "merge", "checkpoint"]
+        },
+        "config": {
+          "oneOf": [
+            { "$ref": "#/definitions/TaskConfig" },
+            { "$ref": "#/definitions/GateConfig" },
+            { "$ref": "#/definitions/BranchConfig" },
+            { "$ref": "#/definitions/MergeConfig" },
+            { "$ref": "#/definitions/CheckpointConfig" }
+          ]
+        },
+        "dependencies": {
+          "type": "array",
+          "items": {
+            "oneOf": [
+              { "type": "string" },
+              { "$ref": "#/definitions/TypedDependency" }
+            ]
+          }
+        },
+        "timeout": {
+          "type": "integer",
+          "minimum": 1000,
+          "description": "Max execution time in milliseconds"
+        },
+        "retryPolicy": {
+          "type": "string",
+          "enum": ["default", "aggressive", "none"],
+          "default": "default"
+        }
+      }
+    },
+    "TaskConfig": {
+      "type": "object",
+      "required": ["tool", "tier"],
+      "properties": {
+        "tool": { "type": "string" },
+        "args": { "type": "object" },
+        "tier": {
+          "type": "string",
+          "enum": ["local", "fast", "specialist", "reasoning", "heavy", "cloud"]
+        },
+        "budget": { "$ref": "#/definitions/TokenBudget" }
+      }
+    },
+    "GateConfig": {
+      "type": "object",
+      "required": ["condition", "onPass", "onFail"],
+      "properties": {
+        "condition": {
+          "type": "string",
+          "description": "Expression evaluated against DAG state"
+        },
+        "onPass": { "type": "string" },
+        "onFail": { "type": "string" }
+      }
+    },
+    "BranchConfig": {
+      "type": "object",
+      "required": ["strategy", "branches"],
+      "properties": {
+        "strategy": {
+          "type": "string",
+          "enum": ["parallel", "conditional", "race"]
+        },
+        "branches": {
+          "type": "array",
+          "items": { "type": "string" },
+          "minItems": 2
+        }
+      }
+    },
+    "MergeConfig": {
+      "type": "object",
+      "required": ["strategy", "inputs"],
+      "properties": {
+        "strategy": {
+          "type": "string",
+          "enum": ["all", "any", "best"]
+        },
+        "inputs": {
+          "type": "array",
+          "items": { "type": "string" },
+          "minItems": 2
+        }
+      }
+    },
+    "CheckpointConfig": {
+      "type": "object",
+      "required": ["save"],
+      "properties": {
+        "save": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "resume": {
+          "type": "boolean",
+          "default": true
+        }
+      }
+    },
+    "TypedDependency": {
+      "type": "object",
+      "required": ["id", "type"],
+      "properties": {
+        "id": { "type": "string" },
+        "type": {
+          "type": "string",
+          "enum": ["hard", "soft", "optional", "gate"]
+        }
+      }
+    },
+    "TokenBudget": {
+      "type": "object",
+      "properties": {
+        "maxTokensIn": { "type": "integer", "minimum": 0 },
+        "maxTokensOut": { "type": "integer", "minimum": 0 },
+        "timeoutMs": { "type": "integer", "minimum": 1000 }
+      }
+    }
+  }
+}

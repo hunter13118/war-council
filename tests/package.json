@@ -1,0 +1,18 @@
+{
+  "name": "war-council-tests",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Architecture validation and regression tests for War Council design",
+  "type": "module",
+  "scripts": {
+    "test": "node --test tests/",
+    "test:schemas": "node --test tests/schemas.test.js",
+    "test:docs": "node --test tests/documents.test.js",
+    "test:integrity": "node --test tests/integrity.test.js",
+    "test:consistency": "node --test tests/consistency.test.js"
+  },
+  "dependencies": {
+    "ajv": "^8.17.1",
+    "ajv-formats": "^3.0.1"
+  }
+}

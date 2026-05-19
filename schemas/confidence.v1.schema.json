@@ -1,0 +1,34 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "war-council://schemas/confidence.v1",
+  "title": "ConfidenceScore",
+  "description": "Standardized confidence assessment for any agent output",
+  "type": "object",
+  "required": ["overall", "dimensions"],
+  "properties": {
+    "overall": {
+      "type": "number",
+      "minimum": 0,
+      "maximum": 1,
+      "description": "Composite confidence score"
+    },
+    "dimensions": {
+      "type": "object",
+      "required": ["correctness", "completeness", "relevance", "safety"],
+      "properties": {
+        "correctness": { "type": "number", "minimum": 0, "maximum": 1 },
+        "completeness": { "type": "number", "minimum": 0, "maximum": 1 },
+        "relevance": { "type": "number", "minimum": 0, "maximum": 1 },
+        "safety": { "type": "number", "minimum": 0, "maximum": 1 }
+      }
+    },
+    "reasoning": { "type": "string" },
+    "uncertainties": {
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "suggestedVerification": {
+      "enum": ["test", "review", "manual", "none"]
+    }
+  }
+}

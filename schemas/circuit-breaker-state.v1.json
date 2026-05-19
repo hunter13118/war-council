@@ -1,0 +1,63 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "war-council://schemas/circuit-breaker-state.v1",
+  "title": "Circuit Breaker State",
+  "description": "Current state of a per-model circuit breaker for fault isolation",
+  "type": "object",
+  "required": ["modelId", "state", "consecutiveFailures", "lastStateChange"],
+  "properties": {
+    "modelId": {
+      "type": "string",
+      "description": "Identifier for the model/tier this breaker protects"
+    },
+    "state": {
+      "type": "string",
+      "enum": ["closed", "open", "half-open"],
+      "description": "Current circuit breaker state"
+    },
+    "consecutiveFailures": {
+      "type": "integer",
+      "minimum": 0,
+      "description": "Number of consecutive failures since last success"
+    },
+    "failureThreshold": {
+      "type": "integer",
+      "minimum": 1,
+      "description": "Number of failures before opening circuit"
+    },
+    "resetTimeMs": {
+      "type": "integer",
+      "minimum": 1000,
+      "description": "Time in ms before open circuit transitions to half-open"
+    },
+    "lastStateChange": {
+      "type": "string",
+      "format": "date-time",
+      "description": "Timestamp of the last state transition"
+    },
+    "lastFailure": {
+      "type": ["string", "null"],
+      "format": "date-time",
+      "description": "Timestamp of the most recent failure"
+    },
+    "lastSuccess": {
+      "type": ["string", "null"],
+      "format": "date-time",
+      "description": "Timestamp of the most recent success"
+    },
+    "totalRequests": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "totalFailures": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "failureRate": {
+      "type": "number",
+      "minimum": 0,
+      "maximum": 1,
+      "description": "Rolling failure rate over last N requests"
+    }
+  }
+}

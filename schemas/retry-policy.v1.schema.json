@@ -1,0 +1,41 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "war-council://schemas/retry-policy.v1",
+  "title": "RetryPolicy",
+  "description": "Governs automatic retry and circuit-breaker behavior",
+  "type": "object",
+  "required": ["maxRetries", "backoff", "retryOn", "noRetryOn"],
+  "properties": {
+    "maxRetries": { "type": "integer", "minimum": 0, "default": 3 },
+    "backoff": {
+      "type": "object",
+      "required": ["type", "baseDelayMs"],
+      "properties": {
+        "type": { "enum": ["exponential", "linear", "fixed"] },
+        "baseDelayMs": { "type": "integer", "minimum": 0, "default": 1000 },
+        "maxDelayMs": { "type": "integer", "minimum": 0, "default": 30000 },
+        "jitter": { "type": "boolean", "default": true }
+      }
+    },
+    "retryOn": {
+      "type": "array",
+      "items": {
+        "enum": ["network_error", "timeout", "ollama_busy", "rate_limited", "transient_error"]
+      }
+    },
+    "noRetryOn": {
+      "type": "array",
+      "items": {
+        "enum": ["invalid_input", "model_not_found", "authentication_error", "context_overflow", "permission_denied"]
+      }
+    },
+    "circuitBreaker": {
+      "type": "object",
+      "properties": {
+        "enabled": { "type": "boolean", "default": true },
+        "failureThreshold": { "type": "integer", "minimum": 1, "default": 5 },
+        "resetTimeMs": { "type": "integer", "minimum": 0, "default": 60000 }
+      }
+    }
+  }
+}

@@ -1,0 +1,88 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "war-council://schemas/memory-types.v1",
+  "title": "MemoryTypes",
+  "description": "Cognitive memory model — episodic, semantic, procedural, working, prospective",
+  "definitions": {
+    "WorkingMemory": {
+      "type": "object",
+      "required": ["type", "sessionId", "entries"],
+      "properties": {
+        "type": { "const": "working" },
+        "sessionId": { "type": "string" },
+        "entries": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["key", "value", "updatedAt"],
+            "properties": {
+              "key": { "type": "string" },
+              "value": { "type": "string" },
+              "updatedAt": { "type": "string", "format": "date-time" }
+            }
+          }
+        },
+        "maxEntries": { "type": "integer", "default": 20 },
+        "maxTokens": { "type": "integer", "default": 4096 }
+      }
+    },
+    "EpisodicMemory": {
+      "type": "object",
+      "required": ["type", "id", "timestamp", "source", "summary"],
+      "properties": {
+        "type": { "const": "episodic" },
+        "id": { "type": "string", "format": "uuid" },
+        "timestamp": { "type": "string", "format": "date-time" },
+        "source": { "enum": ["conversation", "decision", "event", "terminal", "browser"] },
+        "summary": { "type": "string" },
+        "fullText": { "type": ["string", "null"] },
+        "participants": { "type": "array", "items": { "type": "string" } },
+        "outcome": { "type": ["string", "null"] },
+        "emotion": { "enum": ["neutral", "positive", "negative"] },
+        "tags": { "type": "array", "items": { "type": "string" } },
+        "connections": { "type": "array", "items": { "type": "string" } }
+      }
+    },
+    "SemanticMemory": {
+      "type": "object",
+      "required": ["type", "id", "fact", "source", "confidence"],
+      "properties": {
+        "type": { "const": "semantic" },
+        "id": { "type": "string", "format": "uuid" },
+        "fact": { "type": "string" },
+        "source": { "type": "string" },
+        "confidence": { "type": "number", "minimum": 0, "maximum": 1 },
+        "lastVerified": { "type": "string", "format": "date-time" },
+        "citationCount": { "type": "integer", "minimum": 0, "default": 0 },
+        "domain": { "type": "string" }
+      }
+    },
+    "ProceduralMemory": {
+      "type": "object",
+      "required": ["type", "id", "pattern", "procedure"],
+      "properties": {
+        "type": { "const": "procedural" },
+        "id": { "type": "string", "format": "uuid" },
+        "pattern": { "type": "string" },
+        "procedure": { "type": "string" },
+        "successRate": { "type": "number", "minimum": 0, "maximum": 1 },
+        "lastUsed": { "type": "string", "format": "date-time" },
+        "domain": { "type": "string" }
+      }
+    },
+    "ProspectiveMemory": {
+      "type": "object",
+      "required": ["type", "id", "task", "triggerCondition", "status"],
+      "properties": {
+        "type": { "const": "prospective" },
+        "id": { "type": "string", "format": "uuid" },
+        "task": { "type": "string" },
+        "triggerCondition": { "enum": ["time", "event", "query"] },
+        "triggerValue": { "type": "string" },
+        "status": { "enum": ["pending", "triggered", "completed", "expired"] },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "expiresAt": { "type": ["string", "null"], "format": "date-time" }
+      }
+    }
+  }
+}

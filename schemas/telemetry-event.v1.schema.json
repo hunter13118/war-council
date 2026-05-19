@@ -1,0 +1,56 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "war-council://schemas/telemetry-event.v1",
+  "title": "TelemetryEvent",
+  "description": "Base schema for all observability and instrumentation events",
+  "type": "object",
+  "required": ["id", "timestamp", "traceId", "spanId", "category", "event", "level"],
+  "properties": {
+    "id": { "type": "string", "format": "uuid" },
+    "timestamp": { "type": "string", "format": "date-time" },
+    "traceId": { "type": "string" },
+    "spanId": { "type": "string" },
+    "parentSpanId": { "type": ["string", "null"] },
+    "category": {
+      "enum": ["tool", "model", "memory", "chain", "escalation", "verification", "tournament", "system"]
+    },
+    "event": {
+      "type": "string",
+      "description": "Dot-notation event name (e.g., tool.start, model.inference.complete)"
+    },
+    "level": { "enum": ["debug", "info", "warn", "error"] },
+    "data": {
+      "type": "object",
+      "properties": {
+        "tool": { "type": ["string", "null"] },
+        "args": { "type": "object" },
+        "model": { "type": ["string", "null"] },
+        "tier": { "enum": ["fast", "specialist", "reasoning", "heavy", "cloud", null] },
+        "provider": { "enum": ["ollama", "gemini", "groq", null] },
+        "durationMs": { "type": "integer", "minimum": 0 },
+        "queuedMs": { "type": "integer", "minimum": 0 },
+        "tokensIn": { "type": "integer", "minimum": 0 },
+        "tokensOut": { "type": "integer", "minimum": 0 },
+        "tokensPerSec": { "type": "number", "minimum": 0 },
+        "confidence": { "type": "number", "minimum": 0, "maximum": 1 },
+        "chunksReturned": { "type": "integer", "minimum": 0 },
+        "relevanceAvg": { "type": "number", "minimum": 0, "maximum": 1 },
+        "hitRate": { "type": "number", "minimum": 0, "maximum": 1 },
+        "chainName": { "type": ["string", "null"] },
+        "stepIndex": { "type": "integer", "minimum": 0 },
+        "stepsTotal": { "type": "integer", "minimum": 0 },
+        "error": { "type": ["string", "null"] },
+        "retryable": { "type": "boolean" },
+        "retryCount": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "context": {
+      "type": "object",
+      "properties": {
+        "taskId": { "type": ["string", "null"] },
+        "sessionId": { "type": "string" },
+        "userId": { "type": "string", "default": "local" }
+      }
+    }
+  }
+}

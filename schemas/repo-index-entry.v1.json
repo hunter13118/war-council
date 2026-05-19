@@ -1,0 +1,84 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "war-council://schemas/repo-index-entry.v1",
+  "title": "Repo Index Entry",
+  "description": "A single indexed code chunk from the repository with AST metadata",
+  "type": "object",
+  "required": ["id", "file", "startLine", "endLine", "content", "type", "indexedAt"],
+  "properties": {
+    "id": {
+      "type": "string",
+      "description": "Unique chunk identifier (file:startLine-endLine)",
+      "pattern": "^.+:\\d+-\\d+$"
+    },
+    "file": {
+      "type": "string",
+      "description": "Relative file path from repo root"
+    },
+    "startLine": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "endLine": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "content": {
+      "type": "string",
+      "description": "Raw source code of the chunk"
+    },
+    "type": {
+      "type": "string",
+      "enum": ["FunctionDeclaration", "ClassDeclaration", "MethodDefinition", "ArrowFunctionExpression", "ExportDefaultDeclaration", "Module", "Other"],
+      "description": "AST node type at the chunk boundary"
+    },
+    "name": {
+      "type": "string",
+      "description": "Symbol name (function/class name)"
+    },
+    "symbols": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "All symbols defined in this chunk"
+    },
+    "imports": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "source": { "type": "string" },
+          "specifiers": { "type": "array", "items": { "type": "string" } }
+        }
+      },
+      "description": "Import statements in this chunk"
+    },
+    "exports": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "Exported symbols from this chunk"
+    },
+    "language": {
+      "type": "string",
+      "enum": ["javascript", "typescript", "python", "html", "css", "json", "markdown"],
+      "description": "Programming language of the chunk"
+    },
+    "tokenEstimate": {
+      "type": "integer",
+      "minimum": 0,
+      "description": "Estimated token count for this chunk"
+    },
+    "embeddingId": {
+      "type": ["string", "null"],
+      "description": "Qdrant point ID for the vector embedding of this chunk"
+    },
+    "hash": {
+      "type": "string",
+      "description": "Content hash for change detection (SHA-256 hex prefix)"
+    },
+    "indexedAt": {
+      "type": "string",
+      "format": "date-time",
+      "description": "When this chunk was last indexed"
+    }
+  }
+}

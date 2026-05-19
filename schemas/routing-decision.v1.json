@@ -1,0 +1,89 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "war-council://schemas/routing-decision.v1",
+  "title": "Routing Decision",
+  "description": "Record of a deterministic routing decision made by the orchestrator",
+  "type": "object",
+  "required": ["taskId", "timestamp", "selectedTier", "method", "factors"],
+  "properties": {
+    "taskId": {
+      "type": "string",
+      "description": "ID of the task being routed"
+    },
+    "timestamp": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "selectedTier": {
+      "type": "string",
+      "enum": ["fast", "specialist", "reasoning", "heavy", "cloud"],
+      "description": "The tier selected by deterministic heuristics"
+    },
+    "selectedModel": {
+      "type": "string",
+      "description": "Specific model within the tier (resolved at execution time)"
+    },
+    "method": {
+      "type": "string",
+      "enum": [
+        "token_overflow",
+        "complexity_low",
+        "reasoning_keywords",
+        "codegen_keywords",
+        "architecture_keywords",
+        "default_specialist",
+        "circuit_breaker_failover",
+        "budget_constraint"
+      ],
+      "description": "Which routing rule triggered the decision"
+    },
+    "factors": {
+      "type": "object",
+      "required": ["tokenEstimate", "complexityScore"],
+      "properties": {
+        "tokenEstimate": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Estimated total tokens (input + output)"
+        },
+        "complexityScore": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1,
+          "description": "Computed complexity score (0.0 - 1.0)"
+        },
+        "requiresReasoning": { "type": "boolean" },
+        "requiresCodeGen": { "type": "boolean" },
+        "isArchitectural": { "type": "boolean" },
+        "modelWarm": {
+          "type": "boolean",
+          "description": "Whether the selected model was already loaded in VRAM"
+        },
+        "circuitBreakerState": {
+          "type": "string",
+          "enum": ["closed", "open", "half-open"]
+        },
+        "remainingBudget": {
+          "type": "integer",
+          "description": "Remaining daily token budget for cloud tier"
+        }
+      }
+    },
+    "alternatives": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "tier": { "type": "string" },
+          "reason_excluded": { "type": "string" }
+        }
+      },
+      "description": "Tiers considered but not selected, with reason"
+    },
+    "latencyMs": {
+      "type": "number",
+      "minimum": 0,
+      "description": "Time taken to make the routing decision (should be <1ms)"
+    }
+  }
+}

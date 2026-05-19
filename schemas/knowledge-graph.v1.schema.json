@@ -1,0 +1,42 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "war-council://schemas/knowledge-graph.v1",
+  "title": "KnowledgeGraph",
+  "description": "Graph memory node and edge schemas",
+  "definitions": {
+    "GraphNode": {
+      "type": "object",
+      "required": ["id", "type", "name"],
+      "properties": {
+        "id": { "type": "string" },
+        "type": {
+          "enum": ["file", "function", "class", "agent", "decision", "concept", "session", "episode"]
+        },
+        "name": { "type": "string" },
+        "properties": { "type": "object", "additionalProperties": true },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      }
+    },
+    "GraphEdge": {
+      "type": "object",
+      "required": ["id", "source", "target", "type"],
+      "properties": {
+        "id": { "type": "string" },
+        "source": { "type": "string" },
+        "target": { "type": "string" },
+        "type": {
+          "enum": [
+            "imports", "defines", "calls", "inherits",
+            "decided_by", "relates_to", "occurred_in",
+            "references", "produced_by", "similar_to",
+            "depends_on", "tested_by", "deployed_by"
+          ]
+        },
+        "weight": { "type": "number", "minimum": 0, "maximum": 1, "default": 1.0 },
+        "properties": { "type": "object", "additionalProperties": true },
+        "createdAt": { "type": "string", "format": "date-time" }
+      }
+    }
+  }
+}

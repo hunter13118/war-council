@@ -1,0 +1,69 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "war-council://schemas/execution-result.v1",
+  "title": "ExecutionResult",
+  "description": "Universal output format from any tool execution",
+  "type": "object",
+  "required": ["toolName", "success", "timing", "output"],
+  "properties": {
+    "toolName": { "type": "string" },
+    "taskId": { "type": ["string", "null"] },
+    "success": { "type": "boolean" },
+    "timing": {
+      "type": "object",
+      "required": ["startedAt", "completedAt", "durationMs"],
+      "properties": {
+        "startedAt": { "type": "string", "format": "date-time" },
+        "completedAt": { "type": "string", "format": "date-time" },
+        "durationMs": { "type": "integer", "minimum": 0 },
+        "queuedMs": { "type": "integer", "minimum": 0, "default": 0 }
+      }
+    },
+    "model": {
+      "type": "object",
+      "properties": {
+        "name": { "type": "string" },
+        "tier": { "enum": ["fast", "specialist", "reasoning", "heavy", "cloud"] },
+        "provider": { "enum": ["ollama", "gemini", "groq"] }
+      }
+    },
+    "tokens": {
+      "type": "object",
+      "properties": {
+        "in": { "type": "integer", "minimum": 0 },
+        "out": { "type": "integer", "minimum": 0 },
+        "perSecond": { "type": "number", "minimum": 0 }
+      }
+    },
+    "output": {
+      "type": "object",
+      "required": ["text", "format"],
+      "properties": {
+        "text": { "type": "string" },
+        "format": { "enum": ["text", "json", "code", "markdown"] },
+        "truncated": { "type": "boolean", "default": false },
+        "originalLength": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "confidence": { "$ref": "war-council://schemas/confidence.v1" },
+    "sideEffects": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["type", "detail"],
+        "properties": {
+          "type": { "enum": ["file_written", "event_emitted", "model_loaded", "test_run", "decision_logged"] },
+          "detail": { "type": "string" }
+        }
+      }
+    },
+    "error": {
+      "type": ["object", "null"],
+      "properties": {
+        "code": { "type": "string" },
+        "message": { "type": "string" },
+        "retryable": { "type": "boolean" }
+      }
+    }
+  }
+}
