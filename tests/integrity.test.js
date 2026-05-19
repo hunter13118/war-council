@@ -151,13 +151,13 @@ describe('Cross-Reference Integrity Suite', () => {
       // Phase 2 defined the canonical dimensions
       const confidenceSchema = schemas.find(s => s.name.includes('confidence'));
       if (!confidenceSchema) return;
-      
+
       const dimensions = Object.keys(
         confidenceSchema.content.properties?.dimensions?.properties || {}
       );
-      
+
       // At least 3 docs should reference confidence
-      const docsWithConfidence = docs.filter(d => 
+      const docsWithConfidence = docs.filter(d =>
         d.content.toLowerCase().includes('confidence')
       );
       assert.ok(docsWithConfidence.length >= 3,
@@ -169,15 +169,15 @@ describe('Cross-Reference Integrity Suite', () => {
     it('task-state schema defines states referenced in docs', () => {
       const taskState = schemas.find(s => s.name.includes('task-state'));
       if (!taskState) return;
-      
-      const stateEnum = taskState.content.properties?.state?.enum || 
+
+      const stateEnum = taskState.content.properties?.state?.enum ||
                         taskState.content.properties?.status?.enum || [];
-      
+
       // The orchestration doc should reference task states
       const orchDoc = docs.find(d => d.name.includes('DETERMINISTIC'));
       if (orchDoc && stateEnum.length > 0) {
         // At least some states should appear in the doc
-        const statesInDoc = stateEnum.filter(s => 
+        const statesInDoc = stateEnum.filter(s =>
           orchDoc.content.toLowerCase().includes(s.toLowerCase())
         );
         assert.ok(statesInDoc.length >= 2,
@@ -192,7 +192,7 @@ describe('Cross-Reference Integrity Suite', () => {
       assert.ok(qdrantDocs.length >= 2,
         `At least 2 docs should reference Qdrant (found in ${qdrantDocs.length})`);
       // No doc should propose a different vector store as primary
-      const conflicting = docs.filter(d => 
+      const conflicting = docs.filter(d =>
         d.content.includes('ChromaDB') && d.content.includes('chosen') ||
         d.content.includes('Pinecone') && d.content.includes('chosen')
       );

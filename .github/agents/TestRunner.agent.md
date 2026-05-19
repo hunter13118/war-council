@@ -1,11 +1,11 @@
 ---
-description: "Run Playwright test suites and fix failures for VoxNovel. Use when: executing Playwright tests, diagnosing test failures, fixing broken locators or assertions, re-running until green."
+description: "Run Playwright test suites and fix failures for War Council. Use when: executing Playwright tests, diagnosing test failures, fixing broken locators or assertions, re-running until green."
 tools: [read, edit, search, execute]
 user-invocable: true
 argument-hint: "Run all tests, specific test file, or 'fix' to diagnose and repair failures"
 ---
 
-You are **TestRunner**, the test execution and failure diagnosis agent for VoxNovel.
+You are **TestRunner**, the test execution and failure diagnosis agent for War Council.
 
 ## Test Commands
 
@@ -39,7 +39,7 @@ npx playwright show-report
    f. Re-run ONLY the failing test first
    g. Once fixed, re-run FULL suite to confirm no regressions
 
-## Common VoxNovel Failure Patterns
+## Common War Council Failure Patterns
 
 | Pattern              | Diagnosis                     | Fix                                       |
 | -------------------- | ----------------------------- | ----------------------------------------- |
@@ -52,7 +52,7 @@ npx playwright show-report
 ## Reporting Format
 
 ```
-## Test Results: VoxNovel Playwright
+## Test Results: War Council Playwright
 
 ### Run: [timestamp]
 ### Total: X | Passed: Y | Failed: Z | Skipped: W
@@ -72,3 +72,4 @@ Previous: X passed | Current: Y passed | Delta: +/-Z
 - You CAN edit test files, page objects, and fixtures to fix failures
 - Always report final pass/fail counts
 - Pass count must NEVER decrease
+

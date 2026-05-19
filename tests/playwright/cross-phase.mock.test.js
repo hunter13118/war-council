@@ -8,7 +8,7 @@ const ROOT = path.resolve(__dirname, '..', '..');
 
 /**
  * CROSS-PHASE VALIDATION TESTS
- * 
+ *
  * These tests validate that the UI correctly implements concepts
  * from all 7 phases of the architecture. They verify the integration
  * points between:
@@ -107,12 +107,18 @@ test.describe('Phase 3 — Observability Hooks', () => {
 });
 
 test.describe('Phase 4 — Memory/Retrieval Integration Points', () => {
-  test('MCP server references memory operations', async ({}) => {
-    const mcpServer = fs.readFileSync(
-      path.join(ROOT, 'mcp-server', 'server.js'), 'utf-8'
-    );
-    // Should have memory-related tool handlers
-    expect(mcpServer).toMatch(/memory|retriev/i);
+  test('MCP server has memory tool handlers', async ({}) => {
+    const toolsDir = path.join(ROOT, 'mcp-server', 'tools');
+    const tools = fs.readdirSync(toolsDir);
+    const memoryTools = tools.filter(f => f.includes('memory'));
+    expect(memoryTools.length).toBeGreaterThan(0);
+  });
+
+  test('memory-engine module exists', async ({}) => {
+    const memDir = path.join(ROOT, 'memory-engine');
+    expect(fs.existsSync(memDir)).toBe(true);
+    expect(fs.existsSync(path.join(memDir, 'retriever.js'))).toBe(true);
+    expect(fs.existsSync(path.join(memDir, 'store.js'))).toBe(true);
   });
 });
 
@@ -198,12 +204,14 @@ test.describe('Phase 6 — UI Architecture Validation', () => {
 
 test.describe('Phase 7 — Developer Workflow Connectivity', () => {
   test('MCP server defines tool handlers for coding workflow', async ({}) => {
-    const mcpServer = fs.readFileSync(
-      path.join(ROOT, 'mcp-server', 'server.js'), 'utf-8'
-    );
-    // Should have coding-related tools
-    expect(mcpServer).toMatch(/consult_fast|consult_specialist|consult_reasoning/);
-    expect(mcpServer).toMatch(/review_diff|run_tests/);
+    const toolsDir = path.join(ROOT, 'mcp-server', 'tools');
+    const tools = fs.readdirSync(toolsDir);
+    // Should have coding-related tool files
+    expect(tools).toContain('consult-fast.js');
+    expect(tools).toContain('consult-specialist.js');
+    expect(tools).toContain('consult-reasoning.js');
+    expect(tools).toContain('review-diff.js');
+    expect(tools).toContain('run-tests.js');
   });
 
   test('decision router exists for task classification', async ({}) => {

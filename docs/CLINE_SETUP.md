@@ -138,7 +138,7 @@ Cline ⚙ → **Custom Instructions** → paste:
 
 In Cline chat, fire a task that NATURALLY benefits from delegation:
 
-> *"Look at `backend/voxnovel_api.py`. There's a function `_get_or_create_preview_engine`. I want to know what its caching strategy is and whether there are concurrency bugs. Use whatever tools you need including delegation."*
+> *"Look at `mcp-server/task-chains.js`. There's a function `executeChain`. I want to know if the context budget truncation is correct and whether there are edge cases. Use whatever tools you need including delegation."*
 
 Watch for: Conductor reads the file, then calls `consult_reasoning` with the
 extracted code, gets a chain-of-thought analysis back, synthesizes a final

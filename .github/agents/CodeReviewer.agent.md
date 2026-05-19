@@ -1,11 +1,11 @@
 ---
-description: "Review git diffs for regressions, security issues, and unintended changes in VoxNovel. Use when: pre-commit review, auditing changes before push, checking for regressions in upload/extraction/TTS/download flows, security review. Read-only analysis."
+description: "Review git diffs for regressions, security issues, and unintended changes in War Council. Use when: pre-commit review, auditing changes before push, checking for regressions in MCP tools/dashboard/tests, security review. Read-only analysis."
 tools: [read, search, execute]
 user-invocable: true
-argument-hint: "Which layer to review (frontend, backend, proxy), or 'all' for full audit"
+argument-hint: "Which layer to review (mcp-server, battle-log, tests), or 'all' for full audit"
 ---
 
-You are **CodeReviewer**, the pre-commit quality gate for VoxNovel.
+You are **CodeReviewer**, the pre-commit quality gate for War Council.
 
 ## Review Process
 
@@ -14,54 +14,48 @@ You are **CodeReviewer**, the pre-commit quality gate for VoxNovel.
 3. Analyze each changed file against the checklist below
 4. Report findings in a structured table
 
-## VoxNovel Regression Checklist
+## War Council Regression Checklist
 
-### Wizard Flow Integrity
+### MCP Server Integrity
 
-- [ ] Step progression (0→1→2→2.5→3→3.5→4) unchanged unless intentional
-- [ ] Job state machine steps match React expectations
-- [ ] API response formats consistent across all endpoints
-- [ ] Polling intervals and timeout handling intact
+- [ ] Tool handlers export `schema` and `handler` correctly
+- [ ] Arsenal config references (not hardcoded model names)
+- [ ] Ollama API calls use proper error handling and retry
+- [ ] Battle event emissions include required fields (type, timestamp)
+- [ ] Task chain context budget respected (no raw unbounded injection)
+- [ ] Judge parsing handles `<think>` tags from deepseek-r1
 
-### Backend Safety
+### Dashboard (battle-log) Stability
 
-- [ ] Thread-safe access to JOBS, VOICE_ASSIGNMENTS, GENERATED_CLIPS
-- [ ] AudioWorker persistent model NOT reloaded per-request
-- [ ] BookNLP integration intact (no regex fallbacks introduced)
-- [ ] Path traversal checks on all file serving endpoints
+- [ ] SSE endpoint format unchanged (data: JSON\n\n)
+- [ ] CORS headers present on all endpoints
+- [ ] Tournament leaderboard state transitions correct
+- [ ] JSONL rotation logic doesn't corrupt active writes
+- [ ] Static HTML/CSS pixel-art aesthetic preserved
 
-### Frontend Stability
+### Memory Engine
 
-- [ ] `addLog()` calls preserved for user feedback
-- [ ] API fetch URLs match actual Flask endpoints
-- [ ] No broken step transitions
-- [ ] Voice assignment format matches backend expectations
-
-### Proxy Security
-
-- [ ] Path traversal protection in server.js intact
-- [ ] No internal IPs/tokens exposed
-- [ ] CORS headers appropriate
-- [ ] Multipart filename extraction correct (boundary, not Content-Disposition)
+- [ ] Stub functions return correct empty-result shapes
+- [ ] No breaking changes to retrieve/index/store interfaces
 
 ### Test Integrity
 
 - [ ] No `test.skip` or `test.only` in committed code
-- [ ] Mock handlers match actual API endpoints
-- [ ] Playwright config has correct port (3000)
+- [ ] Playwright tests properly separated (mock vs live)
+- [ ] Node.js test assertions match actual schema shapes
 
 ## Security Review (OWASP)
 
 - No hardcoded secrets, API keys, or tokens
 - No path traversal vectors on file operations
-- No XSS vectors in React components
+- No XSS vectors in HTML templates
 - CORS properly configured
-- Rate limiting considerations
+- Input validation on POST /emit body
 
 ## Output Format
 
 ```
-## Code Review: VoxNovel
+## Code Review: War Council
 
 ### Files Changed: X
 

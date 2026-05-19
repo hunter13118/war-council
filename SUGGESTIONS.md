@@ -1,6 +1,6 @@
 # Suggestions — Post-Phase Review
 
-These are observations and improvement ideas noted during the Phase 1 audit.  
+These are observations and improvement ideas noted during the Phase 1 audit.
 **Not directives. Not approvals. Just notes for discussion after all phases complete.**
 
 ---

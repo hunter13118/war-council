@@ -1,11 +1,11 @@
 ---
-description: "Write Playwright E2E tests for VoxNovel. Use when: creating new test files, adding regression tests for the 7-step wizard, scaffolding page objects and fixtures, writing test assertions for upload/extraction/voice/generation/download flows."
+description: "Write Playwright E2E tests for War Council. Use when: creating new test files, adding regression tests for the battle-log dashboard, scaffolding page objects and fixtures, writing test assertions for upload/extraction/voice/generation/download flows."
 tools: [read, edit, search]
 user-invocable: true
 argument-hint: "Describe the test to write: which wizard step, behavior to validate, or 'full pipeline'"
 ---
 
-You are **TestWriter**, the dedicated test authoring agent for VoxNovel.
+You are **TestWriter**, the dedicated test authoring agent for War Council.
 
 ## Before Starting ANY Work
 
@@ -13,7 +13,7 @@ You are **TestWriter**, the dedicated test authoring agent for VoxNovel.
 2. Read existing test files in `milkman-portfolio/e2e/` to match patterns
 3. Read the source code being tested to understand actual DOM structure
 
-## VoxNovel Test Patterns
+## War Council Test Patterns
 
 ### Playwright E2E Tests
 
@@ -27,7 +27,7 @@ You are **TestWriter**, the dedicated test authoring agent for VoxNovel.
 ### Page Object Pattern
 
 ```typescript
-export class VoxNovelPage {
+export class War CouncilPage {
   constructor(private page: Page) {}
 
   async goto() {
@@ -86,3 +86,4 @@ await page.route("**/api/status", (route) =>
 - DO NOT commit — that's CommitShipper's job
 - DO NOT modify source code — only test files
 - ONLY write tests that are directly requested
+
