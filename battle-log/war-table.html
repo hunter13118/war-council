@@ -2146,40 +2146,220 @@ fetch('/voices')
   })
   .catch(() => assignVoicesIfNeeded());
 
-// System stats widget — rate limits + memory
-(function initStatsWidget() {
-  const widget = document.createElement('div');
-  widget.id = 'stats-widget';
-  widget.style.cssText = 'position:fixed;bottom:10px;right:10px;background:#1a1a2e;border:1px solid #444;border-radius:8px;padding:12px;font-size:11px;color:#aaa;z-index:9999;min-width:180px;';
-  widget.innerHTML = '<div style="color:#0ff;font-weight:bold;margin-bottom:6px;">⚡ System Stats</div><div id="stats-content">Loading...</div>';
-  document.body.appendChild(widget);
+// Token Economy HUD — VRAM gauges, throughput, rate limits, ELO
+(function initTokenHUD() {
+  const hud = document.createElement('div');
+  hud.id = 'token-hud';
+  hud.innerHTML = `
+    <style>
+      #token-hud {
+        position:fixed; bottom:10px; right:10px; background:#0d0d1a; border:1px solid #333;
+        border-radius:10px; padding:14px 16px; font-size:11px; color:#bbb; z-index:9999;
+        min-width:240px; max-width:300px; font-family:'Courier New',monospace;
+        box-shadow: 0 0 20px rgba(0,255,255,0.1);
+      }
+      #token-hud .hud-title { color:#0ff; font-weight:bold; font-size:12px; margin-bottom:8px; letter-spacing:1px; }
+      #token-hud .hud-section { margin-bottom:8px; border-bottom:1px solid #222; padding-bottom:6px; }
+      #token-hud .hud-section:last-child { border-bottom:none; margin-bottom:0; padding-bottom:0; }
+      #token-hud .hud-label { color:#888; font-size:10px; text-transform:uppercase; letter-spacing:0.5px; margin-bottom:3px; }
+      #token-hud .gauge-row { display:flex; align-items:center; gap:6px; margin:2px 0; }
+      #token-hud .gauge-name { width:70px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; color:#ccc; }
+      #token-hud .gauge-bar { flex:1; height:8px; background:#1a1a2e; border-radius:4px; overflow:hidden; position:relative; }
+      #token-hud .gauge-fill { height:100%; border-radius:4px; transition: width 0.6s ease, background 0.3s; }
+      #token-hud .gauge-val { width:45px; text-align:right; font-size:10px; color:#aaa; }
+      #token-hud .model-chip { display:inline-block; background:#1a2a1a; border:1px solid #0a0; border-radius:4px; padding:1px 5px; margin:2px 3px 2px 0; color:#0f0; font-size:10px; }
+      #token-hud .model-chip.idle { background:#2a2a1a; border-color:#aa0; color:#ff0; }
+      #token-hud .tps-val { color:#0ff; font-weight:bold; }
+      #token-hud .hud-toggle { position:absolute; top:8px; right:10px; cursor:pointer; color:#666; font-size:14px; }
+      #token-hud .hud-toggle:hover { color:#0ff; }
+      #token-hud.collapsed .hud-body { display:none; }
+      #token-hud.collapsed { min-width:auto; }
+    </style>
+    <div class="hud-title">⚡ TOKEN ECONOMY</div>
+    <span class="hud-toggle" onclick="this.parentElement.classList.toggle('collapsed')">◀</span>
+    <div class="hud-body">
+      <div class="hud-section" id="hud-vram">
+        <div class="hud-label">🎮 VRAM Usage</div>
+        <div id="hud-vram-content">—</div>
+      </div>
+      <div class="hud-section" id="hud-throughput">
+        <div class="hud-label">⚡ Throughput (60s)</div>
+        <div id="hud-throughput-content">—</div>
+      </div>
+      <div class="hud-section" id="hud-ratelimits">
+        <div class="hud-label">🚦 Rate Limits</div>
+        <div id="hud-ratelimits-content">—</div>
+      </div>
+      <div class="hud-section" id="hud-elo">
+        <div class="hud-label">🏆 ELO Rankings</div>
+        <div id="hud-elo-content">—</div>
+      </div>
+      <div class="hud-section" id="hud-memory">
+        <div class="hud-label">🧠 Memory Store</div>
+        <div id="hud-memory-content">—</div>
+      </div>
+    </div>
+  `;
+  document.body.appendChild(hud);
 
-  function refreshStats() {
+  const VRAM_TOTAL = 32 * 1024 * 1024 * 1024; // 32GB RTX 5090
+
+  function gaugeBar(pct, color) {
+    const c = pct > 90 ? '#f44' : pct > 70 ? '#fa0' : (color || '#0f0');
+    return `<div class="gauge-bar"><div class="gauge-fill" style="width:${Math.min(pct,100)}%;background:${c}"></div></div>`;
+  }
+
+  function refreshHUD() {
     fetch('/stats').then(r => r.json()).then(data => {
-      const lines = [];
-      if (data.rateLimits) {
-        for (const [prov, s] of Object.entries(data.rateLimits)) {
+      // VRAM section
+      if (data.ollamaModels && data.ollamaModels.length) {
+        let totalVram = 0;
+        const rows = data.ollamaModels.map(m => {
+          const vram = m.sizeVram || m.size || 0;
+          totalVram += vram;
+          const gb = (vram / 1e9).toFixed(1);
+          const name = m.name.split(':')[0].slice(0, 12);
+          return `<span class="model-chip">${name} ${gb}G</span>`;
+        });
+        const totalPct = Math.round((totalVram / VRAM_TOTAL) * 100);
+        document.getElementById('hud-vram-content').innerHTML =
+          `<div class="gauge-row"><span class="gauge-name">Total</span>${gaugeBar(totalPct)}<span class="gauge-val">${(totalVram/1e9).toFixed(1)}/${(VRAM_TOTAL/1e9).toFixed(0)}G</span></div>` +
+          `<div style="margin-top:3px">${rows.join('')}</div>`;
+      } else {
+        document.getElementById('hud-vram-content').innerHTML = '<span style="color:#666">No models loaded</span>';
+      }
+
+      // Throughput section
+      if (data.throughput && Object.keys(data.throughput).length) {
+        const rows = Object.entries(data.throughput).map(([model, s]) => {
+          const name = model.split(':')[0].slice(0, 10);
+          return `<div class="gauge-row"><span class="gauge-name">${name}</span><span class="tps-val">${s.avgTps} t/s</span><span class="gauge-val">${s.calls} calls</span></div>`;
+        });
+        document.getElementById('hud-throughput-content').innerHTML = rows.join('');
+      } else {
+        document.getElementById('hud-throughput-content').innerHTML = '<span style="color:#666">Idle</span>';
+      }
+
+      // Rate limits
+      if (data.rateLimits && Object.keys(data.rateLimits).length) {
+        const rows = Object.entries(data.rateLimits).map(([prov, s]) => {
           const pct = Math.round((s.used / s.limit) * 100);
-          lines.push(`<b>${prov}</b>: <span style="color:${pct > 80 ? '#f55' : '#0f0'}">${s.used}/${s.limit}</span> RPM`);
-        }
+          return `<div class="gauge-row"><span class="gauge-name">${prov}</span>${gaugeBar(pct, '#0af')}<span class="gauge-val">${s.used}/${s.limit}</span></div>`;
+        });
+        document.getElementById('hud-ratelimits-content').innerHTML = rows.join('');
+      } else {
+        document.getElementById('hud-ratelimits-content').innerHTML = '<span style="color:#666">No limits active</span>';
       }
-      if (data.memoryStats) {
-        lines.push(`<b>Memory</b>: ${data.memoryStats.totalChunks || 0} chunks, ${data.memoryStats.uniqueFiles || 0} files`);
-      }
-      // ELO rankings from local state
+
+      // ELO rankings
       const eloRanks = Object.entries(agentRecords)
         .filter(([_, r]) => r.elo)
         .sort((a, b) => (b[1].elo || 1200) - (a[1].elo || 1200))
-        .slice(0, 3)
-        .map(([k, r], i) => `${['🥇','🥈','🥉'][i]} ${(AGENTS[k]||{}).name||k}: ${r.elo}`);
-      if (eloRanks.length) lines.push('<b>ELO Top 3</b>:<br>' + eloRanks.join('<br>'));
-      document.getElementById('stats-content').innerHTML = lines.join('<br>') || 'No data';
+        .slice(0, 5)
+        .map(([k, r], i) => `${['🥇','🥈','🥉','4️⃣','5️⃣'][i]} ${(AGENTS[k]||{}).name||k}: <b>${r.elo}</b>`);
+      document.getElementById('hud-elo-content').innerHTML = eloRanks.length ? eloRanks.join('<br>') : '<span style="color:#666">No battles yet</span>';
+
+      // Memory
+      if (data.memoryStats) {
+        document.getElementById('hud-memory-content').innerHTML =
+          `${data.memoryStats.totalChunks || 0} chunks · ${data.memoryStats.uniqueFiles || 0} files`;
+      }
     }).catch(() => {
-      document.getElementById('stats-content').innerHTML = 'Offline';
+      document.getElementById('hud-vram-content').innerHTML = '<span style="color:#f44">Offline</span>';
     });
   }
-  refreshStats();
-  setInterval(refreshStats, 5000);
+  refreshHUD();
+  setInterval(refreshHUD, 5000);
+})();
+
+// Agent Activity Timeline — horizontal strip showing invocations over time
+(function initActivityTimeline() {
+  const timeline = document.createElement('div');
+  timeline.id = 'activity-timeline';
+  timeline.innerHTML = `
+    <style>
+      #activity-timeline {
+        position:fixed; bottom:0; left:0; right:0; height:48px; background:#0a0a14;
+        border-top:1px solid #222; z-index:9998; display:flex; align-items:center;
+        padding:0 12px; gap:0; overflow-x:auto; overflow-y:hidden;
+        font-family:'Courier New',monospace;
+      }
+      #activity-timeline .tl-label {
+        color:#555; font-size:9px; text-transform:uppercase; letter-spacing:1px;
+        margin-right:10px; white-space:nowrap;
+      }
+      #activity-timeline .tl-track {
+        flex:1; height:32px; position:relative; display:flex; align-items:center; gap:2px;
+      }
+      #activity-timeline .tl-event {
+        height:24px; min-width:24px; border-radius:4px; display:flex; align-items:center;
+        justify-content:center; font-size:9px; color:#fff; padding:0 6px;
+        animation: tl-pop 0.3s ease; white-space:nowrap; cursor:default;
+        position:relative;
+      }
+      #activity-timeline .tl-event:hover::after {
+        content:attr(data-tip); position:absolute; bottom:100%; left:50%; transform:translateX(-50%);
+        background:#222; color:#eee; padding:3px 8px; border-radius:4px; font-size:10px;
+        white-space:nowrap; z-index:10000;
+      }
+      @keyframes tl-pop { from { transform:scale(0); opacity:0; } to { transform:scale(1); opacity:1; } }
+      .tl-tier-fast { background:#2a6b2a; border:1px solid #0f0; }
+      .tl-tier-specialist { background:#2a4a6b; border:1px solid #0af; }
+      .tl-tier-reasoning { background:#6b2a6b; border:1px solid #f0f; }
+      .tl-tier-cloud { background:#6b6b2a; border:1px solid #ff0; }
+      .tl-tier-tournament { background:#6b2a2a; border:1px solid #f44; }
+      .tl-tier-agent { background:#3a3a1a; border:1px solid #fa0; }
+    </style>
+    <span class="tl-label">📡 Activity</span>
+    <div class="tl-track" id="tl-track"></div>
+  `;
+  document.body.appendChild(timeline);
+  // Adjust HUD position to not overlap timeline
+  document.getElementById('token-hud').style.bottom = '58px';
+
+  const track = document.getElementById('tl-track');
+  const MAX_EVENTS = 50;
+
+  function getTier(event) {
+    if (event.type === 'tournament_result') return 'tournament';
+    if (event.type === 'agent_invoked') return 'agent';
+    const model = (event.model || '').toLowerCase();
+    if (model.includes('gemini') || model.includes('groq')) return 'cloud';
+    if (model.includes('deepseek') || model.includes('r1')) return 'reasoning';
+    if (model.includes('14b')) return 'specialist';
+    return 'fast';
+  }
+
+  function getIcon(tier) {
+    return { fast:'⚡', specialist:'🎯', reasoning:'🧠', cloud:'☁️', tournament:'⚔️', agent:'🤖' }[tier] || '•';
+  }
+
+  // Hook into SSE event processing
+  const origProcessEvent = typeof processEvent === 'function' ? processEvent : null;
+  window._tlAddEvent = function(event) {
+    const tier = getTier(event);
+    const el = document.createElement('div');
+    el.className = `tl-event tl-tier-${tier}`;
+    const name = (event.model || event.agent || event.type || '?').split(':')[0].slice(0, 8);
+    el.textContent = getIcon(tier);
+    el.setAttribute('data-tip', `${name} ${event.elapsedMs ? (event.elapsedMs/1000).toFixed(1)+'s' : ''}`);
+    track.appendChild(el);
+    // Trim old events
+    while (track.children.length > MAX_EVENTS) track.removeChild(track.firstChild);
+    // Auto-scroll
+    track.scrollLeft = track.scrollWidth;
+  };
+
+  // Patch addToLog to also push to timeline
+  const origAddToLog = window.addToLog;
+  if (origAddToLog) {
+    window.addToLog = function(event) {
+      origAddToLog(event);
+      if (event && (event.model || event.type === 'tournament_result' || event.type === 'agent_invoked')) {
+        window._tlAddEvent(event);
+      }
+    };
+  }
 })();
 </script>
 </body>

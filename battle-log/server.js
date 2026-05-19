@@ -221,10 +221,12 @@ const server = createServer(async (req, res) => {
     return;
   }
 
-  // System stats — rate limits + memory store
+  // System stats — rate limits + memory store + Ollama VRAM + throughput
   if (url.pathname === "/stats") {
     let rateLimits = {};
     let memoryStats = {};
+    let ollamaModels = [];
+    let throughput = {};
     try {
       const { getAllRateLimitStats } = await import("../mcp-server/shared/rate-limiter.js");
       rateLimits = getAllRateLimitStats();
@@ -236,11 +238,42 @@ const server = createServer(async (req, res) => {
       await store.load();
       memoryStats = store.stats();
     } catch { /* store not initialized */ }
+    // Ollama loaded models (VRAM info)
+    try {
+      const ollamaBase = process.env.OLLAMA_BASE || "http://127.0.0.1:11434";
+      const psRes = await fetch(`${ollamaBase}/api/ps`);
+      if (psRes.ok) {
+        const psData = await psRes.json();
+        ollamaModels = (psData.models || []).map(m => ({
+          name: m.name,
+          size: m.size,
+          sizeVram: m.size_vram,
+          expiresAt: m.expires_at,
+        }));
+      }
+    } catch { /* Ollama not running */ }
+    // Throughput from recent events (last 60s)
+    const cutoff = Date.now() - 60000;
+    const recentEvents = eventBuffer.filter(e => e.timestamp && new Date(e.timestamp).getTime() > cutoff);
+    const modelStats = {};
+    for (const e of recentEvents) {
+      if (e.model && e.tokensOut) {
+        if (!modelStats[e.model]) modelStats[e.model] = { calls: 0, tokens: 0, totalMs: 0 };
+        modelStats[e.model].calls++;
+        modelStats[e.model].tokens += e.tokensOut || 0;
+        modelStats[e.model].totalMs += e.elapsedMs || 0;
+      }
+    }
+    for (const [model, s] of Object.entries(modelStats)) {
+      s.avgTps = s.totalMs > 0 ? Math.round((s.tokens / s.totalMs) * 1000) : 0;
+    }
+    throughput = modelStats;
+
     res.writeHead(200, {
       "Content-Type": "application/json",
       "Access-Control-Allow-Origin": "*",
     });
-    res.end(JSON.stringify({ rateLimits, memoryStats, timestamp: new Date().toISOString() }));
+    res.end(JSON.stringify({ rateLimits, memoryStats, ollamaModels, throughput, timestamp: new Date().toISOString() }));
     return;
   }
 
