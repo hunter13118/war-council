@@ -3,6 +3,7 @@
  */
 import { ARSENAL } from "../shared/config.js";
 import { ollamaGenerateWithRetry } from "../shared/ollama.js";
+import { emitBattleEvent } from "../shared/battle-events.js";
 import { deliberate, appendScratchpad } from "../council-deliberation.js";
 
 export const schema = {
@@ -46,6 +47,19 @@ export async function handler(args, ctx) {
 
   const result = await deliberate(args.topic, panelists, generateFn);
   await appendScratchpad(`[DELIBERATION] ${args.topic}\nSynthesis: ${result.synthesis}`);
+
+  // Emit council_deliberation event for the Deliberation Theatre
+  const agentEmojis = { fast: '🏃', specialist: '⚔️', reasoning: '🧠' };
+  emitBattleEvent({
+    type: "council_deliberation",
+    prompt: args.topic,
+    agents: result.rounds.map(r => ({
+      name: r.role,
+      emoji: agentEmojis[r.model] || '🤖',
+      text: r.response.slice(0, 200),
+    })),
+    verdict: result.synthesis.slice(0, 300),
+  });
 
   return {
     content: [{
