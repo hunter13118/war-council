@@ -2122,6 +2122,34 @@ ${args.text}`,
   }
 });
 
+// ===== Startup Healthcheck =====
+async function healthcheck() {
+  const timeout = arsenalConfig.defaults.timeout_ms || 5000;
+  try {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 5000);
+    const res = await fetch(`${OLLAMA_BASE}/api/version`, { signal: controller.signal });
+    clearTimeout(timer);
+    if (!res.ok) {
+      process.stderr.write(
+        `[war-council] WARNING: Ollama responded with status ${res.status}. Some tools may fail.\n`
+      );
+      return false;
+    }
+    const data = await res.json();
+    process.stderr.write(`[war-council] Ollama v${data.version} connected at ${OLLAMA_BASE}\n`);
+    return true;
+  } catch (err) {
+    process.stderr.write(
+      `[war-council] ERROR: Cannot reach Ollama at ${OLLAMA_BASE} — ${err.message}\n` +
+      `[war-council] Model delegation tools will fail until Ollama is running.\n`
+    );
+    return false;
+  }
+}
+
+await healthcheck();
+
 const transport = new StdioServerTransport();
 await server.connect(transport);
 // Keep process alive — MCP server runs until parent closes stdio.
