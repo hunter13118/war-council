@@ -6,6 +6,27 @@ import { readFile } from "node:fs/promises";
 import { ARSENAL, REPO_ROOT } from "../shared/config.js";
 import { ollamaGenerate, formatConsultResult } from "../shared/ollama.js";
 
+/**
+ * Compress a persona markdown to fit within a token budget.
+ * Strips YAML frontmatter, markdown tables, and excessive blank lines.
+ * If still over budget, truncates with a notice.
+ */
+export function compressPersona(raw, maxChars = 3000) {
+  let text = raw;
+  // Strip YAML frontmatter
+  text = text.replace(/^---[\s\S]*?---\n*/m, "");
+  // Strip markdown tables (lines starting with |)
+  text = text.replace(/^\|.*\|$/gm, "");
+  // Strip table separator lines
+  text = text.replace(/^[\s|:-]+$/gm, "");
+  // Collapse multiple blank lines into one
+  text = text.replace(/\n{3,}/g, "\n\n");
+  text = text.trim();
+
+  if (text.length <= maxChars) return text;
+  return text.slice(0, maxChars) + "\n\n[...truncated — full persona exceeds budget]";
+}
+
 export const schema = {
   name: "invoke_agent",
   description:
@@ -56,7 +77,7 @@ export async function handler(args, ctx) {
     "You are operating as the following sub-agent persona. Adhere to all its rules.",
     "",
     "===== AGENT PERSONA START =====",
-    persona,
+    compressPersona(persona),
     "===== AGENT PERSONA END =====",
     "",
     "===== TASK =====",
