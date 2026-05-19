@@ -3,7 +3,38 @@
  */
 import { GEMINI_API_KEY, GEMINI_MODEL, GROQ_API_KEY, GROQ_MODEL } from "./config.js";
 import { withRetry } from "./retry.js";
-import { checkRateLimit } from "./rate-limiter.js";
+import { checkRateLimit, getRateLimitStats } from "./rate-limiter.js";
+
+/**
+ * Cloud generate with automatic failover.
+ * Tries primary provider first; on rate limit or error, falls back to secondary.
+ * @param {string} prompt
+ * @param {object} options - { primary: "gemini"|"groq", maxTokens, temperature }
+ * @returns {Promise<object>} - standard result with { text, model, provider, failedOver }
+ */
+export async function cloudGenerateWithFailover(prompt, options = {}) {
+  const primary = options.primary ?? "gemini";
+  const secondary = primary === "gemini" ? "groq" : "gemini";
+  const generators = { gemini: geminiGenerate, groq: groqGenerate };
+
+  try {
+    const result = await generators[primary](prompt, options);
+    return { ...result, failedOver: false };
+  } catch (primaryErr) {
+    // Only failover if secondary is configured
+    const secondaryKey = secondary === "gemini" ? GEMINI_API_KEY : GROQ_API_KEY;
+    if (!secondaryKey) throw primaryErr;
+
+    try {
+      const result = await generators[secondary](prompt, options);
+      return { ...result, failedOver: true, primaryError: primaryErr.message };
+    } catch (secondaryErr) {
+      throw new Error(
+        `Both providers failed. ${primary}: ${primaryErr.message} | ${secondary}: ${secondaryErr.message}`
+      );
+    }
+  }
+}
 
 export async function geminiGenerate(prompt, options = {}) {
   if (!GEMINI_API_KEY) throw new Error("GEMINI_API_KEY not set. Get one free at https://aistudio.google.com/apikey");
