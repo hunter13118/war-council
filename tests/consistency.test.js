@@ -18,7 +18,7 @@ describe('Design Consistency Suite', () => {
     it('Phase 2 (contracts) defines escalation: fast → specialist → reasoning → heavy → cloud', () => {
       const doc = loadDoc('CONTRACTS_AND_PROTOCOLS.md');
       assert.ok(
-        doc.includes('fast') && doc.includes('specialist') && 
+        doc.includes('fast') && doc.includes('specialist') &&
         doc.includes('reasoning') && doc.includes('cloud'),
         'Contracts doc should define the full escalation chain'
       );
@@ -139,7 +139,7 @@ describe('Design Consistency Suite', () => {
       const orchDoc = loadDoc('DETERMINISTIC_ORCHESTRATION.md');
       assert.ok(orchDoc.includes('local') || orchDoc.includes('Prefer local'),
         'Orchestration should prefer local execution');
-      
+
       // Phase 7 should explicitly state local-first
       const workDoc = loadDoc('VSCODE_AND_DEVELOPER_WORKFLOW.md');
       assert.ok(workDoc.includes('local-first') || workDoc.includes('local first'),

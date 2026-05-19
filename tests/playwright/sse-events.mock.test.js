@@ -7,7 +7,7 @@ const ROOT = path.resolve(__dirname, '..', '..');
 
 /**
  * MOCKED SSE TESTS — Event System Validation
- * 
+ *
  * These tests inject mock SSE events into the page and verify
  * the UI responds correctly. Validates the Phase 6 event architecture
  * without needing a running server.
@@ -38,7 +38,7 @@ test.describe('SSE Event Handling — Mock EventSource', () => {
   test('page attempts SSE connection on load (or has connection logic)', async ({ page }) => {
     // Check if page has SSE-related code (either EventSource usage or fetch for events)
     const pageSource = await page.content();
-    const hasSSE = pageSource.includes('EventSource') || 
+    const hasSSE = pageSource.includes('EventSource') ||
                    pageSource.includes('/events') ||
                    pageSource.includes('text/event-stream');
     expect(hasSSE).toBe(true);
@@ -56,7 +56,7 @@ test.describe('Event-Driven DOM Updates — Phase 6 Contract', () => {
     const result = await page.evaluate(() => {
       // Try to trigger speech bubble via whatever mechanism the page uses
       // Check if there's a function like showBubble, speakAgent, etc.
-      const fnNames = Object.getOwnPropertyNames(window).filter(n => 
+      const fnNames = Object.getOwnPropertyNames(window).filter(n =>
         n.match(/bubble|speak|message|chat/i)
       );
       return { hasSpeechFn: fnNames.length > 0, fns: fnNames.slice(0, 5) };
@@ -177,7 +177,7 @@ test.describe('Objection/Conflict System (Phase 6)', () => {
   test('court scene layout elements are defined', async ({ page }) => {
     const courtElements = await page.evaluate(() => {
       return {
-        hasCourtScene: !!document.querySelector('.court-scene') || 
+        hasCourtScene: !!document.querySelector('.court-scene') ||
                        document.querySelector('[class*="court"]') !== null,
         hasCSSRules: (() => {
           for (const sheet of document.styleSheets) {

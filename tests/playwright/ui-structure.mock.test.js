@@ -7,7 +7,7 @@ const ROOT = path.resolve(__dirname, '..', '..');
 
 /**
  * MOCKED UI TESTS — War Table HTML
- * 
+ *
  * These tests load the HTML directly from file (no server needed).
  * They validate the UI structure, styling, and DOM elements defined
  * across all 7 phases of the architecture.

@@ -1,6 +1,6 @@
 # Phase 4 — Retrieval and Memory Refactor
 
-**Purpose:** Transform retrieval into a unified cognition layer. Beyond basic RAG — into persistent, aware, continuously stateful AI.  
+**Purpose:** Transform retrieval into a unified cognition layer. Beyond basic RAG — into persistent, aware, continuously stateful AI.
 **Principle:** The AI should never say "I don't remember" about something that happened in this workspace.
 
 ---
@@ -420,10 +420,10 @@ CREATE VIRTUAL TABLE nodes_fts USING fts5(name, properties, content=nodes, conte
 ```
 Qdrant (Docker/binary on localhost:6333)
   └── Vector storage + HNSW search + payload filtering
-  
+
 SQLite (single file: memory-engine/sovereign.db)
   └── Metadata, graph edges, FTS5 keyword search, temporal index, summaries
-  
+
 JSON (memory-engine/working-memory.json)
   └── Session-scoped working memory (volatile, small)
 ```

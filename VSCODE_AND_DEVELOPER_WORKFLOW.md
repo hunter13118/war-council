@@ -205,41 +205,41 @@ class RepoIndexer {
     this.chunkRegistry = [];        // All code chunks with metadata
     this.dirty = new Set();         // Files needing re-index
   }
-  
+
   // Full index (on first load or after major changes)
   async indexFull() {
     const files = await this.discoverFiles();
-    
+
     for (const file of files) {
       await this.indexFile(file);
     }
-    
+
     await this.buildDependencyGraph();
     await this.embedChunks();
   }
-  
+
   // Incremental index (on file save)
   async indexIncremental(changedFiles) {
     for (const file of changedFiles) {
       // Re-parse AST
       const ast = await this.parseAST(file);
       this.astCache.set(file, ast);
-      
+
       // Re-extract symbols
       this.updateSymbols(file, ast);
-      
+
       // Re-chunk (AST-aware boundaries)
       const chunks = this.chunkFile(file, ast);
       this.updateChunks(file, chunks);
-      
+
       // Re-embed changed chunks only
       await this.embedChunks(chunks.filter(c => c.dirty));
-      
+
       // Update dependency edges
       this.updateDependencies(file, ast);
     }
   }
-  
+
   // File discovery (respects .gitignore)
   async discoverFiles() {
     // Use git ls-files for accurate file list
@@ -258,7 +258,7 @@ function chunkFile(filePath, ast) {
   const chunks = [];
   const source = fs.readFileSync(filePath, 'utf-8');
   const lines = source.split('\n');
-  
+
   // Walk AST: each function/class/method = one chunk
   for (const node of ast.body) {
     if (isChunkBoundary(node)) {
@@ -276,7 +276,7 @@ function chunkFile(filePath, ast) {
       });
     }
   }
-  
+
   return chunks;
 }
 
@@ -307,7 +307,7 @@ CREATE INDEX idx_dep_target ON dependencies(target);
 // Query: "What depends on memory-engine/retriever.js?"
 SELECT source FROM dependencies WHERE target LIKE '%memory-engine/retriever%';
 
-// Query: "What does server.js need?"  
+// Query: "What does server.js need?"
 SELECT target, symbol FROM dependencies WHERE source LIKE '%mcp-server/server.js';
 ```
 
@@ -318,14 +318,14 @@ SELECT target, symbol FROM dependencies WHERE source LIKE '%mcp-server/server.js
 const watcher = fs.watch(repoRoot, { recursive: true }, async (eventType, filename) => {
   if (!filename || filename.includes('node_modules')) return;
   if (!filename.match(/\.(js|ts|py|jsx|tsx|json|md|html|css)$/)) return;
-  
+
   const fullPath = path.join(repoRoot, filename);
-  
+
   // Debounce: wait 500ms for rapid saves
   clearTimeout(debounceTimers.get(fullPath));
   debounceTimers.set(fullPath, setTimeout(async () => {
     await indexer.indexIncremental([fullPath]);
-    
+
     // Notify Battle Log of index update
     emitEvent('index.updated', { file: filename, timestamp: Date.now() });
   }, 500));
@@ -347,16 +347,16 @@ class ContextAssembler {
     this.retriever = retriever;
     this.maxContextTokens = 12000;  // Leave room for output in 32K window
   }
-  
+
   async assemble(task, activeFile, cursorLine) {
     const budget = new TokenBudget(this.maxContextTokens);
     const context = [];
-    
+
     // Priority 1: Active file region (always included)
     const activeRegion = this.getActiveRegion(activeFile, cursorLine);
     context.push({ source: 'active_file', content: activeRegion, priority: 1 });
     budget.consume(estimateTokens(activeRegion));
-    
+
     // Priority 2: Direct dependencies of active file
     const deps = this.indexer.depGraph.get(activeFile) || new Set();
     for (const dep of deps) {
@@ -367,12 +367,12 @@ class ContextAssembler {
         budget.consume(estimateTokens(relevant));
       }
     }
-    
+
     // Priority 3: Semantic retrieval (vectors)
     if (budget.remaining > 1000) {
-      const vectorResults = await this.retriever.query(task, { 
-        k: 5, 
-        maxTokens: budget.remaining * 0.5 
+      const vectorResults = await this.retriever.query(task, {
+        k: 5,
+        maxTokens: budget.remaining * 0.5
       });
       for (const result of vectorResults) {
         if (budget.remaining < 200) break;
@@ -380,7 +380,7 @@ class ContextAssembler {
         budget.consume(estimateTokens(result.content));
       }
     }
-    
+
     // Priority 4: Symbol definitions (if task references specific symbols)
     const mentionedSymbols = extractSymbolReferences(task);
     for (const sym of mentionedSymbols) {
@@ -391,7 +391,7 @@ class ContextAssembler {
         budget.consume(estimateTokens(def.chunk));
       }
     }
-    
+
     // Priority 5: Recent errors (if debugging)
     if (isDebuggingTask(task)) {
       const errors = await this.getRecentErrors();
@@ -400,14 +400,14 @@ class ContextAssembler {
         budget.consume(estimateTokens(errors));
       }
     }
-    
+
     return context;
   }
-  
+
   getActiveRegion(file, cursorLine) {
     const source = fs.readFileSync(file, 'utf-8');
     const lines = source.split('\n');
-    
+
     // Get the enclosing function/class
     const ast = this.indexer.astCache.get(file);
     if (ast) {
@@ -416,7 +416,7 @@ class ContextAssembler {
         return lines.slice(enclosing.start - 1, enclosing.end).join('\n');
       }
     }
-    
+
     // Fallback: ±50 lines around cursor
     const start = Math.max(0, cursorLine - 50);
     const end = Math.min(lines.length, cursorLine + 50);
@@ -456,7 +456,7 @@ function compressForCloud(context) {
   return {
     // Send full active file (not just region)
     activeFile: fs.readFileSync(context.activeFile, 'utf-8'),
-    
+
     // Send full dependency files (summaries only for large ones)
     dependencies: context.deps.map(dep => {
       const content = fs.readFileSync(dep, 'utf-8');
@@ -464,10 +464,10 @@ function compressForCloud(context) {
         ? { file: dep, content: summarizeFile(content) }  // Hierarchical summary
         : { file: dep, content };
     }),
-    
+
     // Send more vector results
     semanticResults: context.vectorResults.slice(0, 20),
-    
+
     // Include git diff for recent changes
     recentDiff: execSync('git diff HEAD~3 --stat').toString()
   };
@@ -490,22 +490,22 @@ class DiffGenerator {
     if (this.isCompleteFunctionRewrite(aiOutput)) {
       return this.functionLevelDiff(originalFile, aiOutput);
     }
-    
+
     // Strategy 2: If AI outputs line-level instructions
     if (this.isLineInstructions(aiOutput)) {
       return this.lineEditDiff(originalFile, aiOutput);
     }
-    
+
     // Strategy 3: If AI outputs full file
     // Use diff algorithm to extract minimal changes
     return this.computeMinimalDiff(originalFile, aiOutput);
   }
-  
+
   functionLevelDiff(original, replacement) {
     // Find the function being replaced in the original
     const ast = parse(original);
     const targetFn = findMatchingFunction(ast, replacement);
-    
+
     return {
       type: 'replace',
       file: original.path,
@@ -514,18 +514,18 @@ class DiffGenerator {
       newContent: replacement
     };
   }
-  
+
   // Validate diff before applying
   validateDiff(diff, originalFile) {
     const patched = applyDiff(originalFile, diff);
-    
+
     // Parse check: does the result parse cleanly?
     try {
       parse(patched);
     } catch (e) {
       return { valid: false, reason: 'syntax_error', error: e.message };
     }
-    
+
     // Import check: are all imports still resolvable?
     const imports = extractImports(parse(patched));
     for (const imp of imports) {
@@ -533,7 +533,7 @@ class DiffGenerator {
         return { valid: false, reason: 'broken_import', import: imp };
       }
     }
-    
+
     return { valid: true };
   }
 }
@@ -594,7 +594,7 @@ AI generates code
 class VerificationPipeline {
   async verify(diff, context) {
     const results = { stages: [], overall: 'pending' };
-    
+
     // Stage 1: Syntax
     const syntaxResult = this.checkSyntax(diff.patchedContent);
     results.stages.push({ name: 'syntax', ...syntaxResult });
@@ -602,7 +602,7 @@ class VerificationPipeline {
       results.overall = 'failed';
       return results;
     }
-    
+
     // Stage 2: Lint
     const lintResult = await this.runLint(diff.file);
     results.stages.push({ name: 'lint', ...lintResult });
@@ -615,7 +615,7 @@ class VerificationPipeline {
       }
       results.stages.push({ name: 'lint_autofix', pass: true });
     }
-    
+
     // Stage 3: Tests
     const testResult = await this.runTests(diff.file, context);
     results.stages.push({ name: 'tests', ...testResult });
@@ -624,7 +624,7 @@ class VerificationPipeline {
       results.failedTests = testResult.failures;
       return results;
     }
-    
+
     // Stage 4: Code review (lightweight, fast model)
     const reviewResult = await this.codeReview(diff, context);
     results.stages.push({ name: 'review', ...reviewResult });
@@ -632,32 +632,32 @@ class VerificationPipeline {
       results.overall = 'failed';
       return results;
     }
-    
+
     results.overall = 'passed';
     return results;
   }
-  
+
   async runTests(file, context) {
     // Find relevant test files
     const testFile = this.findTestFile(file);
     if (!testFile) return { pass: true, reason: 'no_tests_found', skipped: true };
-    
+
     // Run only affected tests (not full suite)
     const { exitCode, stdout, stderr } = await exec(`npm test -- --testPathPattern="${testFile}"`);
-    
+
     return {
       pass: exitCode === 0,
       failures: exitCode !== 0 ? this.parseTestFailures(stderr) : [],
       duration: this.extractDuration(stdout)
     };
   }
-  
+
   async codeReview(diff, context) {
     // Use fast model for quick review (no deep analysis needed)
     const review = await consultFast({
       prompt: `Review this diff for obvious issues:\n${diff.patch}\n\nCheck for: missing error handling, broken imports, security issues, logic errors. Be brief.`
     });
-    
+
     return {
       pass: review.confidence > 0.7 && !review.output.includes('BLOCKER'),
       issues: this.parseReviewIssues(review.output),
@@ -672,28 +672,28 @@ class VerificationPipeline {
 ```javascript
 async function commitIfGreen(verification, diff, context) {
   if (verification.overall !== 'passed') return false;
-  
+
   // Stage the specific files (never git add -A)
   await exec(`git add ${diff.files.join(' ')}`);
-  
+
   // Generate commit message from task context
   const prefix = inferCommitPrefix(context.task);  // fix:|feat:|refactor: etc.
   const message = `${prefix} ${context.task.summary}`;
-  
+
   await exec(`git commit -m "${escapeShell(message)}"`);
-  
+
   // Push if configured
   if (context.autoPush) {
     await exec('git push');
   }
-  
+
   // Emit event
-  emitEvent('commit.created', { 
-    message, 
-    files: diff.files, 
-    confidence: verification.averageConfidence 
+  emitEvent('commit.created', {
+    message,
+    files: diff.files,
+    confidence: verification.averageConfidence
   });
-  
+
   return true;
 }
 ```
@@ -755,32 +755,32 @@ async function commitIfGreen(verification, diff, context) {
 ```javascript
 function classifyError(error) {
   const message = error.message || error.toString();
-  
+
   // Type errors (usually quick fix with fast model)
   if (message.match(/TypeError|is not a function|undefined is not/)) {
     return { type: 'type_error', tier: 'fast', maxRetries: 2 };
   }
-  
+
   // Import/module errors (check dependency graph)
   if (message.match(/Cannot find module|Module not found|ImportError/)) {
     return { type: 'import_error', tier: 'fast', maxRetries: 1 };
   }
-  
+
   // Logic errors (need reasoning)
   if (message.match(/assertion|expected.*but got|AssertionError/)) {
     return { type: 'logic_error', tier: 'reasoning', maxRetries: 3 };
   }
-  
+
   // Async/timing issues (need deep analysis)
   if (message.match(/timeout|ECONNREFUSED|race condition|deadlock/)) {
     return { type: 'async_error', tier: 'reasoning', maxRetries: 2 };
   }
-  
+
   // Syntax errors (trivial)
   if (message.match(/SyntaxError|Unexpected token/)) {
     return { type: 'syntax_error', tier: 'fast', maxRetries: 1 };
   }
-  
+
   // Unknown → specialist
   return { type: 'unknown', tier: 'specialist', maxRetries: 2 };
 }
@@ -791,10 +791,10 @@ function classifyError(error) {
 ```javascript
 async function gatherEvidence(error, file, indexer) {
   const evidence = {};
-  
+
   // 1. Stack trace (already in error)
   evidence.stackTrace = error.stack;
-  
+
   // 2. Failing code region
   if (error.line) {
     const source = fs.readFileSync(file, 'utf-8').split('\n');
@@ -803,22 +803,22 @@ async function gatherEvidence(error, file, indexer) {
       Math.min(source.length, error.line + 10)
     ).join('\n');
   }
-  
+
   // 3. Recent changes to this file (last 3 commits)
   evidence.recentChanges = execSync(
     `git log -3 --oneline -p -- "${file}"`
   ).toString().slice(0, 2000);
-  
+
   // 4. Related code (imports, callers)
   const deps = indexer.depGraph.get(file);
   evidence.relatedFiles = [...(deps || [])].slice(0, 3);
-  
+
   // 5. Similar past fixes (from episodic memory)
   evidence.similarFixes = await memoryQuery(
     `fix ${error.type}: ${error.message}`,
     { type: 'episodic', k: 3 }
   );
-  
+
   return evidence;
 }
 ```
@@ -829,17 +829,17 @@ async function gatherEvidence(error, file, indexer) {
 async function debugLoop(error, file, context) {
   const classification = classifyError(error);
   const evidence = await gatherEvidence(error, file, context.indexer);
-  
+
   for (let attempt = 0; attempt < classification.maxRetries; attempt++) {
     // Generate hypothesis + fix
     const fix = await generateFix(error, evidence, classification, attempt);
-    
+
     // Apply fix
     const diff = applyFix(file, fix);
-    
+
     // Run tests
     const testResult = await runTests(file);
-    
+
     if (testResult.pass) {
       // SUCCESS — commit and learn
       await commitIfGreen({ overall: 'passed' }, diff, context);
@@ -850,20 +850,20 @@ async function debugLoop(error, file, context) {
       });
       return { success: true, attempts: attempt + 1 };
     }
-    
+
     // FAILED — add test failure to evidence for next attempt
     evidence.previousAttempts = evidence.previousAttempts || [];
     evidence.previousAttempts.push({
       fix: fix.description,
       result: testResult.failures[0]?.message
     });
-    
+
     // Escalate tier if not improving
     if (attempt === 1 && classification.tier !== 'reasoning') {
       classification.tier = 'reasoning';
     }
   }
-  
+
   // Exhausted retries → escalate to human
   return { success: false, reason: 'max_retries_exhausted', evidence };
 }
@@ -936,7 +936,7 @@ const ARCHITECTURE_RULES = [
 ```javascript
 async function checkArchitecturalConsistency(diff, context) {
   const violations = [];
-  
+
   for (const rule of ARCHITECTURE_RULES) {
     const passes = rule.check(diff, context);
     if (!passes) {
@@ -949,7 +949,7 @@ async function checkArchitecturalConsistency(diff, context) {
       });
     }
   }
-  
+
   return {
     pass: violations.filter(v => v.severity === 'error').length === 0,
     violations,
@@ -988,22 +988,22 @@ async function checkArchitecturalConsistency(diff, context) {
    - Load specialist on first use, keep warm for 5min idle
    - Reasoning/heavy: load on demand, unload after 2min idle
    - RTX 5090 VRAM budget: 7b (5GB) + 14b (10GB) + 14b-r1 (10GB) = 25GB / 32GB
-   
+
 2. SPECULATIVE EXECUTION
    - While user types, pre-fetch likely context (active file imports, recent errors)
    - Pre-embed recent file changes (batch every 30s)
    - Pre-warm specialist when task queue is >0
-   
+
 3. STREAMING RESPONSES
    - Stream model output token-by-token to editor
    - User sees response building in real-time
    - Can cancel early if wrong direction (saves remaining tokens)
-   
+
 4. PARALLEL VERIFICATION
    - Run lint and type-check simultaneously (different processes)
    - Start test discovery while code is still generating
    - Pipeline: generate tokens → lint first N lines → flag issues early
-   
+
 5. CACHE STRATEGY
    - Prompt cache: identical prompts within 5min TTL (LRU, 100 entries)
    - Embedding cache: per-chunk, invalidate on file change
@@ -1020,41 +1020,41 @@ class VRAMManager {
     this.loaded = new Map();  // modelId → { sizeGB, lastUsed, tier }
     this.reserved = 2048;    // 2GB for system overhead
   }
-  
+
   available() {
     const used = [...this.loaded.values()].reduce((sum, m) => sum + m.sizeMB, 0);
     return this.total - used - this.reserved;
   }
-  
+
   canLoad(model) {
     return this.available() >= model.sizeMB;
   }
-  
+
   evictIfNeeded(model) {
     while (!this.canLoad(model)) {
       // Evict least-recently-used model (not the fast model)
       const candidates = [...this.loaded.entries()]
         .filter(([id]) => id !== 'fast')
         .sort((a, b) => a[1].lastUsed - b[1].lastUsed);
-      
+
       if (candidates.length === 0) return false;  // Can't evict anything
-      
+
       const [evictId] = candidates[0];
       this.unload(evictId);
     }
     return true;
   }
-  
+
   getLoadoutRecommendation(taskQueue) {
     // Based on upcoming tasks, recommend which models to preload
     const tiers = taskQueue.map(t => t.estimatedTier);
     const needsReasoning = tiers.includes('reasoning');
     const needsHeavy = tiers.includes('heavy');
-    
+
     // Default loadout: fast + specialist (15GB)
     // Extended: fast + specialist + reasoning (25GB)
     // Maximum: fast + specialist + reasoning (25GB) — heavy won't fit alongside
-    
+
     return {
       required: ['fast'],  // Always loaded
       recommended: needsReasoning ? ['specialist', 'reasoning'] : ['specialist'],
@@ -1074,51 +1074,51 @@ class VRAMManager {
 const ANTI_WASTE_RULES = {
   // Don't send entire files when only one function matters
   maxFileContext: 200,  // lines
-  
+
   // Don't repeat context that's already in the prompt
   deduplicateContext: true,
-  
+
   // Don't send comments/blank lines in context (compress)
   stripComments: true,
   stripBlankLines: true,
-  
+
   // Don't send test fixtures in production code context
   excludeTestData: true,
-  
+
   // Don't send node_modules type definitions
   excludeNodeModules: true,
-  
+
   // Don't re-send output from previous turn
   deduplicateHistory: true,
-  
+
   // Truncate very long error messages
   maxErrorLength: 500,  // chars
-  
+
   // Don't embed the same chunk twice in one session
   embeddingDedup: true
 };
 
 function compressContext(context) {
   let compressed = context;
-  
+
   // Remove comments (preserving JSDoc for public APIs only)
   if (ANTI_WASTE_RULES.stripComments) {
     compressed = compressed.replace(/\/\/.*$/gm, '');
     compressed = compressed.replace(/\/\*[\s\S]*?\*\//g, '');
   }
-  
+
   // Collapse blank lines
   if (ANTI_WASTE_RULES.stripBlankLines) {
     compressed = compressed.replace(/\n{3,}/g, '\n\n');
   }
-  
+
   // Truncate
   const lines = compressed.split('\n');
   if (lines.length > ANTI_WASTE_RULES.maxFileContext) {
     compressed = lines.slice(0, ANTI_WASTE_RULES.maxFileContext).join('\n')
       + '\n// ... truncated ...';
   }
-  
+
   return compressed;
 }
 ```
@@ -1128,12 +1128,12 @@ function compressContext(context) {
 ```javascript
 function detectRunawayContext(taskState) {
   const warnings = [];
-  
+
   // Warning: too many retrieval results included
   if (taskState.retrievalChunks > 10) {
     warnings.push('excessive_retrieval: ' + taskState.retrievalChunks + ' chunks');
   }
-  
+
   // Warning: context growing across retries (not converging)
   if (taskState.retryCount > 0) {
     const growth = taskState.contextTokens / taskState.initialContextTokens;
@@ -1141,7 +1141,7 @@ function detectRunawayContext(taskState) {
       warnings.push('context_growth: ' + growth.toFixed(1) + 'x initial');
     }
   }
-  
+
   // Warning: repeated token patterns in output (model looping)
   if (taskState.lastOutput) {
     const repeated = detectRepetition(taskState.lastOutput);
@@ -1149,7 +1149,7 @@ function detectRunawayContext(taskState) {
       warnings.push('output_repetition: ' + (repeated * 100).toFixed(0) + '%');
     }
   }
-  
+
   return warnings;
 }
 ```
@@ -1214,14 +1214,14 @@ class RegressionDetector {
   constructor(baselineFile) {
     this.baseline = JSON.parse(fs.readFileSync(baselineFile));
   }
-  
+
   compare(currentResults) {
     const regressions = [];
-    
+
     for (const [name, current] of Object.entries(currentResults)) {
       const baseline = this.baseline[name];
       if (!baseline) continue;
-      
+
       // Latency regression: >20% slower
       if (current.latency > baseline.latency * 1.2) {
         regressions.push({
@@ -1232,7 +1232,7 @@ class RegressionDetector {
           degradation: ((current.latency / baseline.latency) - 1) * 100
         });
       }
-      
+
       // Accuracy regression: any drop
       if (current.accuracy < baseline.accuracy) {
         regressions.push({
@@ -1243,7 +1243,7 @@ class RegressionDetector {
           degradation: (baseline.accuracy - current.accuracy) * 100
         });
       }
-      
+
       // Token waste regression: >10% more tokens
       if (current.tokensUsed > baseline.tokensUsed * 1.1) {
         regressions.push({
@@ -1255,7 +1255,7 @@ class RegressionDetector {
         });
       }
     }
-    
+
     return regressions;
   }
 }
@@ -1341,20 +1341,20 @@ When a task escalates to cloud (Gemini 1M context), the response needs compressi
 async function cloudEscalateAndReintegrate(task, context) {
   // 1. Prepare rich context for cloud (can send much more)
   const cloudContext = compressForCloud(context);
-  
+
   // 2. Send to cloud
   const cloudResponse = await callGemini({
     task,
     context: cloudContext,
     instructions: 'Be concise. Output only the code/answer, no explanation unless asked.'
   });
-  
+
   // 3. Compress cloud response for local context
   const compressed = compressCloudResponse(cloudResponse);
-  
+
   // 4. Verify locally (don't trust cloud blindly)
   const verification = await verifyLocally(compressed, context);
-  
+
   // 5. Reintegrate
   return {
     output: compressed.code || compressed.answer,

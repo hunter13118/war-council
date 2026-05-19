@@ -49,7 +49,7 @@ describe('Document Structure Suite', () => {
       it(`Phase ${doc.phase}: ${doc.file} is substantial (>2KB)`, () => {
         const fullPath = path.join(ROOT, doc.file);
         const stats = fs.statSync(fullPath);
-        assert.ok(stats.size > 2048, 
+        assert.ok(stats.size > 2048,
           `${doc.file} is only ${stats.size} bytes (expected >2KB)`);
       });
     }
@@ -60,7 +60,7 @@ describe('Document Structure Suite', () => {
       it(`Phase ${doc.phase}: ${doc.file} starts with H1 header`, () => {
         const content = fs.readFileSync(path.join(ROOT, doc.file), 'utf-8');
         const firstLine = content.split('\n').find(l => l.trim().length > 0);
-        assert.match(firstLine, /^#\s/, 
+        assert.match(firstLine, /^#\s/,
           `${doc.file} should start with an H1 header`);
       });
     }
@@ -83,9 +83,9 @@ describe('Document Structure Suite', () => {
         const content = fs.readFileSync(path.join(ROOT, doc.file), 'utf-8');
         const codeBlocks = content.match(/```/g) || [];
         // Code blocks come in pairs (open + close)
-        assert.ok(codeBlocks.length >= 2, 
+        assert.ok(codeBlocks.length >= 2,
           `${doc.file} should have at least one code block`);
-        assert.equal(codeBlocks.length % 2, 0, 
+        assert.equal(codeBlocks.length % 2, 0,
           `${doc.file} has unmatched code block fences (${codeBlocks.length} backtick-triples)`);
       });
     }
@@ -96,7 +96,7 @@ describe('Document Structure Suite', () => {
       it(`Phase ${doc.phase}: ${doc.file} has visual diagrams or tables`, () => {
         const content = fs.readFileSync(path.join(ROOT, doc.file), 'utf-8');
         // Look for ASCII box drawing, tables, or diagram indicators
-        const hasDiagram = content.includes('┌') || content.includes('├') || 
+        const hasDiagram = content.includes('┌') || content.includes('├') ||
                           content.includes('│') || content.includes('───');
         const hasTable = (content.match(/\|.*\|/g) || []).length >= 3;
         assert.ok(hasDiagram || hasTable,
@@ -109,7 +109,7 @@ describe('Document Structure Suite', () => {
     it('progress.md mentions all 7 phases', () => {
       const content = fs.readFileSync(path.join(ROOT, 'progress.md'), 'utf-8');
       for (let i = 1; i <= 7; i++) {
-        assert.ok(content.includes(`Phase ${i}`), 
+        assert.ok(content.includes(`Phase ${i}`),
           `progress.md missing reference to Phase ${i}`);
       }
     });
@@ -117,14 +117,14 @@ describe('Document Structure Suite', () => {
     it('progress.md marks all phases as complete', () => {
       const content = fs.readFileSync(path.join(ROOT, 'progress.md'), 'utf-8');
       const completeMarkers = content.match(/✅ Complete/g) || [];
-      assert.ok(completeMarkers.length >= 7, 
+      assert.ok(completeMarkers.length >= 7,
         `Expected 7 completion markers, found ${completeMarkers.length}`);
     });
 
     it('progress.md has deliverable checklists', () => {
       const content = fs.readFileSync(path.join(ROOT, 'progress.md'), 'utf-8');
       const checkboxes = content.match(/- \[x\]/g) || [];
-      assert.ok(checkboxes.length >= 14, 
+      assert.ok(checkboxes.length >= 14,
         `Expected >=14 completed deliverables, found ${checkboxes.length}`);
     });
   });

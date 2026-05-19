@@ -1,6 +1,6 @@
 # Phase 3 — Observability and Metrics
 
-**Purpose:** Instrument the entire system for measurable optimization. Replace intuition with telemetry.  
+**Purpose:** Instrument the entire system for measurable optimization. Replace intuition with telemetry.
 **Principle:** If you can't measure it, you can't improve it. Every decision path must be traceable.
 
 ---
@@ -65,49 +65,49 @@ Every subsystem emits telemetry at these instrumentation points:
   "traceId": "string",           // Groups related events into a trace
   "spanId": "string",            // Unique ID for this span within the trace
   "parentSpanId": "string|null", // For nested spans (chain steps, retries)
-  
+
   "category": "tool|model|memory|chain|escalation|verification|tournament|system",
   "event": "string",             // Specific event name (e.g., "tool.complete")
   "level": "info|warn|error|debug",
-  
+
   "data": {
     // Tool events
     "tool": "string|null",
     "args": {},
-    
+
     // Model events
     "model": "string|null",
     "tier": "string|null",
     "provider": "ollama|gemini|groq|null",
-    
+
     // Timing
     "durationMs": 0,
     "queuedMs": 0,
-    
+
     // Tokens
     "tokensIn": 0,
     "tokensOut": 0,
     "tokensPerSec": 0,
-    
+
     // Confidence
     "confidence": 0.0,
-    
+
     // Memory
     "chunksReturned": 0,
     "relevanceAvg": 0.0,
     "hitRate": 0.0,
-    
+
     // Chain
     "chainName": "string|null",
     "stepIndex": 0,
     "stepsTotal": 0,
-    
+
     // Error
     "error": "string|null",
     "retryable": false,
     "retryCount": 0
   },
-  
+
   "context": {
     "taskId": "string|null",
     "sessionId": "string",       // Persists across a work session
@@ -203,7 +203,7 @@ A **trace** is a tree of **spans** representing a single end-to-end operation:
   "endTime": "ISO-8601",
   "durationMs": 0,
   "status": "ok|error|timeout",
-  
+
   "spans": [
     {
       "spanId": "uuid",
@@ -242,7 +242,7 @@ A **trace** is a tree of **spans** representing a single end-to-end operation:
     }
     // ... more spans
   ],
-  
+
   "summary": {
     "totalTokens": { "in": 15000, "out": 8000 },
     "modelsUsed": ["specialist", "reasoning", "gemini"],
@@ -552,7 +552,7 @@ run_benchmark(suite) →
   "startTime": "ISO-8601",
   "endTime": "ISO-8601",
   "durationMinutes": 0,
-  
+
   "totals": {
     "toolCalls": 0,
     "chainRuns": 0,
@@ -563,7 +563,7 @@ run_benchmark(suite) →
     "tokensOut": 0,
     "cloudCalls": 0
   },
-  
+
   "performance": {
     "avgToolLatencyMs": 0,
     "p95ToolLatencyMs": 0,
@@ -571,17 +571,17 @@ run_benchmark(suite) →
     "chainCompletionRate": 0.0,
     "selfEvalPassRate": 0.0
   },
-  
+
   "efficiency": {
     "tokenWasteRatio": 0.0,
     "contextUtilization": 0.0,
     "memoryHitRate": 0.0
   },
-  
+
   "topAgents": [
     { "agent": "string", "calls": 0, "avgConfidence": 0.0, "utilityScore": 0.0 }
   ],
-  
+
   "issues": [
     { "type": "string", "count": 0, "description": "string" }
   ]

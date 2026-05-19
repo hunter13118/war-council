@@ -1,6 +1,6 @@
 # Phase 5 — Deterministic Orchestration
 
-**Purpose:** Replace fragile prompt-only coordination with heuristic-driven, state-driven, metrics-driven execution.  
+**Purpose:** Replace fragile prompt-only coordination with heuristic-driven, state-driven, metrics-driven execution.
 **Principle:** The orchestrator is a compiler, not a chatbot. Deterministic where possible, LLM-assisted only where necessary.
 
 ---
@@ -68,20 +68,20 @@ LLMs are only invoked as **workers** executing tasks — never as **controllers*
     "args": {},
     "tier": "fast|specialist|reasoning|heavy|cloud",
     "budget": { "maxTokensIn": 4096, "maxTokensOut": 2048, "timeoutMs": 30000 },
-    
+
     // For gate nodes:
     "condition": "expression",    // e.g., "confidence >= 0.7"
     "onPass": "node-id",
     "onFail": "node-id",
-    
+
     // For branch nodes:
     "strategy": "parallel|conditional|race",
     "branches": ["node-id"],
-    
+
     // For merge nodes:
     "strategy": "all|any|best",   // Wait for all, first, or highest confidence
     "inputs": ["node-id"],
-    
+
     // For checkpoint nodes:
     "save": ["result", "context"],
     "resume": true               // Can resume from here on failure
@@ -214,43 +214,43 @@ function executeDAG(dag, inputs):
   state = new DAGState(dag)
   state.setInputs(inputs)
   readyQueue = findNodesWithNoDependencies(dag)
-  
+
   while readyQueue is not empty:
     node = readyQueue.dequeue()
-    
+
     if node.type == "task":
       result = executeTask(node, state)
       state.setResult(node.id, result)
-      
+
     elif node.type == "gate":
       passed = evaluateCondition(node.config.condition, state)
       nextNode = passed ? node.config.onPass : node.config.onFail
       state.setGateResult(node.id, { passed, nextNode })
       readyQueue.enqueue(dag.nodes[nextNode])
       continue  // Skip normal dependency resolution
-      
+
     elif node.type == "branch":
       if node.config.strategy == "parallel":
         results = await Promise.all(node.config.branches.map(b => executeNode(b, state)))
       elif node.config.strategy == "race":
         result = await Promise.race(node.config.branches.map(b => executeNode(b, state)))
         // Cancel losers
-        
+
     elif node.type == "merge":
       if node.config.strategy == "best":
         result = pickHighestConfidence(state.getResults(node.config.inputs))
       elif node.config.strategy == "all":
         result = concatenateResults(state.getResults(node.config.inputs))
-        
+
     elif node.type == "checkpoint":
       saveCheckpoint(state, node.config.save)
-    
+
     // Resolve next ready nodes
     for candidate in dag.nodes:
       if all(dep in state.completed for dep in candidate.dependencies):
         if candidate.id not in state.completed:
           readyQueue.enqueue(candidate)
-  
+
   return state.getFinalResult()
 ```
 
@@ -266,24 +266,24 @@ All routing is deterministic — no LLM call needed:
 function selectTier(task, context) {
   const tokenEstimate = estimateTokens(task + context);
   const complexity = measureComplexity(task);
-  
+
   // Rule 1: Context too large for local → cloud
   if (tokenEstimate > 28000) return "cloud";
-  
+
   // Rule 2: Simple lookups and transforms → fast
   if (complexity.score < 0.3 && tokenEstimate < 2000) return "fast";
-  
+
   // Rule 3: Debugging/reasoning keywords → reasoning
   if (complexity.requiresReasoning) return "reasoning";
-  
+
   // Rule 4: Code generation → specialist
   if (complexity.requiresCodeGen) return "specialist";
-  
+
   // Rule 5: Architecture/planning → heavy or cloud
   if (complexity.isArchitectural) {
     return tokenEstimate > 16000 ? "cloud" : "heavy";
   }
-  
+
   // Default: specialist (best balance)
   return "specialist";
 }
@@ -295,25 +295,25 @@ function selectTier(task, context) {
 function measureComplexity(task) {
   const lower = task.toLowerCase();
   const wordCount = task.split(/\s+/).length;
-  
+
   return {
     score: computeScore(task),  // 0.0 – 1.0
-    
+
     requiresReasoning: hasAny(lower, [
       "why", "debug", "trace", "root cause", "investigate",
       "race condition", "deadlock", "memory leak", "explain"
     ]),
-    
+
     requiresCodeGen: hasAny(lower, [
       "implement", "write", "create", "build", "generate",
       "function", "class", "component", "endpoint"
     ]),
-    
+
     isArchitectural: hasAny(lower, [
       "architect", "design", "plan", "system", "infrastructure",
       "migrate", "scale", "restructure"
     ]),
-    
+
     isSimple: wordCount < 20 && !hasAny(lower, [
       "complex", "multiple", "several", "across", "integrate"
     ])
@@ -323,26 +323,26 @@ function measureComplexity(task) {
 function computeScore(task) {
   let score = 0;
   const words = task.split(/\s+/).length;
-  
+
   // Length contributes to complexity
   score += Math.min(words / 100, 0.3);
-  
+
   // Code references increase complexity
   const codeRefs = (task.match(/`[^`]+`/g) || []).length;
   score += Math.min(codeRefs * 0.05, 0.2);
-  
+
   // Multiple files = more complex
   const fileRefs = (task.match(/\.(js|ts|py|md|json|html|css)\b/g) || []).length;
   score += Math.min(fileRefs * 0.1, 0.3);
-  
+
   // Question marks suggest investigation
   const questions = (task.match(/\?/g) || []).length;
   score += Math.min(questions * 0.05, 0.1);
-  
+
   // Logical conjunctions increase scope
   const conjunctions = (task.match(/\b(and|also|additionally|plus|then)\b/gi) || []).length;
   score += Math.min(conjunctions * 0.05, 0.1);
-  
+
   return Math.min(score, 1.0);
 }
 ```
@@ -389,18 +389,18 @@ function shouldVerify(result, context) {
   if (context.isProductionCode) return true;
   if (context.modifiesTests) return true;
   if (context.touchesSecurity) return true;
-  
+
   // Verify based on confidence:
   if (result.confidence < 0.7) return true;
-  
+
   // Verify based on tier (less capable = more verification):
   if (result.tier === "fast" && result.confidence < 0.85) return true;
-  
+
   // Skip verification for:
   if (result.confidence >= 0.9 && result.tier !== "fast") return false;
   if (context.isReadOnly) return false;  // Queries don't need verification
   if (context.isExplanation) return false;
-  
+
   // Default: verify
   return true;
 }
@@ -421,30 +421,30 @@ class AdaptiveThreshold {
     this.window = [];
     this.windowSize = windowSize;
   }
-  
+
   record(confidence, wasCorrect) {
     this.window.push({ confidence, wasCorrect });
     if (this.window.length > this.windowSize) this.window.shift();
   }
-  
+
   getThreshold() {
     if (this.window.length < 10) return this.base;  // Not enough data
-    
+
     // Find the confidence level where accuracy drops below 80%
     const sorted = [...this.window].sort((a, b) => b.confidence - a.confidence);
     let correct = 0, total = 0;
-    
+
     for (const entry of sorted) {
       total++;
       if (entry.wasCorrect) correct++;
       const accuracy = correct / total;
-      
+
       if (accuracy < 0.8 && total >= 5) {
         // This confidence level is the boundary
         return entry.confidence + 0.05;  // Add margin
       }
     }
-    
+
     return this.base;  // Data suggests base is fine
   }
 }
@@ -455,12 +455,12 @@ class AdaptiveThreshold {
 ```javascript
 function shouldEscalate(result, context, metrics) {
   const threshold = context.adaptiveThreshold.getThreshold();
-  
+
   // Hard rules (always escalate):
   if (result.confidence < 0.3) return { escalate: true, reason: "critically_low_confidence" };
   if (result.error && !result.error.retryable) return { escalate: true, reason: "permanent_error" };
   if (context.tokenBudgetExceeded) return { escalate: true, reason: "context_overflow", target: "cloud" };
-  
+
   // Metrics-driven rules:
   if (result.confidence < threshold) {
     // Check if escalation actually helps (from historical data)
@@ -472,12 +472,12 @@ function shouldEscalate(result, context, metrics) {
       return { escalate: false, retry: true, reason: "escalation_low_roi" };
     }
   }
-  
+
   // Soft rules (maybe escalate):
   if (result.durationMs > context.expectedLatency * 3) {
     return { escalate: true, reason: "excessive_latency", target: "cloud" };
   }
-  
+
   return { escalate: false };
 }
 ```
@@ -497,7 +497,7 @@ class BranchTerminator {
     if (branch.tokensConsumed > branch.budget.maxTokens) {
       return { terminate: true, reason: "budget_exhausted" };
     }
-    
+
     // Rule 2: Diminishing returns (confidence not improving)
     if (branch.retryCount >= 2) {
       const improvements = branch.confidenceHistory;
@@ -506,27 +506,27 @@ class BranchTerminator {
         return { terminate: true, reason: "diminishing_returns" };
       }
     }
-    
+
     // Rule 3: Sibling already succeeded (in parallel branches)
     if (state.hasSiblingCompleted(branch, minConfidence: 0.8)) {
       return { terminate: true, reason: "sibling_succeeded" };
     }
-    
+
     // Rule 4: Recursive depth exceeded
     if (branch.escalationDepth > 3) {
       return { terminate: true, reason: "max_escalation_depth" };
     }
-    
+
     // Rule 5: Wall-clock timeout
     if (Date.now() - branch.startTime > branch.timeout) {
       return { terminate: true, reason: "timeout" };
     }
-    
+
     // Rule 6: Circular reasoning detected
     if (detectCircularReasoning(branch.outputs)) {
       return { terminate: true, reason: "circular_reasoning" };
     }
-    
+
     return { terminate: false };
   }
 }
@@ -534,17 +534,17 @@ class BranchTerminator {
 function detectCircularReasoning(outputs) {
   // Check if recent outputs are semantically repeating
   if (outputs.length < 3) return false;
-  
+
   const last3 = outputs.slice(-3);
   // Simple heuristic: if last 3 outputs share >70% of keywords, it's circular
   const keywords = last3.map(o => new Set(o.split(/\s+/).filter(w => w.length > 4)));
-  
+
   const intersection01 = [...keywords[0]].filter(w => keywords[1].has(w));
   const intersection12 = [...keywords[1]].filter(w => keywords[2].has(w));
-  
+
   const overlap01 = intersection01.length / Math.max(keywords[0].size, 1);
   const overlap12 = intersection12.length / Math.max(keywords[1].size, 1);
-  
+
   return overlap01 > 0.7 && overlap12 > 0.7;
 }
 ```
@@ -577,7 +577,7 @@ function selectRetryStrategy(error, context, metrics) {
       sameModel: true
     };
   }
-  
+
   // Model busy (VRAM contention) → wait longer
   if (error.type === "ollama_busy") {
     return {
@@ -587,7 +587,7 @@ function selectRetryStrategy(error, context, metrics) {
       sameModel: true
     };
   }
-  
+
   // Low confidence (not an error, but unsatisfactory) → try different approach
   if (error.type === "low_confidence") {
     return {
@@ -597,7 +597,7 @@ function selectRetryStrategy(error, context, metrics) {
       newTier: getNextTier(context.currentTier)
     };
   }
-  
+
   // Rate limited (cloud) → switch provider
   if (error.type === "rate_limited") {
     return {
@@ -607,7 +607,7 @@ function selectRetryStrategy(error, context, metrics) {
       failoverMap: { "gemini": "groq", "groq": "gemini" }
     };
   }
-  
+
   // Context overflow → compress and retry
   if (error.type === "context_overflow") {
     return {
@@ -617,7 +617,7 @@ function selectRetryStrategy(error, context, metrics) {
       preRetryAction: "compress_context"
     };
   }
-  
+
   // Unknown → no retry
   return { strategy: "none", maxRetries: 0 };
 }
@@ -653,7 +653,7 @@ function arbitrate(positions) {
   // Level 1: Confidence gap (fastest, most common)
   const sorted = positions.sort((a, b) => b.confidence - a.confidence);
   const gap = sorted[0].confidence - sorted[1].confidence;
-  
+
   if (gap > 0.2) {
     return {
       winner: sorted[0],
@@ -661,11 +661,11 @@ function arbitrate(positions) {
       reason: `${sorted[0].agent} confidence ${sorted[0].confidence} vs ${sorted[1].confidence} (gap: ${gap})`
     };
   }
-  
+
   // Level 2: Tier hierarchy (free, deterministic)
   const tierRank = { heavy: 4, cloud: 4, reasoning: 3, specialist: 2, fast: 1 };
   const byTier = positions.sort((a, b) => tierRank[b.tier] - tierRank[a.tier]);
-  
+
   if (tierRank[byTier[0].tier] > tierRank[byTier[1].tier]) {
     return {
       winner: byTier[0],
@@ -673,14 +673,14 @@ function arbitrate(positions) {
       reason: `${byTier[0].agent} (${byTier[0].tier}) outranks ${byTier[1].agent} (${byTier[1].tier})`
     };
   }
-  
+
   // Level 3: Historical accuracy (metrics-driven)
   const accuracies = positions.map(p => ({
     ...p,
     historicalAccuracy: metrics.getAccuracy(p.agent, p.domain)
   }));
   const byAccuracy = accuracies.sort((a, b) => b.historicalAccuracy - a.historicalAccuracy);
-  
+
   if (byAccuracy[0].historicalAccuracy - byAccuracy[1].historicalAccuracy > 0.1) {
     return {
       winner: byAccuracy[0],
@@ -688,7 +688,7 @@ function arbitrate(positions) {
       reason: `${byAccuracy[0].agent} has ${(byAccuracy[0].historicalAccuracy * 100).toFixed(0)}% accuracy in this domain`
     };
   }
-  
+
   // Level 4: Recency bias (more recent training data wins for factual disputes)
   // Level 5: Only if all else fails → LLM judge (tournament_vote)
   return { winner: null, method: "needs_judge", reason: "All deterministic methods inconclusive" };
@@ -743,26 +743,26 @@ function resolveDependencies(dag) {
   const resolved = new Set();
   const executing = new Set();
   const ready = new Set();
-  
+
   // Topological sort to find execution order
   const order = topologicalSort(dag.nodes);
-  
+
   for (const nodeId of order) {
     const node = dag.nodes[nodeId];
     const deps = node.dependencies || [];
-    
+
     const hardDeps = deps.filter(d => d.type === "hard");
     const softDeps = deps.filter(d => d.type === "soft");
     const optDeps = deps.filter(d => d.type === "optional");
-    
+
     // Can execute when: all hard deps resolved + optionally some soft deps
     const canExecute = hardDeps.every(d => resolved.has(d.id));
-    
+
     if (canExecute) {
       ready.add(nodeId);
     }
   }
-  
+
   return { ready, blocked: order.filter(n => !ready.has(n)) };
 }
 ```
@@ -780,7 +780,7 @@ const COST_MODEL = {
   specialist: { tokensPerSec: 65,  costPerToken: 0 },
   reasoning:  { tokensPerSec: 35,  costPerToken: 0 },
   heavy:      { tokensPerSec: 25,  costPerToken: 0 },
-  
+
   // Cloud models: cost = API usage (free tier has limits)
   gemini:     { tokensPerSec: 200, costPerToken: 0, dailyBudget: 1500 },
   groq:       { tokensPerSec: 500, costPerToken: 0, dailyBudget: 14400 }
@@ -789,7 +789,7 @@ const COST_MODEL = {
 function estimateCost(task, tier) {
   const tokens = estimateTokens(task);
   const model = COST_MODEL[tier];
-  
+
   return {
     estimatedDurationMs: (tokens / model.tokensPerSec) * 1000,
     tokenCost: tokens * model.costPerToken,
@@ -828,7 +828,7 @@ class CircuitBreaker {
     this.resetTime = resetTimeMs;
     this.lastFailure = 0;
   }
-  
+
   canExecute() {
     if (this.state === "closed") return true;
     if (this.state === "open") {
@@ -840,12 +840,12 @@ class CircuitBreaker {
     }
     return true;  // half-open: allow test
   }
-  
+
   recordSuccess() {
     this.failures = 0;
     this.state = "closed";
   }
-  
+
   recordFailure() {
     this.failures++;
     this.lastFailure = Date.now();
@@ -929,11 +929,11 @@ const breakers = {
 ### 12.1 Checkpoint-Based Recovery
 
 ```
-Task executing... 
+Task executing...
   Step 1 ✅ → checkpoint saved
   Step 2 ✅ → checkpoint saved
   Step 3 ❌ → FAILURE
-  
+
 Recovery:
   Load checkpoint from Step 2
   Modify Step 3 (different tier, different approach)

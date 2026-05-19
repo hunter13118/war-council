@@ -65,7 +65,7 @@ describe('Schema Validation Suite', () => {
     for (const schema of schemaFiles) {
       it(`${schema.name} uses war-council:// $id prefix`, () => {
         const content = JSON.parse(fs.readFileSync(schema.path, 'utf-8'));
-        assert.match(content.$id, /^war-council:\/\/schemas\//, 
+        assert.match(content.$id, /^war-council:\/\/schemas\//,
           `${schema.name} $id should start with war-council://schemas/`);
       });
     }
@@ -99,9 +99,9 @@ describe('Schema Validation Suite', () => {
       it(`${schema.name} defines "required" array if type is object`, () => {
         const content = JSON.parse(fs.readFileSync(schema.path, 'utf-8'));
         if (content.type === 'object') {
-          assert.ok(Array.isArray(content.required), 
+          assert.ok(Array.isArray(content.required),
             `${schema.name} is type:object but missing "required" array`);
-          assert.ok(content.required.length > 0, 
+          assert.ok(content.required.length > 0,
             `${schema.name} has empty "required" array`);
         }
         // For definition-only schemas, check that at least one definition has required
@@ -119,15 +119,15 @@ describe('Schema Validation Suite', () => {
     for (const schema of schemaFiles) {
       it(`${schema.name} — all required fields are defined in properties`, () => {
         const content = JSON.parse(fs.readFileSync(schema.path, 'utf-8'));
-        
+
         // Check root level
         if (content.type === 'object' && content.required && content.properties) {
           for (const field of content.required) {
-            assert.ok(content.properties[field], 
+            assert.ok(content.properties[field],
               `${schema.name} lists "${field}" as required but it's not in properties`);
           }
         }
-        
+
         // Check definitions
         if (content.definitions) {
           for (const [defName, def] of Object.entries(content.definitions)) {
@@ -145,12 +145,12 @@ describe('Schema Validation Suite', () => {
 
   describe('Schema count meets expectations', () => {
     it('should have at least 20 schema files (all phases produced schemas)', () => {
-      assert.ok(schemaFiles.length >= 20, 
+      assert.ok(schemaFiles.length >= 20,
         `Expected >=20 schemas, found ${schemaFiles.length}`);
     });
 
     it('should have schemas from Phase 2 (contracts)', () => {
-      const phase2 = ['agent-message', 'agent-contract', 'confidence', 'task-state', 
+      const phase2 = ['agent-message', 'agent-contract', 'confidence', 'task-state',
                       'execution-result', 'escalation', 'retrieval', 'memory-write',
                       'verification', 'retry-policy', 'token-budget', 'arbitration'];
       for (const name of phase2) {

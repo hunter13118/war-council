@@ -1,7 +1,7 @@
 # Phase 1 — Architecture Audit: War Council
 
-**Auditor:** Copilot (Claude Opus 4.6)  
-**Date:** 2026-05-18  
+**Auditor:** Copilot (Claude Opus 4.6)
+**Date:** 2026-05-18
 **Scope:** Full system reverse-engineering, no redesign proposals
 
 ---
@@ -81,8 +81,8 @@ Chains reference previous step outputs via `context.results[N]`. Conditional ste
 
 ### 1.6 Decision Router (`decision-router.js`)
 
-Keyword-pattern-matching router. Analyzes task description → recommends tool or chain.  
-8 keyword categories: bug, feature, refactor, investigate, architecture, testing, review, performance.  
+Keyword-pattern-matching router. Analyzes task description → recommends tool or chain.
+8 keyword categories: bug, feature, refactor, investigate, architecture, testing, review, performance.
 Default fallback: `memory_query`.
 
 ### 1.7 Council Deliberation (`council-deliberation.js`)
@@ -191,7 +191,7 @@ Consumer (Roo/Cline) → stdio → MCP Server
 ```
 smart_route(task_description)
   → keyword matching → chain recommendation
-  
+
 run_chain(chain_name, inputs)
   → validate required inputs
   → for each step:

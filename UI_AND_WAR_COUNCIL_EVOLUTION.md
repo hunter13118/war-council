@@ -145,33 +145,33 @@ class ReconnectingSSE {
     this.buffer = [];  // Buffer events during reconnection
     this.connect();
   }
-  
+
   connect() {
-    const url = this.lastEventId 
+    const url = this.lastEventId
       ? `${this.url}?lastEventId=${this.lastEventId}`
       : this.url;
-    
+
     this.source = new EventSource(url);
-    
+
     this.source.onmessage = (event) => {
       this.reconnectDelay = 1000;  // Reset on success
       const parsed = JSON.parse(event.data);
       this.lastEventId = event.lastEventId || parsed.timestamp;
       this.dispatch(parsed);
     };
-    
+
     this.source.onerror = () => {
       this.source.close();
       setTimeout(() => this.connect(), this.reconnectDelay);
       this.reconnectDelay = Math.min(this.reconnectDelay * 2, this.maxReconnectDelay);
     };
   }
-  
+
   on(eventType, handler) {
     if (!this.handlers.has(eventType)) this.handlers.set(eventType, []);
     this.handlers.get(eventType).push(handler);
   }
-  
+
   dispatch(event) {
     const handlers = this.handlers.get(event.type) || [];
     handlers.forEach(h => h(event));
@@ -201,15 +201,15 @@ class StateStore {
     };
     this.subscribers = new Set();
   }
-  
+
   apply(event) {
     // Reducer pattern: event → state mutation
     switch (event.type) {
       case 'agent.activate':
-        this.state.agents[event.data.agentId] = { 
+        this.state.agents[event.data.agentId] = {
           ...this.state.agents[event.data.agentId],
-          status: 'active', 
-          task: event.data.task 
+          status: 'active',
+          task: event.data.task
         };
         break;
       case 'dag.node.complete':
@@ -225,11 +225,11 @@ class StateStore {
         break;
       // ... reducers for each event type
     }
-    
+
     this.state.timeline.push(event);
     this.notify();
   }
-  
+
   subscribe(fn) { this.subscribers.add(fn); return () => this.subscribers.delete(fn); }
   notify() { this.subscribers.forEach(fn => fn(this.state)); }
   getState() { return this.state; }
@@ -489,7 +489,7 @@ class AnimationSystem {
     this.queue = [];
     this.running = false;
   }
-  
+
   // Schedule an animation (CSS class toggle or direct style manipulation)
   animate(element, animation, duration = 300) {
     return new Promise(resolve => {
@@ -500,14 +500,14 @@ class AnimationSystem {
       }, { once: true });
     });
   }
-  
+
   // Sequence: run animations one after another
   async sequence(animations) {
     for (const { element, animation, duration } of animations) {
       await this.animate(element, animation, duration);
     }
   }
-  
+
   // Particle burst (for memory writes, escalations, etc.)
   particleBurst(origin, target, count = 8, color = 'var(--cyan)') {
     for (let i = 0; i < count; i++) {
@@ -524,18 +524,18 @@ class AnimationSystem {
         pointer-events: none;
       `;
       document.body.appendChild(particle);
-      
+
       // Animate to target with random arc
       const angle = (i / count) * Math.PI * 2;
       const midX = (origin.x + target.x) / 2 + Math.cos(angle) * 50;
       const midY = (origin.y + target.y) / 2 + Math.sin(angle) * 50;
-      
+
       particle.animate([
         { left: `${origin.x}px`, top: `${origin.y}px`, opacity: 1 },
         { left: `${midX}px`, top: `${midY}px`, opacity: 0.8 },
         { left: `${target.x}px`, top: `${target.y}px`, opacity: 0 }
       ], { duration: 600 + i * 50, easing: 'ease-out' });
-      
+
       setTimeout(() => particle.remove(), 800 + i * 50);
     }
   }
@@ -557,31 +557,31 @@ class DAGRenderer {
     this.levelGap = 80;
     this.nodeGap = 30;
   }
-  
+
   render(dag, state) {
     // 1. Topological sort → assign levels
     const levels = this.assignLevels(dag);
-    
+
     // 2. Position nodes (centered per level)
     const positions = this.positionNodes(levels);
-    
+
     // 3. Draw edges (bezier curves)
     this.drawEdges(dag, positions);
-    
+
     // 4. Draw nodes with state-based styling
     this.drawNodes(dag, positions, state);
   }
-  
+
   assignLevels(dag) {
     // Longest-path algorithm for level assignment
     const levels = {};
     const visited = new Set();
-    
+
     function dfs(nodeId, depth) {
       if (visited.has(nodeId)) return;
       visited.add(nodeId);
       levels[nodeId] = Math.max(levels[nodeId] || 0, depth);
-      
+
       // Find nodes that depend on this one
       for (const [id, node] of Object.entries(dag.nodes)) {
         if (node.dependencies?.includes(nodeId)) {
@@ -589,15 +589,15 @@ class DAGRenderer {
         }
       }
     }
-    
+
     dfs(dag.entryNode, 0);
     return levels;
   }
-  
+
   drawNode(nodeId, node, pos, state) {
     const nodeState = state?.nodes?.[nodeId]?.status || 'pending';
     const confidence = state?.nodes?.[nodeId]?.confidence;
-    
+
     const colors = {
       pending: { fill: '#1a1a2e', stroke: '#3a3a5a' },
       executing: { fill: '#1a2a4a', stroke: '#00e5ff' },
@@ -606,15 +606,15 @@ class DAGRenderer {
       skipped: { fill: '#1a1a1a', stroke: '#333333' },
       terminated: { fill: '#2a1a1a', stroke: '#ff4444' }
     };
-    
+
     const { fill, stroke } = colors[nodeState];
-    
+
     // SVG rect + text + state indicator
     return `
       <g class="dag-node dag-node-${nodeState}" transform="translate(${pos.x}, ${pos.y})">
-        <rect width="${this.nodeWidth}" height="${this.nodeHeight}" 
+        <rect width="${this.nodeWidth}" height="${this.nodeHeight}"
               rx="6" fill="${fill}" stroke="${stroke}" stroke-width="2"/>
-        <text x="${this.nodeWidth / 2}" y="20" text-anchor="middle" 
+        <text x="${this.nodeWidth / 2}" y="20" text-anchor="middle"
               fill="#e0e0f0" font-size="10" font-family="monospace">${nodeId}</text>
         <text x="${this.nodeWidth / 2}" y="40" text-anchor="middle"
               fill="${stroke}" font-size="8">${node.type} | ${node.config?.tier || ''}</text>
@@ -630,7 +630,7 @@ class DAGRenderer {
 ### 5.2 Live Update Flow
 
 ```
-SSE event (dag.node.complete) 
+SSE event (dag.node.complete)
   → StateStore.apply(event)
   → DAGRenderer.updateNode(nodeId, newState)
   → CSS transition animates color change
@@ -732,7 +732,7 @@ class EventBuffer {
     this.maxSize = maxSize;
     this.idCounter = 0;
   }
-  
+
   push(event) {
     event.id = ++this.idCounter;
     this.events.push(event);
@@ -740,13 +740,13 @@ class EventBuffer {
       this.events.shift();
     }
   }
-  
+
   // Backfill: return events after a given ID
   since(lastId) {
     const idx = this.events.findIndex(e => e.id > lastId);
     return idx >= 0 ? this.events.slice(idx) : [];
   }
-  
+
   // Snapshot: return current state derived from all events
   snapshot() {
     const state = new StateStore();
@@ -884,14 +884,14 @@ function emitEvent(type, data) {
     traceId: getCurrentTraceId(),
     data
   };
-  
+
   // Option A: HTTP push to battle-log
   fetch('http://localhost:3737/api/event', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(event)
   }).catch(() => {}); // Fire and forget, don't block MCP
-  
+
   // Option B: Append to shared JSONL (file watcher picks up)
   fs.appendFileSync(EVENTS_FILE, JSON.stringify(event) + '\n');
 }

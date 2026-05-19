@@ -1,6 +1,6 @@
 # Phase 2 — Contracts and Protocols
 
-**Purpose:** Transform prompt-driven swarm into structured distributed cognition infrastructure.  
+**Purpose:** Transform prompt-driven swarm into structured distributed cognition infrastructure.
 **Principle:** Deterministic orchestration, minimal token waste, subsystem isolation, modular extensibility.
 
 ---
@@ -62,7 +62,7 @@ Every agent (whether Copilot-native or Ollama-invoked) is bound by:
   "role": "string",              // One-sentence description
   "tier": "fast|specialist|reasoning|heavy",
   "domain": ["string"],          // Allowed domains (e.g., ["react", "testing", "css"])
-  
+
   "boundaries": {
     "allowedActions": [
       "generate_code",
@@ -149,14 +149,14 @@ Every agent (whether Copilot-native or Ollama-invoked) is bound by:
   "createdAt": "ISO-8601",
   "updatedAt": "ISO-8601",
   "description": "string",
-  
+
   "routing": {
     "method": "smart_route|explicit|chain",
     "selectedTool": "string",
     "selectedChain": "string|null",
     "confidence": 0.0
   },
-  
+
   "execution": {
     "assignedAgent": "string",
     "tier": "string",

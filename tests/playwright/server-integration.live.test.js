@@ -2,11 +2,11 @@ import { test, expect } from '@playwright/test';
 
 /**
  * LIVE SERVER TESTS — Battle Log Server Integration
- * 
+ *
  * These tests require the battle-log server running on port 3737.
  * They validate real connectivity, SSE streams, REST endpoints,
  * and the full integration chain described across Phases 1-7.
- * 
+ *
  * The Playwright config's webServer option auto-starts the server.
  */
 
@@ -182,7 +182,7 @@ test.describe('Server — War Table Page Live Rendering', () => {
     await page.waitForTimeout(2000); // Let any async init complete
 
     // Filter out expected errors (e.g., failed SSE reconnection is OK)
-    const criticalErrors = errors.filter(e => 
+    const criticalErrors = errors.filter(e =>
       !e.includes('EventSource') && !e.includes('fetch') && !e.includes('network')
     );
     expect(criticalErrors).toHaveLength(0);
@@ -190,7 +190,7 @@ test.describe('Server — War Table Page Live Rendering', () => {
 
   test('war-table page renders dark theme correctly', async ({ page }) => {
     await page.goto('/war-table');
-    
+
     const bgColor = await page.evaluate(() => {
       return getComputedStyle(document.body).backgroundColor;
     });
@@ -200,7 +200,7 @@ test.describe('Server — War Table Page Live Rendering', () => {
 
   test('war-table page has interactive elements', async ({ page }) => {
     await page.goto('/war-table');
-    
+
     // Should have navigation links
     const navLinks = page.locator('.nav a');
     const linkCount = await navLinks.count();
