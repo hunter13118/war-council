@@ -7,14 +7,20 @@
  *   - All ARSENAL models respond
  *   - tournament_vote runs in parallel correctly
  */
+import { readFileSync } from "node:fs";
+import { resolve, dirname } from "node:path";
+import { fileURLToPath } from "node:url";
 
-const OLLAMA_BASE = process.env.OLLAMA_BASE || "http://127.0.0.1:11434";
+const __dirname = dirname(fileURLToPath(import.meta.url));
+const arsenalConfig = JSON.parse(readFileSync(resolve(__dirname, "..", "arsenal.json"), "utf-8"));
+
+const OLLAMA_BASE = process.env.OLLAMA_BASE || arsenalConfig.defaults.ollama_base;
 
 const ARSENAL = {
-  fast: "qwen2.5-coder:7b",
-  specialist: "qwen2.5-coder:14b",
-  reasoning: "deepseek-r1:14b",
-  heavy: "qwen2.5-coder:32b",
+  fast: arsenalConfig.models.fast.name,
+  specialist: arsenalConfig.models.specialist.name,
+  reasoning: arsenalConfig.models.reasoning.name,
+  heavy: arsenalConfig.models.heavy.name,
 };
 
 async function ollamaGenerate(model, prompt) {

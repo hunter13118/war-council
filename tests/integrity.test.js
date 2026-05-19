@@ -217,4 +217,44 @@ describe('Cross-Reference Integrity Suite', () => {
         `At least 2 docs should reference SSE (found in ${sseDocs.length})`);
     });
   });
+
+  describe('Arsenal config integrity', () => {
+    const arsenalPath = path.join(ROOT, 'arsenal.json');
+    const arsenal = JSON.parse(fs.readFileSync(arsenalPath, 'utf-8'));
+
+    it('arsenal.json exists and is valid JSON', () => {
+      assert.ok(fs.existsSync(arsenalPath));
+      assert.ok(typeof arsenal === 'object');
+    });
+
+    it('has all required model tiers', () => {
+      const required = ['fast', 'specialist', 'reasoning', 'heavy', 'embed'];
+      for (const tier of required) {
+        assert.ok(arsenal.models[tier], `Missing model tier: ${tier}`);
+        assert.ok(arsenal.models[tier].name, `${tier} missing "name"`);
+        assert.ok(arsenal.models[tier].role, `${tier} missing "role"`);
+      }
+    });
+
+    it('has cloud escalation config', () => {
+      assert.ok(arsenal.cloud.gemini, 'Missing cloud.gemini');
+      assert.ok(arsenal.cloud.groq, 'Missing cloud.groq');
+      assert.ok(arsenal.cloud.gemini.name, 'gemini missing name');
+      assert.ok(arsenal.cloud.groq.name, 'groq missing name');
+    });
+
+    it('has defaults section with ollama_base', () => {
+      assert.ok(arsenal.defaults, 'Missing defaults section');
+      assert.ok(arsenal.defaults.ollama_base, 'Missing ollama_base');
+      assert.match(arsenal.defaults.ollama_base, /^https?:\/\//,
+        'ollama_base should be a URL');
+    });
+
+    it('model names match what MCP server expects', () => {
+      // Verify the MCP server references match arsenal
+      const mcpServer = fs.readFileSync(path.join(ROOT, 'mcp-server', 'server.js'), 'utf-8');
+      assert.ok(mcpServer.includes('arsenalConfig'),
+        'MCP server should import arsenalConfig');
+    });
+  });
 });

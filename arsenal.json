@@ -1,0 +1,51 @@
+{
+  "models": {
+    "fast": {
+      "name": "qwen2.5-coder:7b",
+      "role": "Workhorse — TestRunner, RepoScout, quick tasks",
+      "vram_gb": 5,
+      "speed": "~200 tok/s"
+    },
+    "specialist": {
+      "name": "qwen2.5-coder:14b",
+      "role": "Domain agents — Flask, React, code review",
+      "vram_gb": 9,
+      "speed": "~80 tok/s"
+    },
+    "reasoning": {
+      "name": "deepseek-r1:14b",
+      "role": "Chain-of-thought reasoning, architecture decisions",
+      "vram_gb": 9,
+      "speed": "~60 tok/s"
+    },
+    "heavy": {
+      "name": "qwen2.5-coder:32b",
+      "role": "Conductor, deep refactors, complex synthesis",
+      "vram_gb": 19,
+      "speed": "~30 tok/s"
+    },
+    "embed": {
+      "name": "nomic-embed-text",
+      "role": "RAG embeddings over codebase",
+      "vram_gb": 0.3,
+      "dimensions": 768
+    }
+  },
+  "cloud": {
+    "gemini": {
+      "name": "gemini-2.5-flash",
+      "role": "Cloud escalation — large context, fast",
+      "provider": "google"
+    },
+    "groq": {
+      "name": "llama-3.3-70b-versatile",
+      "role": "Cloud escalation — high throughput",
+      "provider": "groq"
+    }
+  },
+  "defaults": {
+    "ollama_base": "http://127.0.0.1:11434",
+    "max_concurrent_local": 2,
+    "timeout_ms": 120000
+  }
+}

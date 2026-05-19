@@ -33,6 +33,7 @@ import {
 import { fileURLToPath } from "node:url";
 import { dirname, resolve, join } from "node:path";
 import { readFile } from "node:fs/promises";
+import { readFileSync } from "node:fs";
 import { spawn } from "node:child_process";
 import { retrieve } from "../memory-engine/retriever.js";
 import { indexRepo } from "../memory-engine/indexer.js";
@@ -46,7 +47,11 @@ import { deliberate, debate, buildConsensus, readScratchpad, appendScratchpad } 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
-const OLLAMA_BASE = process.env.OLLAMA_BASE || "http://127.0.0.1:11434";
+// Load centralized arsenal config
+const arsenalPath = resolve(__dirname, "..", "arsenal.json");
+const arsenalConfig = JSON.parse(readFileSync(arsenalPath, "utf-8"));
+
+const OLLAMA_BASE = process.env.OLLAMA_BASE || arsenalConfig.defaults.ollama_base;
 const OLLAMA_CONTEXT_LENGTH = parseInt(process.env.OLLAMA_CONTEXT_LENGTH || "32768", 10);
 const OLLAMA_KEEP_ALIVE = process.env.OLLAMA_KEEP_ALIVE || "30m";
 const REPO_ROOT =
@@ -107,21 +112,22 @@ async function withRetry(fn, opts = {}) {
 const MEMORY_STORE_PATH =
   process.env.MEMORY_STORE_PATH ||
   resolve(__dirname, "..", "memory-engine", "store.json");
+
 const MEMORY_EMBED_MODEL =
-  process.env.MEMORY_EMBED_MODEL || "nomic-embed-text";
+  process.env.MEMORY_EMBED_MODEL || arsenalConfig.models.embed.name;
 
 // Cloud API config — free tiers
 const GEMINI_API_KEY = process.env.GEMINI_API_KEY || "";
 const GROQ_API_KEY = process.env.GROQ_API_KEY || "";
-const GEMINI_MODEL = process.env.GEMINI_MODEL || "gemini-2.5-flash";
-const GROQ_MODEL = process.env.GROQ_MODEL || "llama-3.3-70b-versatile";
+const GEMINI_MODEL = process.env.GEMINI_MODEL || arsenalConfig.cloud.gemini.name;
+const GROQ_MODEL = process.env.GROQ_MODEL || arsenalConfig.cloud.groq.name;
 
-// Model roster — adjust as arsenal evolves.
+// Model roster — loaded from arsenal.json, overridable via env vars.
 const ARSENAL = {
-  fast: "qwen2.5-coder:7b",
-  specialist: "qwen2.5-coder:14b",
-  reasoning: "deepseek-r1:14b",
-  heavy: "qwen2.5-coder:32b",
+  fast: process.env.MODEL_FAST || arsenalConfig.models.fast.name,
+  specialist: process.env.MODEL_SPECIALIST || arsenalConfig.models.specialist.name,
+  reasoning: process.env.MODEL_REASONING || arsenalConfig.models.reasoning.name,
+  heavy: process.env.MODEL_HEAVY || arsenalConfig.models.heavy.name,
 };
 
 /**
