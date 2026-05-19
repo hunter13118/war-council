@@ -1222,8 +1222,8 @@ function typewriterWithBabble(element, text, options = {}) {
       element.textContent = text.substring(0, i + 1);
       i++;
 
-      // Play babble on non-space characters
-      if (char !== ' ' && char !== '\n' && i % 2 === 0) {
+      // Play babble on non-space characters (skip when real voices are active)
+      if (!voicesEnabled && char !== ' ' && char !== '\n' && i % 2 === 0) {
         const pitchVariance = basePitch + (Math.random() - 0.5) * 120;
         playBabbleChar(pitchVariance);
       }
@@ -1631,8 +1631,8 @@ function typeNextRPG() {
       textEl.innerHTML = text.substring(0, i + 1) + '<span class="cursor"></span>';
       i++;
 
-      // Animal Crossing babble on non-space chars
-      if (char !== ' ' && char !== '\n' && i % 2 === 0) {
+      // Animal Crossing babble on non-space chars (skip when real voices active)
+      if (!voicesEnabled && char !== ' ' && char !== '\n' && i % 2 === 0) {
         playBabbleChar(350 + (Math.random() - 0.5) * 120);
       }
 
@@ -1734,25 +1734,25 @@ function showObjection(agent1, text1, agent2, text2, opts = {}) {
     vs.style.opacity = '1'; await delay(600);
     agentsEls[1].style.opacity = '1'; await delay(600);
 
-    // Typewriter agent 1's argument with babble
+    // Typewriter agent 1's argument — voice fires simultaneously
     args[0].style.opacity = '1'; args[0].style.transform = 'translateY(0)';
-    await typewriterWithBabble(args[0], text1, { speed: 20, basePitch: 320 });
     const isVip1 = (agent1 === 'self_eval' || agent1 === 'hypeman');
-    queueTts(text1.slice(0, 200), voiceMap[agent1] || 'en-US-AriaNeural', isVip1, agent1);
+    if (voicesEnabled) queueTts(text1.slice(0, 200), voiceMap[agent1] || 'en-US-AriaNeural', isVip1, agent1);
+    await typewriterWithBabble(args[0], text1, { speed: 20, basePitch: 320 });
     await waitForTtsIdle();
 
-    // Typewriter agent 2's argument with babble
+    // Typewriter agent 2's argument — voice fires simultaneously
     args[1].style.opacity = '1'; args[1].style.transform = 'translateY(0)';
-    await typewriterWithBabble(args[1], text2, { speed: 20, basePitch: 420 });
     const isVip2 = (agent2 === 'self_eval' || agent2 === 'hypeman');
-    queueTts(text2.slice(0, 200), voiceMap[agent2] || 'en-US-AriaNeural', isVip2, agent2);
+    if (voicesEnabled) queueTts(text2.slice(0, 200), voiceMap[agent2] || 'en-US-AriaNeural', isVip2, agent2);
+    await typewriterWithBabble(args[1], text2, { speed: 20, basePitch: 420 });
     await waitForTtsIdle();
 
-    // Typewriter verdict with babble
+    // Typewriter verdict — voice fires simultaneously
     if (verdictEl && verdictTextEl && opts.verdict) {
       verdictEl.style.opacity = '1';
+      if (voicesEnabled) queueTts(opts.verdict.slice(0, 200), voiceMap['self_eval'] || 'en-US-AriaNeural', true, 'self_eval');
       await typewriterWithBabble(verdictTextEl, opts.verdict, { speed: 18, basePitch: 280 });
-      queueTts(opts.verdict.slice(0, 200), voiceMap['self_eval'] || 'en-US-AriaNeural', true, 'self_eval');
       await waitForTtsIdle();
     }
 
@@ -1863,28 +1863,33 @@ document.getElementById('objectionOverlay').addEventListener('click', () => {
       agentEls[i].el.style.opacity = '1';
     }
 
-    // Sequential speech bubbles with babble
+    // Sequential speech bubbles — voice fires simultaneously with typewriter
     for (let i = 0; i < agents.length; i++) {
       const { el, bubble } = agentEls[i];
       el.classList.add('speaking');
       bubble.classList.add('visible');
       const text = agents[i].text || '...';
+      const agentKey = agents[i].name ? agents[i].name.toLowerCase().replace(/\s/g, '_') : 'council_deliberate';
       bubble.textContent = '';
+      // Fire TTS at same time as typewriter (replaces babble)
+      if (voicesEnabled) queueTts(text.slice(0, 200), voiceMap[agentKey] || 'en-US-AriaNeural', false, agentKey);
       // Typewriter
       for (let c = 0; c < Math.min(text.length, 120); c++) {
         bubble.textContent += text[c];
         await delay(15);
       }
       if (text.length > 120) bubble.textContent += '...';
-      await delay(1500);
+      await waitForTtsIdle();
       el.classList.remove('speaking');
     }
 
-    // Show verdict
+    // Show verdict with voice
     if (opts.verdict) {
       await delay(600);
       verdictEl.textContent = '⚖️ ' + opts.verdict;
       verdictEl.classList.add('visible');
+      if (voicesEnabled) queueTts(opts.verdict.slice(0, 200), voiceMap['self_eval'] || 'en-US-AriaNeural', true, 'self_eval');
+      await waitForTtsIdle();
     }
 
     // Auto-dismiss after 5s
