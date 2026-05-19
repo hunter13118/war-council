@@ -9,30 +9,30 @@ const ROOT = path.resolve(__dirname, '..', '..');
  * MOCKED E2E — Stats Widget, Rate Limiter, Vector Store UI
  */
 
-test.describe('War Table — Stats Widget', () => {
+test.describe('War Table — Token Economy HUD', () => {
   test.beforeEach(async ({ page }) => {
     const filePath = path.join(ROOT, 'battle-log', 'war-table.html');
     await page.goto(`file:///${filePath.replace(/\\/g, '/')}`);
   });
 
-  test('stats widget element exists on page', async ({ page }) => {
-    // Widget is injected by JS on load — give it a tick
+  test('token HUD element exists on page', async ({ page }) => {
+    // HUD is injected by JS on load — give it a tick
     await page.waitForTimeout(500);
-    const widget = page.locator('#stats-widget');
+    const widget = page.locator('#token-hud');
     await expect(widget).toBeVisible();
   });
 
-  test('stats widget has title text', async ({ page }) => {
+  test('token HUD has title text', async ({ page }) => {
     await page.waitForTimeout(500);
-    const widget = page.locator('#stats-widget');
-    await expect(widget).toContainText('System Stats');
+    const widget = page.locator('#token-hud');
+    await expect(widget).toContainText('TOKEN ECONOMY');
   });
 
-  test('stats content element exists', async ({ page }) => {
+  test('VRAM section exists in HUD', async ({ page }) => {
     await page.waitForTimeout(500);
-    const content = page.locator('#stats-content');
+    const content = page.locator('#hud-vram-content');
     await expect(content).toBeVisible();
-    // Will show "Offline" or "Loading..." since no server is running
+    // Will show "Offline" or "No models loaded" since no server is running
     const text = await content.textContent();
     expect(text.length).toBeGreaterThan(0);
   });
