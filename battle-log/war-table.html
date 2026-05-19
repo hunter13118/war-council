@@ -1909,6 +1909,9 @@ function handleTournamentResult(event) {
   if (winnerRecord) agentRecords[winner] = winnerRecord;
   if (loserRecord) agentRecords[loser] = loserRecord;
 
+  // Update ELO ratings
+  updateElo(winner, loser);
+
   // Update UI badges
   updateRecordBadge(winner);
   updateRecordBadge(loser);
@@ -2014,23 +2017,42 @@ function handleReoptimize(event) {
 function updateRecordBadge(agentKey) {
   const el = document.getElementById(`record-${agentKey}`);
   if (!el) return;
-  const rec = agentRecords[agentKey] || { wins: 0, losses: 0, streak: 0 };
+  const rec = agentRecords[agentKey] || { wins: 0, losses: 0, streak: 0, elo: DEFAULT_ELO };
+  const elo = rec.elo ?? DEFAULT_ELO;
   let streakText = '';
   if (rec.streak >= 3) streakText = ` <span class="streak">🔥${rec.streak}</span>`;
-  el.innerHTML = `<span class="wins">W:${rec.wins}</span> / <span class="losses">L:${rec.losses}</span>${streakText}`;
+  el.innerHTML = `<span class="wins">W:${rec.wins}</span> / <span class="losses">L:${rec.losses}</span> <span style="color:#0ff;font-size:0.8em;">[${elo}]</span>${streakText}`;
 }
 
-// === Crown System (best W/L ratio gets crown) ===
+// === ELO Rating System ===
+const DEFAULT_ELO = 1200;
+const K_FACTOR = 32;
+
+function getElo(agent) {
+  if (!agentRecords[agent]) return DEFAULT_ELO;
+  return agentRecords[agent].elo ?? DEFAULT_ELO;
+}
+
+function updateElo(winner, loser) {
+  const eloW = getElo(winner);
+  const eloL = getElo(loser);
+  const expectedW = 1 / (1 + Math.pow(10, (eloL - eloW) / 400));
+  const expectedL = 1 - expectedW;
+  if (!agentRecords[winner]) agentRecords[winner] = { wins: 0, losses: 0, streak: 0, elo: DEFAULT_ELO };
+  if (!agentRecords[loser]) agentRecords[loser] = { wins: 0, losses: 0, streak: 0, elo: DEFAULT_ELO };
+  agentRecords[winner].elo = Math.round(eloW + K_FACTOR * (1 - expectedW));
+  agentRecords[loser].elo = Math.round(eloL + K_FACTOR * (0 - expectedL));
+}
+
+// === Crown System (highest ELO gets crown) ===
 function updateCrowns() {
   let bestAgent = null;
-  let bestScore = -1;
+  let bestElo = -1;
 
   for (const [agent, rec] of Object.entries(agentRecords)) {
-    const total = rec.wins + rec.losses;
-    if (total === 0) continue;
-    const score = rec.wins / total + (rec.streak * 0.1); // bonus for streaks
-    if (score > bestScore && rec.wins >= 2) { // min 2 wins to earn crown
-      bestScore = score;
+    const elo = rec.elo ?? DEFAULT_ELO;
+    if (elo > bestElo && rec.wins >= 2) {
+      bestElo = elo;
       bestAgent = agent;
     }
   }
@@ -2121,12 +2143,20 @@ fetch('/voices')
       const lines = [];
       if (data.rateLimits) {
         for (const [prov, s] of Object.entries(data.rateLimits)) {
-          lines.push(`<b>${prov}</b>: ${s.used}/${s.limit} RPM (${s.remaining} left)`);
+          const pct = Math.round((s.used / s.limit) * 100);
+          lines.push(`<b>${prov}</b>: <span style="color:${pct > 80 ? '#f55' : '#0f0'}">${s.used}/${s.limit}</span> RPM`);
         }
       }
       if (data.memoryStats) {
         lines.push(`<b>Memory</b>: ${data.memoryStats.totalChunks || 0} chunks, ${data.memoryStats.uniqueFiles || 0} files`);
       }
+      // ELO rankings from local state
+      const eloRanks = Object.entries(agentRecords)
+        .filter(([_, r]) => r.elo)
+        .sort((a, b) => (b[1].elo || 1200) - (a[1].elo || 1200))
+        .slice(0, 3)
+        .map(([k, r], i) => `${['🥇','🥈','🥉'][i]} ${(AGENTS[k]||{}).name||k}: ${r.elo}`);
+      if (eloRanks.length) lines.push('<b>ELO Top 3</b>:<br>' + eloRanks.join('<br>'));
       document.getElementById('stats-content').innerHTML = lines.join('<br>') || 'No data';
     }).catch(() => {
       document.getElementById('stats-content').innerHTML = 'Offline';
