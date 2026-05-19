@@ -3,6 +3,7 @@
  */
 import { ARSENAL } from "../shared/config.js";
 import { ollamaGenerateWithRetry, formatConsultResult } from "../shared/ollama.js";
+import { augmentWithMemory } from "../shared/rag-augment.js";
 
 export const schema = {
   name: "consult_specialist",
@@ -20,7 +21,8 @@ export const schema = {
 };
 
 export async function handler(args, ctx) {
-  const r = await ollamaGenerateWithRetry(ARSENAL.specialist, args.prompt, {
+  const { augmentedPrompt } = await augmentWithMemory(args.prompt);
+  const r = await ollamaGenerateWithRetry(ARSENAL.specialist, augmentedPrompt, {
     maxTokens: args.maxTokens,
   });
   return {
