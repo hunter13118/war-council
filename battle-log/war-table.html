@@ -2299,6 +2299,141 @@ fetch('/voices')
   setInterval(refreshHUD, 5000);
 })();
 
+// === Memory Constellation Graph ===
+(function initMemoryGraph() {
+  // Floating toggle button
+  const btn = document.createElement('div');
+  btn.id = 'mem-graph-btn';
+  btn.innerHTML = '🧠';
+  btn.title = 'Memory Constellation';
+  btn.style.cssText = 'position:fixed;top:10px;right:10px;width:36px;height:36px;background:#0d0d1a;border:1px solid #333;border-radius:50%;display:flex;align-items:center;justify-content:center;cursor:pointer;z-index:10001;font-size:18px;box-shadow:0 0 10px rgba(0,255,255,0.2);';
+  document.body.appendChild(btn);
+
+  // Overlay panel
+  const panel = document.createElement('div');
+  panel.id = 'mem-graph-panel';
+  panel.style.cssText = 'display:none;position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(5,5,15,0.95);z-index:10000;flex-direction:column;align-items:center;justify-content:center;';
+  panel.innerHTML = `
+    <div style="color:#0ff;font-size:14px;font-family:monospace;margin-bottom:10px;letter-spacing:2px;">🧠 MEMORY CONSTELLATION</div>
+    <canvas id="mem-canvas" width="800" height="600" style="border:1px solid #333;border-radius:8px;background:#08080f;"></canvas>
+    <div id="mem-graph-info" style="color:#888;font-size:11px;margin-top:8px;font-family:monospace;">Loading...</div>
+    <div id="mem-graph-tooltip" style="display:none;position:absolute;background:#1a1a2a;border:1px solid #0ff;border-radius:4px;padding:6px 10px;color:#ccc;font-size:10px;font-family:monospace;max-width:300px;pointer-events:none;z-index:10002;"></div>
+  `;
+  document.body.appendChild(panel);
+
+  let visible = false;
+  let graphData = null;
+
+  btn.onclick = () => {
+    visible = !visible;
+    panel.style.display = visible ? 'flex' : 'none';
+    if (visible && !graphData) loadGraph();
+  };
+
+  // Close on Escape
+  document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && visible) { visible = false; panel.style.display = 'none'; } });
+
+  const COLORS = ['#0ff','#f0f','#0f0','#fa0','#f44','#44f','#ff0','#0af','#a0f','#4f4','#f4a','#4ff'];
+
+  function loadGraph() {
+    fetch('/memory-graph').then(r => r.json()).then(data => {
+      graphData = data;
+      const info = document.getElementById('mem-graph-info');
+      info.textContent = `${data.nodes.length} chunks shown / ${data.total} total · ${data.sources.length} files`;
+      renderGraph();
+    }).catch(() => {
+      document.getElementById('mem-graph-info').textContent = 'No memory data available';
+    });
+  }
+
+  function renderGraph() {
+    if (!graphData || !graphData.nodes.length) return;
+    const canvas = document.getElementById('mem-canvas');
+    const ctx = canvas.getContext('2d');
+    const W = canvas.width, H = canvas.height;
+    const pad = 40;
+
+    ctx.clearRect(0, 0, W, H);
+
+    // Draw connections between nearby nodes (same source)
+    ctx.globalAlpha = 0.15;
+    for (let i = 0; i < graphData.nodes.length; i++) {
+      for (let j = i + 1; j < Math.min(i + 5, graphData.nodes.length); j++) {
+        const a = graphData.nodes[i], b = graphData.nodes[j];
+        if (a.source === b.source) {
+          const ax = pad + a.x * (W - 2 * pad), ay = pad + a.y * (H - 2 * pad);
+          const bx = pad + b.x * (W - 2 * pad), by = pad + b.y * (H - 2 * pad);
+          const dist = Math.hypot(bx - ax, by - ay);
+          if (dist < 150) {
+            ctx.strokeStyle = COLORS[graphData.sources.indexOf(a.source) % COLORS.length];
+            ctx.beginPath(); ctx.moveTo(ax, ay); ctx.lineTo(bx, by); ctx.stroke();
+          }
+        }
+      }
+    }
+    ctx.globalAlpha = 1;
+
+    // Draw nodes
+    for (const node of graphData.nodes) {
+      const x = pad + node.x * (W - 2 * pad);
+      const y = pad + node.y * (H - 2 * pad);
+      const colorIdx = graphData.sources.indexOf(node.source) % COLORS.length;
+      const color = COLORS[colorIdx];
+      const r = 3 + Math.min(node.tokens / 50, 5);
+
+      ctx.beginPath();
+      ctx.arc(x, y, r, 0, Math.PI * 2);
+      ctx.fillStyle = color;
+      ctx.shadowColor = color;
+      ctx.shadowBlur = 6;
+      ctx.fill();
+      ctx.shadowBlur = 0;
+    }
+
+    // Legend
+    ctx.font = '10px monospace';
+    const legendY = H - 20;
+    let legendX = pad;
+    for (let i = 0; i < Math.min(graphData.sources.length, 8); i++) {
+      const color = COLORS[i % COLORS.length];
+      ctx.fillStyle = color;
+      ctx.fillRect(legendX, legendY, 8, 8);
+      ctx.fillStyle = '#888';
+      const label = graphData.sources[i].split('/').pop().slice(0, 15);
+      ctx.fillText(label, legendX + 12, legendY + 8);
+      legendX += ctx.measureText(label).width + 22;
+    }
+  }
+
+  // Tooltip on hover
+  const canvas = document.getElementById('mem-canvas');
+  if (canvas) {
+    canvas.addEventListener('mousemove', (e) => {
+      if (!graphData) return;
+      const rect = canvas.getBoundingClientRect();
+      const mx = e.clientX - rect.left, my = e.clientY - rect.top;
+      const pad = 40, W = canvas.width, H = canvas.height;
+      const tooltip = document.getElementById('mem-graph-tooltip');
+
+      let found = null;
+      for (const node of graphData.nodes) {
+        const x = pad + node.x * (W - 2 * pad);
+        const y = pad + node.y * (H - 2 * pad);
+        if (Math.hypot(mx - x, my - y) < 8) { found = node; break; }
+      }
+
+      if (found) {
+        tooltip.style.display = 'block';
+        tooltip.style.left = (e.clientX + 12) + 'px';
+        tooltip.style.top = (e.clientY - 20) + 'px';
+        tooltip.innerHTML = `<b>${found.source.split('/').pop()}</b><br>${found.text}<br><span style="color:#0ff">${found.tokens} tokens</span>`;
+      } else {
+        tooltip.style.display = 'none';
+      }
+    });
+  }
+})();
+
 // Agent Activity Timeline — horizontal strip showing invocations over time
 (function initActivityTimeline() {
   const timeline = document.createElement('div');

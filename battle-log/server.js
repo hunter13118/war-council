@@ -308,6 +308,50 @@ const server = createServer(async (req, res) => {
     return;
   }
 
+  // Memory Graph — returns 2D-projected chunk positions for constellation visualization
+  if (url.pathname === "/memory-graph") {
+    try {
+      const storePath = resolve(REPO_ROOT, "memory-engine", "store.json");
+      const raw = await readFile(storePath, "utf-8");
+      const chunks = JSON.parse(raw);
+      // Random projection from high-dim to 2D (deterministic seed per chunk index)
+      // This is a lightweight alternative to t-SNE for dashboard rendering
+      const nodes = chunks.slice(0, 300).map((c, i) => {
+        const emb = c.embedding || [];
+        // Project to 2D using two fixed random vectors (seeded by position)
+        let x = 0, y = 0;
+        for (let j = 0; j < emb.length; j++) {
+          x += emb[j] * Math.sin(j * 0.1 + 0.7);
+          y += emb[j] * Math.cos(j * 0.13 + 1.1);
+        }
+        return {
+          id: i,
+          x: x,
+          y: y,
+          source: c.source || "unknown",
+          text: (c.text || "").slice(0, 80),
+          tokens: c.tokenCount || 0,
+        };
+      });
+      // Normalize to [0, 1]
+      if (nodes.length > 0) {
+        let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
+        for (const n of nodes) { minX = Math.min(minX, n.x); maxX = Math.max(maxX, n.x); minY = Math.min(minY, n.y); maxY = Math.max(maxY, n.y); }
+        const rangeX = maxX - minX || 1;
+        const rangeY = maxY - minY || 1;
+        for (const n of nodes) { n.x = (n.x - minX) / rangeX; n.y = (n.y - minY) / rangeY; }
+      }
+      // Group by source for coloring
+      const sources = [...new Set(nodes.map(n => n.source))];
+      res.writeHead(200, { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" });
+      res.end(JSON.stringify({ nodes, sources, total: chunks.length }));
+    } catch {
+      res.writeHead(200, { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" });
+      res.end(JSON.stringify({ nodes: [], sources: [], total: 0 }));
+    }
+    return;
+  }
+
   // Voice assignments
   if (url.pathname === "/voices" && req.method === "GET") {
     res.writeHead(200, {
