@@ -21,6 +21,19 @@ export const schema = {
         items: { type: "string", enum: ["fast", "specialist", "reasoning"] },
         description: "Default: ['specialist','reasoning']. Run in parallel.",
       },
+      rounds: {
+        type: "number",
+        description: "Number of deliberation rounds. Default 1. Higher = more thorough but slower.",
+      },
+      weights: {
+        type: "object",
+        description: "Scoring weights per voter tier. Default: fast=1, specialist=2, reasoning=3.",
+        properties: {
+          fast: { type: "number" },
+          specialist: { type: "number" },
+          reasoning: { type: "number" },
+        },
+      },
     },
     required: ["prompt"],
   },
@@ -29,24 +42,54 @@ export const schema = {
 export async function handler(args, ctx) {
   let voterKeys = args.voters ?? ["specialist", "reasoning"];
   if (typeof voterKeys === "string") voterKeys = voterKeys.split(",").map((s) => s.trim());
+  const rounds = Math.min(args.rounds ?? 1, 3); // Cap at 3 rounds
+  const weights = args.weights ?? { fast: 1, specialist: 2, reasoning: 3 };
   const voterToAgent = { fast: "consult_fast", specialist: "consult_specialist", reasoning: "consult_reasoning", heavy: "consult_specialist" };
   const t0 = Date.now();
 
-  const results = await Promise.all(
-    voterKeys.map(async (k) => {
-      const model = ARSENAL[k];
-      if (!model) {
-        return { voterKey: k, model: `unknown:${k}`, text: `(unknown voter '${k}')`, elapsedMs: 0, tokensOut: 0 };
-      }
-      try {
-        const r = await ollamaGenerate(model, args.prompt);
-        return { ...r, voterKey: k };
-      } catch (e) {
-        return { voterKey: k, model, text: `(error: ${e.message})`, elapsedMs: 0, tokensOut: 0 };
-      }
-    })
-  );
+  // Track wins across rounds
+  const winCounts = Object.fromEntries(voterKeys.map(k => [k, 0]));
+  const allResults = [];
+
+  for (let round = 0; round < rounds; round++) {
+    const roundPrompt = round === 0
+      ? args.prompt
+      : `${args.prompt}\n\n[Round ${round + 1}: Consider previous responses and refine your answer.]`;
+
+    const results = await Promise.all(
+      voterKeys.map(async (k) => {
+        const model = ARSENAL[k];
+        if (!model) {
+          return { voterKey: k, model: `unknown:${k}`, text: `(unknown voter '${k}')`, elapsedMs: 0, tokensOut: 0 };
+        }
+        try {
+          const r = await ollamaGenerate(model, roundPrompt);
+          return { ...r, voterKey: k, round };
+        } catch (e) {
+          return { voterKey: k, model, text: `(error: ${e.message})`, elapsedMs: 0, tokensOut: 0, round };
+        }
+      })
+    );
+    allResults.push(...results);
+
+    // Judge this round
+    try {
+      const judgePrompt = buildJudgePrompt(args.prompt, results);
+      const judgeResult = await ollamaGenerateWithRetry(ARSENAL.reasoning, judgePrompt, { maxTokens: 512 });
+      const parsed = parseJudgeVerdict(judgeResult, results, voterKeys);
+      // Apply weighted scoring
+      const winnerWeight = weights[parsed.winnerKey] ?? 1;
+      winCounts[parsed.winnerKey] = (winCounts[parsed.winnerKey] || 0) + winnerWeight;
+    } catch { /* judge failed this round */ }
+  }
+
   const totalMs = Date.now() - t0;
+  const results = allResults.filter(r => r.round === rounds - 1); // Last round results for display
+
+  // Determine overall winner by weighted score
+  const sortedVoters = Object.entries(winCounts).sort((a, b) => b[1] - a[1]);
+  const winnerKey = sortedVoters[0][0];
+  const loserKey = sortedVoters[sortedVoters.length - 1][0];
 
   // Emit debate_round events
   for (let i = 0; i < results.length - 1; i++) {
@@ -62,20 +105,7 @@ export async function handler(args, ctx) {
     });
   }
 
-  // Judge pass
-  let judgeVerdict = "";
-  let winnerKey = voterKeys[0];
-  let loserKey = voterKeys[voterKeys.length - 1];
-  try {
-    const judgePrompt = buildJudgePrompt(args.prompt, results);
-    const judgeResult = await ollamaGenerateWithRetry(ARSENAL.reasoning, judgePrompt, { maxTokens: 512 });
-    const parsed = parseJudgeVerdict(judgeResult, results, voterKeys);
-    winnerKey = parsed.winnerKey;
-    loserKey = parsed.loserKey;
-    judgeVerdict = parsed.verdict;
-  } catch (e) {
-    judgeVerdict = `(judge error: ${e.message})`;
-  }
+  const judgeVerdict = `Weighted scores: ${sortedVoters.map(([k, s]) => `${k}=${s}`).join(", ")} (${rounds} round${rounds > 1 ? "s" : ""})`;
 
   // Emit tournament_result
   const winnerAgent = voterToAgent[winnerKey] || "consult_fast";
