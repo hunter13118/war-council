@@ -5,14 +5,22 @@
   "description": "Architecture validation and regression tests for War Council design",
   "type": "module",
   "scripts": {
-    "test": "node --test tests/",
-    "test:schemas": "node --test tests/schemas.test.js",
-    "test:docs": "node --test tests/documents.test.js",
-    "test:integrity": "node --test tests/integrity.test.js",
-    "test:consistency": "node --test tests/consistency.test.js"
+    "test": "node --test schemas.test.js documents.test.js integrity.test.js consistency.test.js samples.test.js",
+    "test:schemas": "node --test schemas.test.js",
+    "test:docs": "node --test documents.test.js",
+    "test:integrity": "node --test integrity.test.js",
+    "test:consistency": "node --test consistency.test.js",
+    "test:ui": "npx playwright test --config=playwright.config.js",
+    "test:ui:mocked": "npx playwright test --config=playwright.config.js --project=mocked",
+    "test:ui:live": "npx playwright test --config=playwright.config.js --project=live",
+    "test:all": "node --test schemas.test.js documents.test.js integrity.test.js consistency.test.js samples.test.js && npx playwright test --config=playwright.config.js"
   },
   "dependencies": {
     "ajv": "^8.17.1",
     "ajv-formats": "^3.0.1"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.60.0",
+    "playwright": "^1.60.0"
   }
 }
