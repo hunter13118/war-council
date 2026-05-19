@@ -252,6 +252,31 @@ Refactored: ${ctx.results[3]?.text || ""}`,
 };
 
 /**
+ * Maximum characters per prior step result when injected into subsequent prompts.
+ * Prevents 32K context overflow when chains produce large outputs.
+ * Override per-chain via chain.contextBudget.
+ */
+const DEFAULT_CONTEXT_BUDGET = 4000;
+
+/**
+ * Truncate text to a character budget, preserving beginning and end.
+ * @param {string} text
+ * @param {number} budget - Max characters
+ * @returns {string}
+ */
+function truncateResult(text, budget = DEFAULT_CONTEXT_BUDGET) {
+  if (!text || text.length <= budget) return text || "";
+  const keep = Math.floor((budget - 50) / 2); // 50 chars for the separator
+  return (
+    text.slice(0, keep) +
+    "\n\n... [TRUNCATED — " + (text.length - budget) + " chars omitted] ...\n\n" +
+    text.slice(-keep)
+  );
+}
+
+export { truncateResult, DEFAULT_CONTEXT_BUDGET };
+
+/**
  * Execute a chain by name with given inputs.
  * @param {string} chainName
  * @param {Object} inputs - User-provided inputs matching requiredInputs
@@ -267,6 +292,7 @@ export async function executeChain(chainName, inputs, executeTool) {
     if (!inputs[key]) throw new Error(`Chain '${chainName}' requires input '${key}'`);
   }
 
+  const budget = chain.contextBudget || DEFAULT_CONTEXT_BUDGET;
   const context = { ...inputs, results: [] };
   const stepResults = [];
 
@@ -285,7 +311,8 @@ export async function executeChain(chainName, inputs, executeTool) {
 
     try {
       const result = await executeTool(step.tool, args);
-      context.results.push({ text: result });
+      // Store truncated result to prevent context overflow in later steps
+      context.results.push({ text: truncateResult(result, budget) });
       stepResults.push({ label: step.label, tool: step.tool, result, skipped: false });
     } catch (err) {
       if (step.optional) {
