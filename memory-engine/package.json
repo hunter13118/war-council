@@ -1,0 +1,14 @@
+{
+  "name": "war-council-memory-engine",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Vector store and RAG retrieval for War Council memory system (stub)",
+  "type": "module",
+  "main": "retriever.js",
+  "exports": {
+    "./retriever.js": "./retriever.js",
+    "./indexer.js": "./indexer.js",
+    "./conversation-indexer.js": "./conversation-indexer.js",
+    "./store.js": "./store.js"
+  }
+}
