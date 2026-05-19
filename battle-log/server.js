@@ -36,6 +36,26 @@ async function ensureLogDir() {
   await mkdir(LOG_DIR, { recursive: true });
 }
 
+// JSONL rotation — cap at 10MB, rename to .1 on overflow
+const MAX_LOG_BYTES = 10 * 1024 * 1024; // 10 MB
+
+async function appendWithRotation(entry) {
+  await ensureLogDir();
+  const { appendFile: af, rename, stat: fstat } = await import("node:fs/promises");
+  // Check if rotation needed
+  try {
+    const s = await fstat(LOG_PATH);
+    if (s.size >= MAX_LOG_BYTES) {
+      const rotatedPath = LOG_PATH + ".1";
+      await rename(LOG_PATH, rotatedPath);
+    }
+  } catch (e) {
+    // File doesn't exist yet — that's fine
+    if (e.code !== 'ENOENT') throw e;
+  }
+  await af(LOG_PATH, JSON.stringify(entry) + "\n");
+}
+
 // In-memory event buffer (last 500 events)
 const eventBuffer = [];
 const MAX_BUFFER = 500;
@@ -270,12 +290,10 @@ const server = createServer(async (req, res) => {
       }
 
       broadcast(event);
-      // Persist to JSONL so events survive restarts
+      // Persist to JSONL so events survive restarts (with rotation)
       try {
-        await ensureLogDir();
-        const { appendFile: af } = await import("node:fs/promises");
-        await af(LOG_PATH, JSON.stringify(event) + "\n");
-        lastSize = (await stat(LOG_PATH)).size; // Update cursor to avoid re-reading
+        await appendWithRotation(event);
+        lastSize = (await stat(LOG_PATH)).size;
       } catch {}
       res.writeHead(200, { "Content-Type": "application/json" });
       res.end(JSON.stringify({ ok: true }));
