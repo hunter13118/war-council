@@ -199,6 +199,105 @@ const server = createServer(async (req, res) => {
     return;
   }
 
+  if (url.pathname === "/command-center") {
+    const html = await readFile(resolve(__dirname, "command-center.html"), "utf-8");
+    res.writeHead(200, { "Content-Type": "text/html" });
+    res.end(html);
+    return;
+  }
+
+  // === Chat endpoint — streams Ollama response with smart routing ===
+  if (url.pathname === "/chat" && req.method === "POST") {
+    let body = "";
+    for await (const chunk of req) body += chunk;
+    try {
+      const { message, mode, model: forceModel } = JSON.parse(body);
+      if (!message) throw new Error("message required");
+
+      const ollamaBase = process.env.OLLAMA_BASE || "http://127.0.0.1:11434";
+      const route = routeMessage(message, mode);
+
+      // Emit tool_call event so war table shows activity
+      const eventId = `chat-${Date.now()}`;
+      broadcast({ type: "tool_call", tool: route.tool, text: message, model: route.model, id: eventId, timestamp: new Date().toISOString() });
+
+      // Stream response from Ollama
+      res.writeHead(200, {
+        "Content-Type": "text/event-stream",
+        "Cache-Control": "no-cache",
+        "Connection": "keep-alive",
+        "Access-Control-Allow-Origin": "*",
+      });
+
+      const startTime = Date.now();
+      const ollamaRes = await fetch(`${ollamaBase}/api/generate`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          model: forceModel || route.model,
+          prompt: message,
+          stream: true,
+        }),
+      });
+
+      if (!ollamaRes.ok) {
+        res.write(`data: ${JSON.stringify({ error: `Ollama error: ${ollamaRes.status}` })}\n\n`);
+        res.end();
+        return;
+      }
+
+      let fullResponse = "";
+      let tokensOut = 0;
+      const reader = ollamaRes.body;
+
+      // Node readable stream from fetch — parse NDJSON
+      let buffer = "";
+      for await (const chunk of reader) {
+        buffer += chunk.toString();
+        const lines = buffer.split("\n");
+        buffer = lines.pop(); // keep incomplete line
+
+        for (const line of lines) {
+          if (!line.trim()) continue;
+          try {
+            const parsed = JSON.parse(line);
+            if (parsed.response) {
+              fullResponse += parsed.response;
+              tokensOut++;
+              res.write(`data: ${JSON.stringify({ token: parsed.response, model: forceModel || route.model, tool: route.tool, reason: route.reason })}\n\n`);
+            }
+            if (parsed.done) {
+              const elapsedMs = Date.now() - startTime;
+              res.write(`data: ${JSON.stringify({ done: true, elapsedMs, tokensOut, model: forceModel || route.model, tool: route.tool, reason: route.reason })}\n\n`);
+              // Emit completion event for war table
+              broadcast({ type: "tool_call", tool: route.tool, text: fullResponse.slice(0, 100) + "...", model: forceModel || route.model, elapsedMs, tokensOut, id: eventId + "-done", timestamp: new Date().toISOString() });
+            }
+          } catch {}
+        }
+      }
+      res.end();
+    } catch (e) {
+      if (!res.headersSent) {
+        res.writeHead(400, { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" });
+        res.end(JSON.stringify({ error: e.message }));
+      }
+    }
+    return;
+  }
+
+  // === Chat: list available models ===
+  if (url.pathname === "/chat/models" && req.method === "GET") {
+    try {
+      const arsenal = JSON.parse(await readFile(resolve(REPO_ROOT, "arsenal.json"), "utf-8"));
+      res.writeHead(200, { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" });
+      res.end(JSON.stringify(arsenal));
+    } catch (e) {
+      res.writeHead(500, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ error: e.message }));
+    }
+    return;
+  }
+
   if (url.pathname === "/events") {
     res.writeHead(200, {
       "Content-Type": "text/event-stream",
@@ -489,6 +588,43 @@ const server = createServer(async (req, res) => {
   res.writeHead(404);
   res.end("Not found");
 });
+
+// === Smart Message Router (lightweight decision tree) ===
+function routeMessage(message, mode) {
+  // Load arsenal model names
+  const FAST = "qwen2.5-coder:7b";
+  const SPECIALIST = "qwen2.5-coder:14b";
+  const REASONING = "deepseek-r1:14b";
+
+  if (mode === "fast") return { model: FAST, tool: "consult_fast", reason: "User selected fast mode" };
+  if (mode === "reasoning") return { model: REASONING, tool: "consult_reasoning", reason: "User selected reasoning mode" };
+  if (mode === "specialist") return { model: SPECIALIST, tool: "consult_specialist", reason: "User selected specialist mode" };
+
+  const lower = message.toLowerCase();
+
+  // Architecture / planning → reasoning
+  if (matches(lower, ["architect", "design", "plan", "strategy", "approach", "how should", "tradeoff", "compare"])) {
+    return { model: REASONING, tool: "consult_reasoning", reason: "Architecture/planning detected → deep reasoning" };
+  }
+  // Bug / error → specialist
+  if (matches(lower, ["bug", "error", "broken", "crash", "failing", "fix", "doesn't work", "not working"])) {
+    return { model: SPECIALIST, tool: "consult_specialist", reason: "Bug-fix keywords → specialist analysis" };
+  }
+  // Code tasks → specialist
+  if (matches(lower, ["implement", "refactor", "write", "code", "function", "class", "module", "create"])) {
+    return { model: SPECIALIST, tool: "consult_specialist", reason: "Code task → specialist" };
+  }
+  // Quick questions → fast
+  if (lower.length < 80 || matches(lower, ["what is", "how to", "quick", "simple", "format", "syntax"])) {
+    return { model: FAST, tool: "consult_fast", reason: "Quick question → fast model" };
+  }
+  // Default → specialist
+  return { model: SPECIALIST, tool: "consult_specialist", reason: "General query → specialist" };
+}
+
+function matches(text, keywords) {
+  return keywords.some(kw => text.includes(kw));
+}
 
 await loadHistory();
 await loadVoiceAssignments();
