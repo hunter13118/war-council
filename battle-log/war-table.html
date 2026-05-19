@@ -2198,6 +2198,10 @@ fetch('/voices')
         <div class="hud-label">🧠 Memory Store</div>
         <div id="hud-memory-content">—</div>
       </div>
+      <div class="hud-section" id="hud-benchmark">
+        <div class="hud-label">🏟️ Benchmark Arena</div>
+        <div id="hud-benchmark-content">—</div>
+      </div>
     </div>
   `;
   document.body.appendChild(hud);
@@ -2267,6 +2271,29 @@ fetch('/voices')
     }).catch(() => {
       document.getElementById('hud-vram-content').innerHTML = '<span style="color:#f44">Offline</span>';
     });
+
+    // Benchmark Arena — fetch results
+    fetch('/benchmark').then(r => r.json()).then(bm => {
+      const el = document.getElementById('hud-benchmark-content');
+      if (!bm.leaderboard || !Object.keys(bm.leaderboard).length) {
+        el.innerHTML = '<span style="color:#666">No benchmarks run yet</span>';
+        return;
+      }
+      const rows = Object.entries(bm.leaderboard)
+        .map(([model, d]) => ({
+          name: model.split(':')[0].slice(0, 12),
+          rate: d.totalRuns ? Math.round((d.totalPassed / d.totalRuns) * 100) : 0,
+          runs: d.totalRuns,
+          passed: d.totalPassed,
+        }))
+        .sort((a, b) => b.rate - a.rate)
+        .slice(0, 5);
+      el.innerHTML = rows.map((r, i) =>
+        `<div class="gauge-row"><span class="gauge-name">${['🥇','🥈','🥉','4️⃣','5️⃣'][i]} ${r.name}</span>${gaugeBar(r.rate, '#f0f')}<span class="gauge-val">${r.rate}% (${r.passed}/${r.runs})</span></div>`
+      ).join('');
+    }).catch(() => {
+      document.getElementById('hud-benchmark-content').innerHTML = '<span style="color:#666">—</span>';
+    });
   }
   refreshHUD();
   setInterval(refreshHUD, 5000);
@@ -2322,6 +2349,7 @@ fetch('/voices')
 
   function getTier(event) {
     if (event.type === 'tournament_result') return 'tournament';
+    if (event.type === 'benchmark_complete') return 'tournament';
     if (event.type === 'agent_invoked') return 'agent';
     const model = (event.model || '').toLowerCase();
     if (model.includes('gemini') || model.includes('groq')) return 'cloud';
@@ -2355,7 +2383,7 @@ fetch('/voices')
   if (origAddToLog) {
     window.addToLog = function(event) {
       origAddToLog(event);
-      if (event && (event.model || event.type === 'tournament_result' || event.type === 'agent_invoked')) {
+      if (event && (event.model || event.type === 'tournament_result' || event.type === 'agent_invoked' || event.type === 'benchmark_complete')) {
         window._tlAddEvent(event);
       }
     };

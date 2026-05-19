@@ -287,6 +287,27 @@ const server = createServer(async (req, res) => {
     return;
   }
 
+  // Benchmark results
+  if (url.pathname === "/benchmark") {
+    try {
+      const resultsPath = resolve(LOG_DIR, "benchmark-results.json");
+      const raw = await readFile(resultsPath, "utf-8");
+      const data = JSON.parse(raw);
+      res.writeHead(200, {
+        "Content-Type": "application/json",
+        "Access-Control-Allow-Origin": "*",
+      });
+      res.end(JSON.stringify(data));
+    } catch {
+      res.writeHead(200, {
+        "Content-Type": "application/json",
+        "Access-Control-Allow-Origin": "*",
+      });
+      res.end(JSON.stringify({ runs: [], leaderboard: {} }));
+    }
+    return;
+  }
+
   // Voice assignments
   if (url.pathname === "/voices" && req.method === "GET") {
     res.writeHead(200, {
