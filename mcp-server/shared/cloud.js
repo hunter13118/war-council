@@ -3,9 +3,11 @@
  */
 import { GEMINI_API_KEY, GEMINI_MODEL, GROQ_API_KEY, GROQ_MODEL } from "./config.js";
 import { withRetry } from "./retry.js";
+import { checkRateLimit } from "./rate-limiter.js";
 
 export async function geminiGenerate(prompt, options = {}) {
   if (!GEMINI_API_KEY) throw new Error("GEMINI_API_KEY not set. Get one free at https://aistudio.google.com/apikey");
+  checkRateLimit("gemini");
   const t0 = Date.now();
   const model = options.model ?? GEMINI_MODEL;
   const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${GEMINI_API_KEY}`;
@@ -44,6 +46,7 @@ export async function geminiGenerate(prompt, options = {}) {
 
 export async function groqGenerate(prompt, options = {}) {
   if (!GROQ_API_KEY) throw new Error("GROQ_API_KEY not set. Get one free at https://console.groq.com/keys");
+  checkRateLimit("groq");
   const t0 = Date.now();
   const model = options.model ?? GROQ_MODEL;
 
