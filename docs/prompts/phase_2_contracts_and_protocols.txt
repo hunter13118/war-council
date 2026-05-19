@@ -1,0 +1,55 @@
+# PHASE 2 — CONTRACTS AND PROTOCOLS
+
+Objective:
+Formalize the system into stable engineering contracts.
+
+The current architecture likely relies too heavily on emergent prompt behavior.
+Your task is to stabilize the system using deterministic schemas and communication protocols.
+
+Design:
+- agent communication schemas
+- orchestration APIs
+- task lifecycle states
+- confidence scoring formats
+- memory write contracts
+- retrieval interfaces
+- escalation contracts
+- verification interfaces
+- execution result schemas
+
+The goal:
+reduce ambiguity and eliminate swarm incoherence.
+
+Requirements:
+1. Every agent must have:
+- explicit role boundaries
+- allowed actions
+- forbidden actions
+- context limits
+- output schema
+- confidence schema
+
+2. Define:
+- retry policies
+- escalation thresholds
+- arbitration rules
+- disagreement resolution
+- termination conditions
+
+3. Produce:
+- JSON/YAML schemas
+- protocol specifications
+- state machine diagrams
+- task execution lifecycle diagrams
+- orchestration sequence diagrams
+
+4. Ensure:
+- deterministic orchestration where possible
+- minimal token waste
+- subsystem isolation
+- modular extensibility
+
+This phase should transform the system from:
+“prompt-driven swarm”
+into
+“structured distributed cognition infrastructure.”

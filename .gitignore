@@ -8,3 +8,6 @@ __pycache__/
 *.pyc
 .venv/
 battle-log/assets/generated/
+tests/test-results/
+tests/playwright-report/
+tests/blob-report/

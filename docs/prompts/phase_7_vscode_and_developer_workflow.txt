@@ -1,0 +1,49 @@
+# PHASE 7 — VSCODE AND DEVELOPER WORKFLOW
+
+Objective:
+Create a high-performance local-first AI coding workflow.
+
+The system currently integrates with:
+- VSCode
+- Cline
+- local models
+- cloud models
+
+Improve:
+- responsiveness
+- architectural coherence
+- context management
+- repo awareness
+- autonomous debugging
+
+Design:
+- repo graph indexing
+- selective file retrieval
+- targeted diff generation
+- verification-before-commit
+- autonomous debugging loops
+- architectural consistency checks
+
+Reduce:
+- over-tokenization
+- runaway context windows
+- latency
+- redundant retrieval
+- code drift
+
+The workflow should:
+1. attempt local execution first
+2. escalate difficult subtasks selectively
+3. compress cloud outputs
+4. reintegrate locally
+5. verify automatically
+
+Produce:
+- workflow diagrams
+- VSCode integration strategies
+- retrieval-aware coding flows
+- codebase indexing systems
+- benchmark/testing systems
+
+Goal:
+surpass traditional Copilot-style workflows through orchestration quality.

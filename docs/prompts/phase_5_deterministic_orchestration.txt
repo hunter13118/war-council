@@ -1,0 +1,46 @@
+# PHASE 5 — DETERMINISTIC ORCHESTRATION
+
+Objective:
+Refactor orchestration away from fragile prompt-only coordination.
+
+The orchestrator should increasingly become:
+- heuristic-driven
+- state-driven
+- metrics-driven
+- execution-graph-driven
+
+NOT:
+purely LLM-driven.
+
+Design:
+- execution DAGs
+- routing heuristics
+- confidence thresholds
+- escalation policies
+- retry logic
+- arbitration systems
+- branch termination systems
+- dependency tracking
+
+Implement deterministic logic such as:
+- local vs cloud routing
+- context size thresholds
+- verifier invocation
+- conflict arbitration
+- retry escalation
+
+The orchestrator should:
+- minimize token waste
+- prevent recursive chaos
+- avoid redundant reasoning
+- terminate low-value branches early
+
+Produce:
+- orchestration flow diagrams
+- routing pseudocode
+- state machines
+- execution graph systems
+- failure recovery flows
+
+Goal:
+transform the platform into a stable distributed cognition engine.

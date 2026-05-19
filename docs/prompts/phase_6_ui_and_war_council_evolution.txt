@@ -1,0 +1,50 @@
+# PHASE 6 — UI AND WAR COUNCIL EVOLUTION
+
+Objective:
+Evolve the existing War Council UI into a living cognition visualization system.
+
+The UI should blend:
+- immersive theatrical presentation
+with
+- serious engineering observability.
+
+The system already contains:
+- animated council member representations
+- debate visualization
+- orchestration concepts
+
+Expand this into:
+- live orchestration dashboards
+- reasoning conflict visualization
+- execution graph visualization
+- retrieval visualization
+- confidence visualization
+- escalation visualization
+- memory activity visualization
+
+Potential features:
+- animated debate duels
+- voting systems
+- orchestration timelines
+- tactical command-center aesthetics
+- memory archive visualization
+- live token/resource tracking
+- execution trees
+- branch collapse visualization
+
+The UI should communicate:
+- what agents are doing
+- why they are doing it
+- what evidence they used
+- where disagreements occurred
+- when escalation happened
+
+Produce:
+- UI architecture plans
+- subsystem integration strategies
+- rendering/event system recommendations
+- state synchronization designs
+- performance optimization plans
+
+Goal:
+create a developer-grade cognition theater that feels alive and understandable.

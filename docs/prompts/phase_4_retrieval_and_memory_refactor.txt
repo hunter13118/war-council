@@ -1,0 +1,46 @@
+# PHASE 4 — RETRIEVAL AND MEMORY REFACTOR
+
+Objective:
+Transform retrieval and memory into a unified cognition layer.
+
+The system should evolve beyond basic RAG.
+
+Design a unified retrieval architecture spanning:
+- codebases
+- chats
+- git history
+- prior agent outputs
+- browser history
+- documentation
+- terminal logs
+- embeddings
+- summaries
+- project state
+- user state
+
+Design:
+- semantic retrieval
+- symbolic retrieval
+- graph retrieval
+- temporal relevance scoring
+- relevance decay
+- hierarchical summaries
+- memory compression pipelines
+- episodic memory
+- procedural memory
+
+Investigate:
+- Qdrant
+- LlamaIndex
+- graph memory systems
+- hybrid vector/symbolic systems
+
+Produce:
+- retrieval architecture diagrams
+- indexing strategies
+- retrieval ranking systems
+- memory lifecycle systems
+- context compression pipelines
+
+The goal:
+make the AI feel persistent, aware, and continuously stateful.

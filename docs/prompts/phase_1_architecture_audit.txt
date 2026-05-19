@@ -1,0 +1,61 @@
+# PHASE 1 — ARCHITECTURE AUDIT
+
+You are acting as a senior systems architect auditing an existing advanced AI orchestration platform called WAR COUNCIL.
+
+IMPORTANT:
+Do NOT redesign the system yet.
+Do NOT rewrite the system.
+Do NOT propose speculative AGI architectures.
+
+Your ONLY objective is to reverse-engineer, map, and evaluate the CURRENT system.
+
+The system already contains:
+- multi-agent orchestration
+- local Ollama models
+- cloud escalation systems
+- batching systems
+- RAG/memory systems
+- VSCode/Cline integration
+- orchestration UIs
+- judge/evaluator agents
+- MCP-style coordination
+- debate systems
+- human interface personas
+
+Your tasks:
+
+1. Map all current subsystems.
+2. Identify:
+- orchestration bottlenecks
+- duplicated responsibilities
+- recursive reasoning loops
+- unstable agent behaviors
+- token inefficiencies
+- context pollution
+- scaling risks
+- memory fragmentation
+- latency hotspots
+- cloud dependency risks
+- failure propagation risks
+
+3. Produce:
+- subsystem diagrams
+- dependency maps
+- orchestration flow diagrams
+- task lifecycle analysis
+- current-state architectural summaries
+
+4. Distinguish:
+- what already works well
+- what is fragile
+- what is redundant
+- what should remain untouched
+- what should be isolated/refactored
+
+5. Explicitly identify:
+- highest ROI improvements
+- dangerous architectural debt
+- likely future bottlenecks
+
+DO NOT redesign yet.
+ONLY audit and model the existing system.
