@@ -23,7 +23,7 @@ export default defineConfig({
     },
     {
       name: 'demo',
-      testMatch: /demo-walkthrough\.test\.js/,
+      testMatch: /demo.*\.test\.js/,
       use: {
         headless: false,
         launchOptions: { slowMo: 200 },
