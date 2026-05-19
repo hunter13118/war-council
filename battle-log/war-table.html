@@ -2107,6 +2107,34 @@ fetch('/voices')
     assignVoicesIfNeeded();
   })
   .catch(() => assignVoicesIfNeeded());
+
+// System stats widget — rate limits + memory
+(function initStatsWidget() {
+  const widget = document.createElement('div');
+  widget.id = 'stats-widget';
+  widget.style.cssText = 'position:fixed;bottom:10px;right:10px;background:#1a1a2e;border:1px solid #444;border-radius:8px;padding:12px;font-size:11px;color:#aaa;z-index:9999;min-width:180px;';
+  widget.innerHTML = '<div style="color:#0ff;font-weight:bold;margin-bottom:6px;">⚡ System Stats</div><div id="stats-content">Loading...</div>';
+  document.body.appendChild(widget);
+
+  function refreshStats() {
+    fetch('/stats').then(r => r.json()).then(data => {
+      const lines = [];
+      if (data.rateLimits) {
+        for (const [prov, s] of Object.entries(data.rateLimits)) {
+          lines.push(`<b>${prov}</b>: ${s.used}/${s.limit} RPM (${s.remaining} left)`);
+        }
+      }
+      if (data.memoryStats) {
+        lines.push(`<b>Memory</b>: ${data.memoryStats.totalChunks || 0} chunks, ${data.memoryStats.uniqueFiles || 0} files`);
+      }
+      document.getElementById('stats-content').innerHTML = lines.join('<br>') || 'No data';
+    }).catch(() => {
+      document.getElementById('stats-content').innerHTML = 'Offline';
+    });
+  }
+  refreshStats();
+  setInterval(refreshStats, 5000);
+})();
 </script>
 </body>
 </html>

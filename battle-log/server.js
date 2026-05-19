@@ -221,6 +221,29 @@ const server = createServer(async (req, res) => {
     return;
   }
 
+  // System stats — rate limits + memory store
+  if (url.pathname === "/stats") {
+    let rateLimits = {};
+    let memoryStats = {};
+    try {
+      const { getAllRateLimitStats } = await import("../mcp-server/shared/rate-limiter.js");
+      rateLimits = getAllRateLimitStats();
+    } catch { /* MCP server not co-located */ }
+    try {
+      const { VectorStore } = await import("../memory-engine/store.js");
+      const storePath = resolve(LOG_DIR, "vector-store.json");
+      const store = new VectorStore(storePath);
+      await store.load();
+      memoryStats = store.stats();
+    } catch { /* store not initialized */ }
+    res.writeHead(200, {
+      "Content-Type": "application/json",
+      "Access-Control-Allow-Origin": "*",
+    });
+    res.end(JSON.stringify({ rateLimits, memoryStats, timestamp: new Date().toISOString() }));
+    return;
+  }
+
   // Tournament leaderboard
   if (url.pathname === "/leaderboard") {
     res.writeHead(200, {
