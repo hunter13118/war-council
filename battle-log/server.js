@@ -24,6 +24,7 @@ import { existsSync, createReadStream } from "node:fs";
 import { createInterface } from "node:readline";
 import { createHash } from "node:crypto";
 import { randomUUID } from "node:crypto";
+import { isAvailable, recordSuccess, recordFailure, getAllStatus, findFallback } from "../mcp-server/shared/circuit-breaker.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -262,7 +263,15 @@ const server = createServer(async (req, res) => {
       rag: { vectorStore, chunks, path: VECTOR_STORE_PATH },
       workspace: WORKSPACE_ROOT,
       mode: activeMode,
+      circuitBreakers: getAllStatus(),
     }));
+    return;
+  }
+
+  // === Circuit Breaker status ===
+  if (url.pathname === "/breakers" && req.method === "GET") {
+    res.writeHead(200, { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" });
+    res.end(JSON.stringify(getAllStatus()));
     return;
   }
 
@@ -312,6 +321,27 @@ const server = createServer(async (req, res) => {
 
       const ollamaBase = process.env.OLLAMA_BASE || "http://127.0.0.1:11434";
       const route = routeMessage(message, mode);
+
+      // Determine tier for circuit breaker
+      const routeTier = route.provider || (route.tool.includes("fast") ? "fast" : route.tool.includes("reasoning") ? "reasoning" : "specialist");
+
+      // Check circuit breaker — find fallback if primary is open
+      if (!isAvailable(routeTier)) {
+        const fallbackTier = findFallback(routeTier, activeMode);
+        if (fallbackTier) {
+          route.reason = `[BREAKER OPEN: ${routeTier}] Routed to ${fallbackTier} — ${route.reason}`;
+          if (['groq', 'gemini'].includes(fallbackTier)) {
+            const CLOUD_MODELS_MAP = { groq: { model: "llama-3.3-70b-versatile", provider: "groq", tool: "consult_cloud" }, gemini: { model: "gemini-2.5-flash", provider: "gemini", tool: "consult_cloud" } };
+            Object.assign(route, CLOUD_MODELS_MAP[fallbackTier]);
+          } else {
+            const LOCAL_MODELS_MAP = { fast: "qwen2.5-coder:7b", specialist: "qwen2.5-coder:14b", reasoning: "deepseek-r1:14b" };
+            route.model = LOCAL_MODELS_MAP[fallbackTier];
+            route.tool = `consult_${fallbackTier}`;
+            delete route.provider;
+          }
+        }
+        // If no fallback available, proceed anyway (last resort attempt)
+      }
 
       // Build prompt with optional RAG context
       let prompt = message;
@@ -397,9 +427,11 @@ const server = createServer(async (req, res) => {
           const elapsedMs = Date.now() - startTime;
           res.write(`data: ${JSON.stringify({ done: true, elapsedMs, tokensOut, model: usedModel, tool: route.tool, reason: route.reason })}\n\n`);
           broadcast({ type: "tool_call", tool: route.tool, text: fullResponse.slice(0, 100) + "...", model: usedModel, elapsedMs, tokensOut, id: eventId + "-done", timestamp: new Date().toISOString() });
+          recordSuccess(routeTier);
           res.end();
           return;
         } catch (cloudErr) {
+          recordFailure(routeTier);
           if (activeMode === "hybrid") {
             // Fallback to local Ollama
             res.write(`data: ${JSON.stringify({ fallback: true, reason: `Cloud failed: ${cloudErr.message} — falling back to local` })}\n\n`);
@@ -432,6 +464,7 @@ const server = createServer(async (req, res) => {
       });
 
       if (!ollamaRes.ok) {
+        recordFailure(routeTier);
         res.write(`data: ${JSON.stringify({ error: `Ollama error: ${ollamaRes.status}` })}\n\n`);
         res.end();
         return;
@@ -457,6 +490,7 @@ const server = createServer(async (req, res) => {
               const elapsedMs = Date.now() - startTime;
               res.write(`data: ${JSON.stringify({ done: true, elapsedMs, tokensOut, model: usedModel, tool: route.tool, reason: route.reason })}\n\n`);
               broadcast({ type: "tool_call", tool: route.tool, text: fullResponse.slice(0, 100) + "...", model: usedModel, elapsedMs, tokensOut, id: eventId + "-done", timestamp: new Date().toISOString() });
+              recordSuccess(routeTier);
             }
           } catch {}
         }
