@@ -26,6 +26,7 @@ import { createHash } from "node:crypto";
 import { randomUUID } from "node:crypto";
 import { isAvailable, recordSuccess, recordFailure, getAllStatus, findFallback } from "../mcp-server/shared/circuit-breaker.js";
 import { initTelemetry, record as telemetryRecord, getMetrics, getRecentEvents } from "../mcp-server/shared/telemetry.js";
+import { buildHistoryContext, getHistory, appendToConversation } from "../mcp-server/shared/conversation-memory.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -331,7 +332,7 @@ const server = createServer(async (req, res) => {
     let body = "";
     for await (const chunk of req) body += chunk;
     try {
-      const { message, mode, model: forceModel, context } = JSON.parse(body);
+      const { message, mode, model: forceModel, context, conversationId } = JSON.parse(body);
       if (!message) throw new Error("message required");
 
       const ollamaBase = process.env.OLLAMA_BASE || "http://127.0.0.1:11434";
@@ -359,8 +360,13 @@ const server = createServer(async (req, res) => {
         // If no fallback available, proceed anyway (last resort attempt)
       }
 
-      // Build prompt with optional RAG context
+      // Build prompt with conversation history + RAG context
       let prompt = message;
+
+      // Load conversation history for multi-turn context
+      const CONVOS_DIR = resolve(LOG_DIR, "conversations");
+      const history = await getHistory(conversationId, CONVOS_DIR);
+      const historyContext = buildHistoryContext(history, message);
 
       // Auto-retrieve from vector store (Sovereign Memory RAG)
       let ragContext = '';
@@ -376,9 +382,9 @@ const server = createServer(async (req, res) => {
       } catch {} // silently skip if vector store not built yet
 
       if (context && context.trim()) {
-        prompt = `The user has provided the following reference files for context:\n\n${context}\n\n${ragContext ? `Relevant codebase context (auto-retrieved):\n${ragContext}\n\n` : ''}User question: ${message}`;
-      } else if (ragContext) {
-        prompt = `Relevant codebase context (auto-retrieved):\n${ragContext}\n\nUser question: ${message}`;
+        prompt = `${historyContext}The user has provided the following reference files for context:\n\n${context}\n\n${ragContext ? `Relevant codebase context (auto-retrieved):\n${ragContext}\n\n` : ''}User question: ${message}`;
+      } else if (ragContext || historyContext) {
+        prompt = `${historyContext}${ragContext ? `Relevant codebase context (auto-retrieved):\n${ragContext}\n\n` : ''}User question: ${message}`;
       }
 
       // Emit tool_call event so war table shows activity
@@ -449,6 +455,8 @@ const server = createServer(async (req, res) => {
           broadcast({ type: "tool_call", tool: route.tool, text: fullResponse.slice(0, 100) + "...", model: usedModel, elapsedMs, tokensOut, id: eventId + "-done", timestamp: new Date().toISOString() });
           recordSuccess(routeTier);
           telemetryRecord({ category: 'model', event: 'model.inference.complete', tier: routeTier, model: usedModel, latencyMs: elapsedMs, tokensOut, success: true, reason: route.reason });
+          // Save to conversation memory
+          appendToConversation(conversationId, CONVOS_DIR, message, fullResponse).catch(() => {});
           res.end();
           return;
         } catch (cloudErr) {
@@ -519,6 +527,8 @@ const server = createServer(async (req, res) => {
           } catch {}
         }
       }
+      // Save to conversation memory
+      if (fullResponse) appendToConversation(conversationId, CONVOS_DIR, message, fullResponse).catch(() => {});
       res.end();
     } catch (e) {
       if (!res.headersSent) {
