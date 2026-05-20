@@ -2,6 +2,7 @@
  * consult_cloud — Delegate to free cloud models (Gemini / Groq).
  */
 import { geminiGenerate, groqGenerate } from "../shared/cloud.js";
+import { augmentWithMemory } from "../shared/rag-augment.js";
 
 export const schema = {
   name: "consult_cloud",
@@ -20,12 +21,13 @@ export const schema = {
 };
 
 export async function handler(args, ctx) {
+  const { augmentedPrompt } = await augmentWithMemory(args.prompt);
   const opts = { maxTokens: args.maxTokens, temperature: args.temperature };
   let result;
   if (args.provider === "gemini") {
-    result = await geminiGenerate(args.prompt, opts);
+    result = await geminiGenerate(augmentedPrompt, opts);
   } else if (args.provider === "groq") {
-    result = await groqGenerate(args.prompt, opts);
+    result = await groqGenerate(augmentedPrompt, opts);
   } else {
     throw new Error(`Unknown cloud provider: ${args.provider}. Use 'gemini' or 'groq'.`);
   }

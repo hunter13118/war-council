@@ -5,6 +5,7 @@ import { join } from "node:path";
 import { readFile } from "node:fs/promises";
 import { ARSENAL, REPO_ROOT } from "../shared/config.js";
 import { ollamaGenerate, formatConsultResult } from "../shared/ollama.js";
+import { augmentWithMemory } from "../shared/rag-augment.js";
 
 /**
  * Compress a persona markdown to fit within a token budget.
@@ -85,8 +86,10 @@ export async function handler(args, ctx) {
     "",
     "Respond strictly within the persona's domain. If the task is outside your scope, say so.",
   ].join("\n");
-  const r = await ollamaGenerate(model, fullPrompt, { maxTokens: args.maxTokens ?? 4096 });
+  const { augmentedPrompt } = await augmentWithMemory(fullPrompt);
+  const r = await ollamaGenerate(model, augmentedPrompt, { maxTokens: args.maxTokens ?? 4096 });
   return {
     content: [{ type: "text", text: formatConsultResult(`AGENT[${args.agent_name}@${tier}]`, r) }],
+    _meta: { model, tokensOut: r.tokensOut, tps: r.tokensPerSec },
   };
 }

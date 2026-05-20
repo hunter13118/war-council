@@ -28,7 +28,7 @@ import { isAvailable, recordSuccess, recordFailure, getAllStatus, findFallback }
 import { initTelemetry, record as telemetryRecord, getMetrics, getRecentEvents } from "../mcp-server/shared/telemetry.js";
 import { buildHistoryContext, getHistory, appendToConversation } from "../mcp-server/shared/conversation-memory.js";
 import { initRegistry, registerWorkspace, switchWorkspace, getActiveWorkspace, listWorkspaces, removeWorkspace, updateWorkspace } from "../mcp-server/shared/workspace-registry.js";
-import { scoreConfidence, confidenceLevel } from "../mcp-server/shared/confidence.js";
+import { scoreConfidence } from "../mcp-server/shared/confidence.js";
 import { validateDAG, executeDAG, getExecution, listExecutions } from "../mcp-server/shared/dag-engine.js";
 import { runPipeline } from "../mcp-server/shared/verification-pipeline.js";
 
