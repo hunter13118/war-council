@@ -1,8 +1,10 @@
 # Wiring war-council MCP into Roo Code (preferred) or Cline
 
-The `war-council` MCP server gives the Conductor model (`qwen2.5-coder:32b`)
-delegation tools so it can invoke other local models without you swapping
-the active model in the UI.
+The `war-council` MCP server gives the Conductor model delegation tools
+to invoke other local/cloud models without swapping the active model in the UI.
+
+**Current capabilities:** 30 tools, auto-instrumented with circuit breakers,
+telemetry, and confidence scoring. See `docs/MCP_SERVER.md` for full tool list.
 
 ## Standalone protocol verification
 
@@ -159,3 +161,16 @@ synthesis.**
 - **Slow tool responses:** first call to a model loads it into VRAM (cold).
   After that, `OLLAMA_KEEP_ALIVE=30m` keeps it hot. Subsequent calls are
   warm-path fast (200-500 tok/s).
+- **Circuit breaker tripped:** if a model is failing repeatedly, its breaker
+  opens and the system auto-routes to a fallback. Check `/breakers` endpoint
+  or the Metrics HUD at `/metrics-hud`.
+
+## Dashboard
+
+The Battle Log server also provides:
+
+- **Command Center** (`/command-center`) — Chat UI with smart routing, tournaments, file drag-drop
+- **Metrics HUD** (`/metrics-hud`) — Live telemetry, latency bars, breaker states, DAG executions
+- **Showcase** (`/showcase`) — Scroll-driven animated portfolio page
+
+Start the server: `node battle-log/server.js --port 3737`

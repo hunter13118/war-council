@@ -1,97 +1,140 @@
 # 🐉 Jedi War Council — Local LLM Stack
 
-Local-first, Ollama-powered replacement for the cloud Copilot agent loop.
-Runs entirely on the workstation (RTX 5090, 32 GB VRAM).
+Local-first, Ollama-powered AI orchestration system.
+Runs on RTX 5090 (32 GB VRAM) with cloud fallback (Groq + Gemini).
 
 ---
 
-## Stack
+## Architecture
 
 ```
 ┌──────────────────────────────────────────────────────────────────┐
-│  VS Code                                                         │
-│   ├── Roo Code (RooVeterinaryInc.roo-cline) — agentic interface │
-│   └── Continue.dev (optional sidekick) — inline chat / autocomp │
+│  VS Code + Copilot Agent                                         │
+│   ├── MCP Server (stdio) — 30 auto-discovered tools             │
+│   └── Battle Log Server (HTTP :3737) — Dashboard + API          │
 │                                                                  │
 │  Ollama (127.0.0.1:11434)                                        │
-│   ├── Models on G:\ollama\models                                 │
-│   ├── OLLAMA_MAX_LOADED_MODELS=4 (parallel models)               │
-│   ├── OLLAMA_NUM_PARALLEL=4 (concurrent requests per model)      │
-│   ├── OLLAMA_FLASH_ATTENTION=1                                   │
-│   ├── OLLAMA_KV_CACHE_TYPE=q8_0 (halves KV cache)                │
-│   └── OLLAMA_KEEP_ALIVE=30m (keep models hot)                    │
+│   ├── qwen2.5-coder:7b   → Fast tier (200+ tok/s)              │
+│   ├── qwen2.5-coder:14b  → Specialist tier                     │
+│   ├── deepseek-r1:14b    → Reasoning tier (chain-of-thought)   │
+│   └── nomic-embed-text   → RAG embeddings                      │
 │                                                                  │
-│  RTX 5090 (sm_120 Blackwell, 32 GB GDDR7)                        │
+│  Cloud (free tiers)                                              │
+│   ├── Groq (llama-3.3-70b) → 500+ tok/s, rate limited          │
+│   └── Gemini (2.5-flash)   → 1M context window                 │
+│                                                                  │
+│  Shared Infrastructure (mcp-server/shared/)                      │
+│   ├── circuit-breaker.js  → Per-model fault isolation           │
+│   ├── telemetry.js        → Metrics collection + JSONL          │
+│   ├── conversation-memory.js → Multi-turn context              │
+│   ├── workspace-registry.js → Multi-workspace management       │
+│   ├── confidence.js       → 4-dimension scoring                │
+│   ├── dag-engine.js       → Multi-step task orchestration      │
+│   ├── verification-pipeline.js → Pre-commit quality gates      │
+│   └── tool-middleware.js  → Auto-instrumentation wrapper       │
 └──────────────────────────────────────────────────────────────────┘
 ```
 
-## Arsenal (target)
+## Tri-Mode Operation
 
-| Slot | Model | VRAM (Q4_K_M) | Role |
-|---|---|---|---|
-| Heavy | `qwen2.5-coder:32b` | ~19 GB | Conductor, deep refactors |
-| Mid-A | `qwen2.5-coder:14b` | ~9 GB | Domain agents (Flask, React) |
-| Mid-B | `deepseek-r1:14b` | ~9 GB | Reasoning specialist |
-| Fast | `qwen2.5-coder:7b` | ~5 GB | Workhorse — TestRunner, RepoScout |
-| Tiny | `qwen2.5-coder:1.5b` | ~1.5 GB | Linters, quick tasks |
-| Embed | `nomic-embed-text` | ~0.3 GB | RAG over codebase |
+| Mode | Behavior |
+|------|----------|
+| `cloud` | Groq + Gemini only. No local models needed. |
+| `local` | Ollama only. Zero network dependency. |
+| `hybrid` | Local primary, cloud fallback when breaker trips. |
 
-## Concurrent Loadouts (29 GB working budget)
+Auto-detected on boot based on Ollama availability + API keys.
 
-**Loadout A — Solo Heavy + Swarm (~29 GB):**
-- 1× 32B (19) + 2× 7B (10) + embed (0.3)
-- Conductor + 2 worker agents in parallel
+## HTTP Endpoints (port 3737)
 
-**Loadout B — Tournament Voting (~27 GB):**
-- 3× 14B (qwen-coder, deepseek-r1, swap third) + embed (0.3)
-- Real architectural diversity for tournament decisions
+| Endpoint | Method | Purpose |
+|----------|--------|---------|
+| `/command-center` | GET | Chat UI with routing + tournaments |
+| `/metrics-hud` | GET | Live metrics dashboard |
+| `/showcase` | GET | Scroll-driven portfolio page |
+| `/health` | GET | System readiness + model status |
+| `/chat` | POST | Smart-routed streaming chat (SSE) |
+| `/breakers` | GET | Circuit breaker states |
+| `/metrics` | GET | Aggregated telemetry (p50/p95/p99) |
+| `/metrics/events` | GET | Raw event feed |
+| `/workspaces` | GET/POST | Multi-workspace registry |
+| `/workspaces/active` | POST | Switch active workspace |
+| `/dag/run` | POST | Execute a task DAG |
+| `/dag/status/:id` | GET | DAG execution status |
+| `/dag/list` | GET | Recent DAG executions |
+| `/verify` | POST | Run verification pipeline |
+| `/conversations` | GET/POST | Conversation persistence |
+| `/reindex` | POST | Re-index workspace for RAG |
+| `/mode` | GET/POST | Get/set operational mode |
+| `/events` | GET | SSE stream (live events) |
 
-## Validated (2026-05-03)
+## MCP Tools (30 tools, auto-discovered)
 
-- ✅ Ollama 0.22.1 installed, GPU acceleration confirmed on Blackwell sm_120
-- ✅ Storage routed to `G:\ollama\models` (327 GB free, NVMe)
-- ✅ qwen2.5-coder:1.5b smoke test: **443 tok/s** sustained generation
-- ✅ Cold load 986 MB → VRAM in 55s; warm response 7.6s for 365 tokens
+All tools are auto-instrumented with circuit breakers, telemetry, and confidence scoring via `tool-middleware.js`.
 
-## Quick Commands
+| Category | Tools |
+|----------|-------|
+| Model delegation | `consult_fast`, `consult_specialist`, `consult_reasoning`, `consult_cloud` |
+| Multi-model | `tournament_vote`, `council_debate`, `council_deliberate`, `rapid_fan_out` |
+| Routing | `smart_route`, `run_chain`, `strategic_plan` |
+| Memory/RAG | `memory_query`, `memory_index`, `memory_stats`, `memory_recall_conversation` |
+| Code quality | `review_diff`, `self_eval`, `run_tests`, `benchmark_run` |
+| Utilities | `list_arsenal`, `launch_battle_log`, `scratchpad_read/write`, `compress_context` |
+| Agents | `invoke_agent`, `visual_consult`, `request_user_feedback` |
+
+## Circuit Breakers
+
+Each model tier has its own breaker:
+
+| Tier | Threshold | Reset Time |
+|------|-----------|------------|
+| fast | 5 failures | 30s |
+| specialist | 3 failures | 60s |
+| reasoning | 3 failures | 60s |
+| groq | 3 failures | 300s |
+| gemini | 3 failures | 300s |
+
+States: CLOSED → OPEN (after threshold) → HALF-OPEN (after reset) → CLOSED (on success)
+
+## Pre-commit Hook
+
+Install: `node scripts/install-hooks.js`
+
+Automatically runs syntax + architecture + security checks before every commit.
+Set `WAR_COUNCIL_FULL_VERIFY=1` to include test execution.
+
+## Quick Start
 
 ```powershell
-# Server status
-Invoke-RestMethod http://127.0.0.1:11434/api/version
+# Start the server
+node battle-log/server.js --port 3737
 
-# List models
-ollama list
+# Start with a specific workspace
+node battle-log/server.js --workspace D:\my-project
 
-# Pull new model (lands on G:)
-ollama pull qwen2.5-coder:14b
+# Install pre-commit hook
+node scripts/install-hooks.js
 
-# Test generate
-$body = @{ model = "qwen2.5-coder:7b"; prompt = "..."; stream = $false } | ConvertTo-Json
-Invoke-RestMethod -Uri "http://127.0.0.1:11434/api/generate" -Method Post -Body $body -ContentType "application/json"
+# Run tests
+node --test tests/*.test.js
 
-# GPU check
-nvidia-smi --query-gpu=memory.used,memory.free,utilization.gpu --format=csv
+# Run verification pipeline manually
+curl -X POST http://localhost:3737/verify -H "Content-Type: application/json" -d "{}"
 ```
 
-## Roo Code setup
+## Test Suite
 
-1. Open Roo Code from VS Code sidebar (whale icon)
-2. Click ⚙ settings
-3. **API Provider:** `Ollama`
-4. **Base URL:** `http://localhost:11434`
-5. **Model:** `qwen2.5-coder:7b` (or whichever is pulled)
-6. Save → first task in chat panel to validate
+| File | Tests | Coverage |
+|------|-------|----------|
+| circuit-breaker.test.js | 16 | State transitions, registry, fallback |
+| telemetry.test.js | 9 | Record, aggregate, time windows |
+| conversation-memory.test.js | 9 | Multi-turn, token budgets, persistence |
+| workspace-registry.test.js | 10 | Register, switch, auto-activate |
+| confidence.test.js | 11 | Scoring, dimensions, classification |
+| dag-engine.test.js | 11 | Validation, execution, gates, timeouts |
+| verification-pipeline.test.js | 9 | Syntax, security, architecture |
+| tool-middleware.test.js | 11 | Instrumentation, breaker bypass, telemetry |
+| rag-integration.test.js | 17 | Vector store, embeddings, retrieval |
+| **Playwright (mocked)** | **60** | Screenshots, UI interactions |
 
-## Roo Code custom modes
-
-`.roo/` directory in workspace will hold ports of `.github/agents/*.agent.md`
-mapped to specific Ollama models. See `MODES.md` (TODO).
-
-## Next milestones
-
-- [ ] Pull full arsenal (`qwen2.5-coder:32b`, `:14b`, `deepseek-r1:14b`, `:7b` ✅, `:1.5b` ✅, `nomic-embed-text`)
-- [ ] First Roo Code task against local Ollama
-- [ ] Port Conductor agent → Roo custom mode
-- [ ] Port Hypeman, FlaskAlchemist, ReactSurgeon, etc.
-- [ ] Build `war-council-router/` Node service for parallel tournament voting
-- [ ] MCP tool exposure (test runners, deploy, BookNLP)
+**Total: 163 tests**
