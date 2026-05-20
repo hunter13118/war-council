@@ -211,6 +211,26 @@ body {
   border-radius: 4px; padding: 2px 6px; margin-bottom: 4px; display: inline-block;
 }
 
+/* === Confidence Badge === */
+.confidence-badge {
+  font-size: 0.65rem; border-radius: 4px; padding: 2px 6px; margin-left: 6px; display: inline-block;
+  font-weight: 600; letter-spacing: 0.5px;
+}
+.confidence-badge.high { color: #10b981; background: rgba(16,185,129,0.15); }
+.confidence-badge.medium { color: #f59e0b; background: rgba(245,158,11,0.15); }
+.confidence-badge.low { color: #ef4444; background: rgba(239,68,68,0.15); }
+.confidence-badge.uncertain { color: #8888aa; background: rgba(136,136,170,0.1); }
+
+/* === Breaker Status Pills (header) === */
+.breaker-pills { display: flex; gap: 4px; align-items: center; }
+.breaker-pill {
+  font-size: 9px; padding: 2px 6px; border-radius: 3px; font-weight: 700;
+  text-transform: uppercase; letter-spacing: 0.5px;
+}
+.breaker-pill.closed { color: var(--green); background: rgba(0,255,136,0.1); }
+.breaker-pill.open { color: var(--fire); background: rgba(255,68,68,0.15); }
+.breaker-pill.half-open { color: var(--gold); background: rgba(255,215,0,0.15); }
+
 /* === Conversation Sidebar === */
 .convo-bar {
   display: flex; align-items: center; gap: 8px;
@@ -399,7 +419,9 @@ body {
 
 <div class="header">
   <h1>⚔️ Command Center</h1>
+  <div class="breaker-pills" id="breakerPills"></div>
   <div class="nav-links">
+    <a href="/metrics-hud">Metrics</a>
     <a href="/war-table">War Table</a>
     <a href="/">Battle Log</a>
   </div>
@@ -618,7 +640,12 @@ async function sendChat(message, mode) {
     msgEl.classList.remove('streaming');
     if (meta.model) {
       const metaEl = document.createElement('div'); metaEl.className = 'meta';
-      metaEl.innerHTML = `<span class="model">${meta.model}</span><span class="tool">${meta.tool||''}</span><span>${meta.elapsedMs?(meta.elapsedMs/1000).toFixed(1)+'s':''}</span><span>${meta.tokensOut?meta.tokensOut+' tok':''}</span>${document.getElementById('showReason').checked && meta.reason ? `<span class="reason">${meta.reason}</span>` : ''}`;
+      let confidenceHtml = '';
+      if (meta.confidence) {
+        const level = meta.confidence.tier || (meta.confidence.composite >= 0.7 ? 'high' : meta.confidence.composite >= 0.4 ? 'medium' : 'low');
+        confidenceHtml = `<span class="confidence-badge ${level}">${(meta.confidence.composite * 100).toFixed(0)}% ${level}</span>`;
+      }
+      metaEl.innerHTML = `<span class="model">${meta.model}</span><span class="tool">${meta.tool||''}</span><span>${meta.elapsedMs?(meta.elapsedMs/1000).toFixed(1)+'s':''}</span><span>${meta.tokensOut?meta.tokensOut+' tok':''}</span>${confidenceHtml}${document.getElementById('showReason').checked && meta.reason ? `<span class="reason">${meta.reason}</span>` : ''}`;
       msgEl.appendChild(metaEl);
       addDialogueFrame(meta.tool || 'consult_specialist', fullText, meta);
       recordMessage('assistant', fullText, meta);
@@ -926,6 +953,20 @@ function buildContext() {
   if (attachedFiles.length === 0) return '';
   return attachedFiles.map(f => `--- FILE: ${f.name} ---\n${f.content}\n--- END FILE ---`).join('\n\n');
 }
+
+// === Circuit Breaker Status Polling ===
+async function refreshBreakers() {
+  try {
+    const res = await fetch('/breakers');
+    const breakers = await res.json();
+    const pills = Object.entries(breakers).map(([name, info]) =>
+      `<span class="breaker-pill ${info.state}" title="${name}: ${info.failures}/${info.threshold}">${name.slice(0,4)}</span>`
+    ).join('');
+    document.getElementById('breakerPills').innerHTML = pills;
+  } catch {}
+}
+refreshBreakers();
+setInterval(refreshBreakers, 5000);
 </script>
 </body>
 </html>
