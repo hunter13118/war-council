@@ -1,0 +1,269 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>War Council — Metrics HUD</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{
+  --bg:#0a0a0f;--surface:#12121a;--border:#1e1e2e;
+  --text:#e0e0e0;--dim:#8888aa;--accent:#a855f7;
+  --green:#10b981;--yellow:#f59e0b;--red:#ef4444;--blue:#3b82f6;
+  --glow:0 0 20px rgba(168,85,247,0.3);
+}
+body{background:var(--bg);color:var(--text);font-family:'JetBrains Mono','Fira Code',monospace;min-height:100vh;overflow-x:hidden}
+header{padding:1.5rem 2rem;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:1rem;backdrop-filter:blur(8px);position:sticky;top:0;z-index:10;background:rgba(10,10,15,0.9)}
+header h1{font-size:1.2rem;background:linear-gradient(135deg,var(--accent),var(--blue));-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+header .status{margin-left:auto;display:flex;gap:0.75rem;align-items:center}
+.dot{width:8px;height:8px;border-radius:50%;animation:pulse 2s infinite}
+.dot.green{background:var(--green);box-shadow:0 0 8px var(--green)}
+.dot.yellow{background:var(--yellow);box-shadow:0 0 8px var(--yellow)}
+.dot.red{background:var(--red);box-shadow:0 0 8px var(--red)}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:0.5}}
+
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:1rem;padding:1.5rem}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:1.25rem;transition:border-color 0.3s}
+.card:hover{border-color:var(--accent)}
+.card h2{font-size:0.85rem;text-transform:uppercase;letter-spacing:0.08em;color:var(--dim);margin-bottom:0.75rem}
+
+/* Stat rows */
+.stat-row{display:flex;justify-content:space-between;padding:0.4rem 0;border-bottom:1px solid var(--border)}
+.stat-row:last-child{border-bottom:none}
+.stat-label{color:var(--dim);font-size:0.8rem}
+.stat-value{font-size:0.9rem;font-weight:600}
+
+/* Circuit Breakers */
+.breaker{display:flex;align-items:center;gap:0.75rem;padding:0.5rem 0;border-bottom:1px solid var(--border)}
+.breaker:last-child{border-bottom:none}
+.breaker-state{font-size:0.7rem;padding:2px 8px;border-radius:4px;font-weight:700;text-transform:uppercase}
+.breaker-state.closed{background:rgba(16,185,129,0.15);color:var(--green)}
+.breaker-state.open{background:rgba(239,68,68,0.15);color:var(--red)}
+.breaker-state.half-open{background:rgba(245,158,11,0.15);color:var(--yellow)}
+.breaker-name{flex:1;font-size:0.85rem}
+.breaker-failures{color:var(--dim);font-size:0.75rem}
+
+/* Event Feed */
+.events-feed{max-height:320px;overflow-y:auto;scrollbar-width:thin;scrollbar-color:var(--border) transparent}
+.event-item{padding:0.5rem 0;border-bottom:1px solid var(--border);font-size:0.78rem;display:flex;gap:0.5rem}
+.event-item:last-child{border-bottom:none}
+.event-tier{padding:1px 6px;border-radius:3px;font-size:0.7rem;font-weight:600;white-space:nowrap}
+.event-tier.fast{background:rgba(59,130,246,0.2);color:var(--blue)}
+.event-tier.specialist{background:rgba(168,85,247,0.2);color:var(--accent)}
+.event-tier.reasoning{background:rgba(245,158,11,0.2);color:var(--yellow)}
+.event-tier.groq{background:rgba(16,185,129,0.2);color:var(--green)}
+.event-tier.gemini{background:rgba(239,68,68,0.2);color:var(--red)}
+.event-time{color:var(--dim);white-space:nowrap}
+.event-detail{color:var(--text);flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+
+/* Bar charts */
+.bar-group{margin:0.5rem 0}
+.bar-label{font-size:0.75rem;color:var(--dim);margin-bottom:3px}
+.bar-track{height:8px;background:var(--border);border-radius:4px;overflow:hidden}
+.bar-fill{height:100%;border-radius:4px;transition:width 0.6s ease}
+
+/* DAG Executions */
+.dag-item{padding:0.5rem 0;border-bottom:1px solid var(--border);font-size:0.8rem}
+.dag-item:last-child{border-bottom:none}
+.dag-status{display:inline-block;padding:1px 6px;border-radius:3px;font-size:0.7rem;font-weight:600}
+.dag-status.completed{background:rgba(16,185,129,0.15);color:var(--green)}
+.dag-status.running{background:rgba(59,130,246,0.15);color:var(--blue)}
+.dag-status.failed{background:rgba(239,68,68,0.15);color:var(--red)}
+
+/* Mode badge */
+.mode-badge{padding:3px 10px;border-radius:6px;font-size:0.75rem;font-weight:700;text-transform:uppercase}
+.mode-badge.cloud{background:rgba(59,130,246,0.2);color:var(--blue)}
+.mode-badge.local{background:rgba(168,85,247,0.2);color:var(--accent)}
+.mode-badge.hybrid{background:rgba(16,185,129,0.2);color:var(--green)}
+
+/* Responsive */
+@media(max-width:768px){.grid{grid-template-columns:1fr;padding:1rem}}
+</style>
+</head>
+<body>
+<header>
+  <h1>⚔️ WAR COUNCIL — METRICS HUD</h1>
+  <div class="status">
+    <span class="mode-badge" id="mode-badge">—</span>
+    <span class="dot green" id="status-dot"></span>
+    <span style="font-size:0.8rem;color:var(--dim)" id="status-text">connecting...</span>
+  </div>
+</header>
+
+<div class="grid">
+  <!-- Health Overview -->
+  <div class="card" id="health-card">
+    <h2>System Health</h2>
+    <div class="stat-row"><span class="stat-label">Ollama</span><span class="stat-value" id="h-ollama">—</span></div>
+    <div class="stat-row"><span class="stat-label">Models</span><span class="stat-value" id="h-models">—</span></div>
+    <div class="stat-row"><span class="stat-label">RAG Chunks</span><span class="stat-value" id="h-chunks">—</span></div>
+    <div class="stat-row"><span class="stat-label">Workspace</span><span class="stat-value" id="h-workspace">—</span></div>
+  </div>
+
+  <!-- Latency Metrics -->
+  <div class="card">
+    <h2>Latency (last 5 min)</h2>
+    <div id="latency-bars"></div>
+  </div>
+
+  <!-- Circuit Breakers -->
+  <div class="card">
+    <h2>Circuit Breakers</h2>
+    <div id="breakers-list"></div>
+  </div>
+
+  <!-- Throughput -->
+  <div class="card">
+    <h2>Throughput</h2>
+    <div class="stat-row"><span class="stat-label">Total Requests</span><span class="stat-value" id="t-total">—</span></div>
+    <div class="stat-row"><span class="stat-label">Errors</span><span class="stat-value" id="t-errors">—</span></div>
+    <div class="stat-row"><span class="stat-label">Error Rate</span><span class="stat-value" id="t-rate">—</span></div>
+    <div class="stat-row"><span class="stat-label">Avg Tokens/sec</span><span class="stat-value" id="t-tps">—</span></div>
+    <div class="stat-row"><span class="stat-label">RAG Hit Rate</span><span class="stat-value" id="t-rag">—</span></div>
+  </div>
+
+  <!-- DAG Executions -->
+  <div class="card">
+    <h2>DAG Executions</h2>
+    <div id="dag-list"><span class="stat-label">No executions yet</span></div>
+  </div>
+
+  <!-- Live Event Feed -->
+  <div class="card" style="grid-column:1/-1">
+    <h2>Event Feed (last 50)</h2>
+    <div class="events-feed" id="events-feed"><span class="stat-label">Loading...</span></div>
+  </div>
+</div>
+
+<script>
+const BASE = location.origin;
+const $ = id => document.getElementById(id);
+
+// --- Polling engine ---
+async function fetchJSON(path) {
+  try {
+    const r = await fetch(`${BASE}${path}`);
+    if (!r.ok) throw new Error(r.statusText);
+    return await r.json();
+  } catch { return null; }
+}
+
+async function refreshHealth() {
+  const d = await fetchJSON('/health');
+  if (!d) { setStatus('red', 'offline'); return; }
+  setStatus(d.status === 'ready' ? 'green' : 'yellow', d.status);
+  $('mode-badge').textContent = d.mode;
+  $('mode-badge').className = `mode-badge ${d.mode}`;
+  $('h-ollama').textContent = d.ollama ? '✓ Online' : '✗ Offline';
+  $('h-ollama').style.color = d.ollama ? 'var(--green)' : 'var(--red)';
+  $('h-models').textContent = d.models?.length || 0;
+  $('h-chunks').textContent = d.rag?.chunks?.toLocaleString() || '0';
+  $('h-workspace').textContent = d.workspace?.split(/[/\\]/).pop() || '—';
+}
+
+async function refreshMetrics() {
+  const d = await fetchJSON('/metrics');
+  if (!d) return;
+
+  // Throughput stats
+  let totalReqs = 0, totalErrors = 0, totalTps = [], ragHits = 0, ragTotal = 0;
+  const tiers = Object.keys(d);
+  tiers.forEach(tier => {
+    const m = d[tier];
+    totalReqs += (m.successes || 0) + (m.errors || 0);
+    totalErrors += m.errors || 0;
+    if (m.tokensPerSec) totalTps.push(m.tokensPerSec);
+  });
+  $('t-total').textContent = totalReqs;
+  $('t-errors').textContent = totalErrors;
+  $('t-errors').style.color = totalErrors > 0 ? 'var(--red)' : 'var(--green)';
+  $('t-rate').textContent = totalReqs > 0 ? ((totalErrors / totalReqs) * 100).toFixed(1) + '%' : '0%';
+  const avgTps = totalTps.length > 0 ? (totalTps.reduce((a, b) => a + b, 0) / totalTps.length).toFixed(1) : '—';
+  $('t-tps').textContent = avgTps;
+
+  // RAG hit rate from events
+  const events = await fetchJSON('/metrics/events?count=100');
+  if (events) {
+    events.forEach(e => {
+      if (e.ragChunks !== undefined) { ragTotal++; if (e.ragChunks > 0) ragHits++; }
+    });
+  }
+  $('t-rag').textContent = ragTotal > 0 ? ((ragHits / ragTotal) * 100).toFixed(0) + '%' : '—';
+
+  // Latency bars
+  const barsHtml = tiers.map(tier => {
+    const m = d[tier];
+    const p50 = m.latencyP50 || 0;
+    const p95 = m.latencyP95 || 0;
+    const maxMs = 30000; // 30s scale
+    const width50 = Math.min(100, (p50 / maxMs) * 100);
+    const width95 = Math.min(100, (p95 / maxMs) * 100);
+    const color = tier === 'fast' ? 'var(--blue)' : tier === 'specialist' ? 'var(--accent)' : tier === 'reasoning' ? 'var(--yellow)' : tier === 'groq' ? 'var(--green)' : 'var(--red)';
+    return `
+      <div class="bar-group">
+        <div class="bar-label">${tier} — p50: ${(p50/1000).toFixed(1)}s / p95: ${(p95/1000).toFixed(1)}s</div>
+        <div class="bar-track"><div class="bar-fill" style="width:${width95}%;background:${color};opacity:0.4"></div></div>
+        <div class="bar-track" style="margin-top:2px"><div class="bar-fill" style="width:${width50}%;background:${color}"></div></div>
+      </div>`;
+  }).join('');
+  $('latency-bars').innerHTML = barsHtml || '<span class="stat-label">No data yet</span>';
+}
+
+async function refreshBreakers() {
+  const d = await fetchJSON('/breakers');
+  if (!d) return;
+  const html = Object.entries(d).map(([name, info]) => `
+    <div class="breaker">
+      <span class="breaker-state ${info.state}">${info.state}</span>
+      <span class="breaker-name">${name}</span>
+      <span class="breaker-failures">${info.failures}/${info.threshold} failures</span>
+    </div>
+  `).join('');
+  $('breakers-list').innerHTML = html || '<span class="stat-label">No breakers configured</span>';
+}
+
+async function refreshDAGs() {
+  const d = await fetchJSON('/dag/list');
+  if (!d || d.length === 0) { $('dag-list').innerHTML = '<span class="stat-label">No executions yet</span>'; return; }
+  const html = d.slice(0, 10).map(ex => `
+    <div class="dag-item">
+      <span class="dag-status ${ex.status}">${ex.status}</span>
+      <strong>${ex.dagName || ex.dagId}</strong>
+      <span style="color:var(--dim);margin-left:0.5rem">${ex.duration ? (ex.duration / 1000).toFixed(1) + 's' : 'running...'}</span>
+    </div>
+  `).join('');
+  $('dag-list').innerHTML = html;
+}
+
+async function refreshEvents() {
+  const d = await fetchJSON('/metrics/events?count=50');
+  if (!d || d.length === 0) { $('events-feed').innerHTML = '<span class="stat-label">No events yet</span>'; return; }
+  const html = d.map(e => {
+    const time = new Date(e.timestamp).toLocaleTimeString();
+    const tier = e.tier || 'unknown';
+    const detail = e.error ? `❌ ${e.error}` : `${(e.latencyMs/1000).toFixed(1)}s • ${e.tokens || '?'} tok`;
+    return `
+      <div class="event-item">
+        <span class="event-time">${time}</span>
+        <span class="event-tier ${tier}">${tier}</span>
+        <span class="event-detail">${detail}</span>
+      </div>`;
+  }).join('');
+  $('events-feed').innerHTML = html;
+}
+
+function setStatus(color, text) {
+  const dot = $('status-dot');
+  dot.className = `dot ${color}`;
+  $('status-text').textContent = text;
+}
+
+// Refresh loop
+async function tick() {
+  await Promise.all([refreshHealth(), refreshMetrics(), refreshBreakers(), refreshDAGs(), refreshEvents()]);
+}
+tick();
+setInterval(tick, 3000);
+</script>
+</body>
+</html>
