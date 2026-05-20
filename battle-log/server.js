@@ -211,11 +211,17 @@ const server = createServer(async (req, res) => {
     let body = "";
     for await (const chunk of req) body += chunk;
     try {
-      const { message, mode, model: forceModel } = JSON.parse(body);
+      const { message, mode, model: forceModel, context } = JSON.parse(body);
       if (!message) throw new Error("message required");
 
       const ollamaBase = process.env.OLLAMA_BASE || "http://127.0.0.1:11434";
       const route = routeMessage(message, mode);
+
+      // Build prompt with optional RAG context
+      let prompt = message;
+      if (context && context.trim()) {
+        prompt = `The user has provided the following reference files for context:\n\n${context}\n\nUser question: ${message}`;
+      }
 
       // Emit tool_call event so war table shows activity
       const eventId = `chat-${Date.now()}`;
@@ -235,7 +241,7 @@ const server = createServer(async (req, res) => {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           model: forceModel || route.model,
-          prompt: message,
+          prompt: prompt,
           stream: true,
         }),
       });

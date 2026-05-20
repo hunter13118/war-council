@@ -95,3 +95,44 @@ test('Capture tournament dialogue exchange', async ({ page }) => {
   await page.waitForTimeout(300);
   await page.screenshot({ path: resolve(SCREENSHOTS, '08-tournament-nav-back.png') });
 });
+
+test('Capture RAG file drop', async ({ page }) => {
+  await page.route('**/chat', async (route, request) => {
+    if (request.method() !== 'POST') return route.continue();
+    const body = JSON.parse(request.postData());
+    const hasContext = body.context && body.context.includes('FILE:');
+    const text = hasContext
+      ? 'Based on the provided package.json, this project uses Node.js with Express for the server and Playwright for testing. The main entry point is server.js.'
+      : 'No files attached — ask me anything.';
+    const tokens = text.split(/(?<=\s)/);
+    let sseBody = '';
+    for (const t of tokens) sseBody += `data: ${JSON.stringify({ token: t, model: 'qwen2.5-coder:14b', tool: 'consult_specialist', reason: 'File analysis → specialist' })}\n\n`;
+    sseBody += `data: ${JSON.stringify({ done: true, elapsedMs: 2400, tokensOut: tokens.length, model: 'qwen2.5-coder:14b', tool: 'consult_specialist', reason: 'File analysis → specialist' })}\n\n`;
+    await route.fulfill({ status: 200, headers: { 'Content-Type': 'text/event-stream' }, body: sseBody });
+  });
+
+  await page.goto('http://localhost:3737/command-center', { waitUntil: 'domcontentloaded' });
+  await page.waitForTimeout(500);
+
+  // Simulate file drop via DataTransfer
+  const fileContent = JSON.stringify({ name: 'war-council', version: '1.0.0', scripts: { test: 'playwright test' } }, null, 2);
+  await page.evaluate((content) => {
+    const file = new File([content], 'package.json', { type: 'application/json' });
+    const dt = new DataTransfer();
+    dt.items.add(file);
+    const dropEvent = new DragEvent('drop', { dataTransfer: dt, bubbles: true });
+    document.getElementById('chatPanel').dispatchEvent(dropEvent);
+  }, fileContent);
+  await page.waitForTimeout(500);
+
+  // Screenshot: file chip visible
+  await page.screenshot({ path: resolve(SCREENSHOTS, '09-rag-file-attached.png') });
+
+  // Send a question about the file
+  await page.fill('#chatInput', 'What does this project use for testing?');
+  await page.click('#sendBtn');
+  await page.waitForTimeout(2500);
+
+  // Screenshot: response informed by file context
+  await page.screenshot({ path: resolve(SCREENSHOTS, '10-rag-response-with-context.png') });
+});

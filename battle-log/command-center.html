@@ -77,6 +77,7 @@ body {
   display: flex;
   flex-direction: column;
   min-width: 300px;
+  position: relative;
 }
 
 .chat-messages {
@@ -174,6 +175,35 @@ body {
 .status-indicator { margin-left: auto; font-size: 10px; }
 .status-indicator.connected { color: var(--green); }
 .status-indicator.error { color: var(--fire); }
+
+/* === File Drop === */
+.drop-overlay {
+  position: absolute; inset: 0; z-index: 100;
+  background: rgba(0,240,255,0.05);
+  border: 3px dashed var(--accent);
+  border-radius: 8px;
+  display: none; align-items: center; justify-content: center;
+  pointer-events: none;
+}
+.drop-overlay.active { display: flex; }
+.drop-overlay-text { color: var(--accent); font-size: 14px; text-transform: uppercase; letter-spacing: 2px; }
+
+.file-chips {
+  display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 8px;
+}
+.file-chips:empty { display: none; }
+.file-chip {
+  display: flex; align-items: center; gap: 4px;
+  background: var(--surface2); border: 1px solid var(--border);
+  padding: 3px 8px; border-radius: 4px; font-size: 10px; color: var(--dim);
+}
+.file-chip .chip-name { color: var(--accent); max-width: 120px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.file-chip .chip-size { color: var(--dim); }
+.file-chip .chip-remove {
+  color: var(--fire); cursor: pointer; font-size: 12px; margin-left: 2px;
+  border: none; background: none; font-family: var(--font); padding: 0 2px;
+}
+.file-chip .chip-remove:hover { color: #ff6666; }
 
 /* === Resize Divider === */
 .resize-divider {
@@ -342,13 +372,15 @@ body {
 
 <div class="main">
   <div class="chat-panel" id="chatPanel">
+    <div class="drop-overlay" id="dropOverlay"><span class="drop-overlay-text">📂 Drop files for context</span></div>
     <div class="chat-messages" id="chatMessages">
       <div class="msg system">
         War Council Command Center — Type a message. The council routes to the best model.<br>
-        Toggle Tournament for multi-model debate. Agents appear in the Dialogue Theatre →
+        Toggle Tournament for multi-model debate. Drag files into chat for RAG context.
       </div>
     </div>
     <div class="input-area">
+      <div class="file-chips" id="fileChips"></div>
       <div class="input-row">
         <textarea id="chatInput" placeholder="Ask the War Council..." rows="1"></textarea>
         <button id="sendBtn" onclick="sendMessage()">SEND</button>
@@ -513,7 +545,7 @@ async function sendChat(message, mode) {
   const msgEl = addMessage('assistant', '');
   msgEl.classList.add('streaming');
   try {
-    const res = await fetch('/chat', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ message, mode }) });
+    const res = await fetch('/chat', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ message, mode, context: buildContext() }) });
     const reader = res.body.getReader();
     const decoder = new TextDecoder();
     let buffer = '', fullText = '', meta = {};
@@ -557,7 +589,7 @@ async function sendTournament(message) {
   for (const { mode, role, label } of modes) {
     const msgEl = addMessage('assistant', ''); msgEl.classList.add('streaming');
     try {
-      const res = await fetch('/chat', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ message, mode }) });
+      const res = await fetch('/chat', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ message, mode, context: buildContext() }) });
       const reader = res.body.getReader();
       const decoder = new TextDecoder();
       let buf = '', fullText = '', meta = {};
@@ -657,6 +689,63 @@ const chatInput = document.getElementById('chatInput');
 chatInput.addEventListener('keydown', (e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage(); } });
 chatInput.addEventListener('input', () => autoResize(chatInput));
 function autoResize(el) { el.style.height = 'auto'; el.style.height = Math.min(el.scrollHeight, 200) + 'px'; }
+
+// === RAG File Drop ===
+const attachedFiles = []; // { name, size, content }
+const MAX_FILE_SIZE = 100 * 1024; // 100KB per file
+const ALLOWED_EXTENSIONS = ['.txt','.md','.js','.ts','.py','.json','.html','.css','.yml','.yaml','.toml','.xml','.csv','.sql','.sh','.bat','.ps1','.env','.log','.cfg','.ini'];
+
+const chatPanel = document.getElementById('chatPanel');
+const dropOverlay = document.getElementById('dropOverlay');
+let dragCounter = 0;
+
+chatPanel.addEventListener('dragenter', (e) => { e.preventDefault(); dragCounter++; dropOverlay.classList.add('active'); });
+chatPanel.addEventListener('dragleave', (e) => { e.preventDefault(); dragCounter--; if (dragCounter <= 0) { dragCounter = 0; dropOverlay.classList.remove('active'); } });
+chatPanel.addEventListener('dragover', (e) => { e.preventDefault(); });
+chatPanel.addEventListener('drop', (e) => {
+  e.preventDefault(); dragCounter = 0; dropOverlay.classList.remove('active');
+  const files = [...e.dataTransfer.files];
+  files.forEach(file => processDroppedFile(file));
+});
+
+function processDroppedFile(file) {
+  const ext = '.' + file.name.split('.').pop().toLowerCase();
+  if (!ALLOWED_EXTENSIONS.includes(ext)) {
+    addMessage('system', `⚠️ Unsupported file type: ${ext}. Text files only.`);
+    return;
+  }
+  if (file.size > MAX_FILE_SIZE) {
+    addMessage('system', `⚠️ File too large: ${file.name} (${(file.size/1024).toFixed(0)}KB > 100KB limit)`);
+    return;
+  }
+  const reader = new FileReader();
+  reader.onload = () => {
+    attachedFiles.push({ name: file.name, size: file.size, content: reader.result });
+    renderFileChips();
+  };
+  reader.readAsText(file);
+}
+
+function renderFileChips() {
+  const container = document.getElementById('fileChips');
+  container.innerHTML = attachedFiles.map((f, i) => `
+    <div class="file-chip">
+      <span class="chip-name" title="${f.name}">📄 ${f.name}</span>
+      <span class="chip-size">(${(f.size/1024).toFixed(1)}KB)</span>
+      <button class="chip-remove" onclick="removeFile(${i})">✕</button>
+    </div>
+  `).join('');
+}
+
+function removeFile(idx) {
+  attachedFiles.splice(idx, 1);
+  renderFileChips();
+}
+
+function buildContext() {
+  if (attachedFiles.length === 0) return '';
+  return attachedFiles.map(f => `--- FILE: ${f.name} ---\n${f.content}\n--- END FILE ---`).join('\n\n');
+}
 </script>
 </body>
 </html>
