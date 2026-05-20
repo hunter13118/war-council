@@ -136,3 +136,36 @@ test('Capture RAG file drop', async ({ page }) => {
   // Screenshot: response informed by file context
   await page.screenshot({ path: resolve(SCREENSHOTS, '10-rag-response-with-context.png') });
 });
+
+test('Conversation persistence flow', async ({ page }) => {
+  // Mock chat response
+  await page.route('**/chat', async (route, request) => {
+    if (request.method() !== 'POST') return route.continue();
+    const text = 'This is a persisted response for testing conversation history.';
+    const tokens = text.split(/(?<=\s)/);
+    let sseBody = '';
+    for (const t of tokens) sseBody += `data: ${JSON.stringify({ token: t, model: 'qwen2.5-coder:7b', tool: 'consult_fast' })}\n\n`;
+    sseBody += `data: ${JSON.stringify({ done: true, elapsedMs: 800, tokensOut: tokens.length, model: 'qwen2.5-coder:7b', tool: 'consult_fast' })}\n\n`;
+    await route.fulfill({ status: 200, headers: { 'Content-Type': 'text/event-stream' }, body: sseBody });
+  });
+
+  await page.goto('http://localhost:3737/command-center', { waitUntil: 'domcontentloaded' });
+  await page.waitForTimeout(500);
+
+  // Click new chat to start fresh
+  await page.click('text=+ New');
+  await page.waitForTimeout(300);
+
+  // Send a message (triggers auto-save)
+  await page.fill('#chatInput', 'Testing conversation persistence');
+  await page.click('#sendBtn');
+  await page.waitForTimeout(2000);
+
+  // Screenshot: conversation with title updated
+  await page.screenshot({ path: resolve(SCREENSHOTS, '11-conversation-saved.png') });
+
+  // Open history list
+  await page.click('text=📂 History');
+  await page.waitForTimeout(500);
+  await page.screenshot({ path: resolve(SCREENSHOTS, '12-conversation-history.png') });
+});

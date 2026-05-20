@@ -304,6 +304,76 @@ const server = createServer(async (req, res) => {
     return;
   }
 
+  // === Conversations: persistence ===
+  const CONVOS_DIR = resolve(LOG_DIR, "conversations");
+
+  if (url.pathname === "/conversations" && req.method === "GET") {
+    try {
+      await mkdir(CONVOS_DIR, { recursive: true });
+      const files = (await readdir(CONVOS_DIR)).filter(f => f.endsWith('.json')).sort().reverse();
+      const list = [];
+      for (const f of files.slice(0, 50)) {
+        try {
+          const data = JSON.parse(await readFile(resolve(CONVOS_DIR, f), 'utf-8'));
+          list.push({ id: data.id, title: data.title, updatedAt: data.updatedAt, messageCount: (data.messages || []).length });
+        } catch {}
+      }
+      res.writeHead(200, { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" });
+      res.end(JSON.stringify(list));
+    } catch (e) {
+      res.writeHead(500, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ error: e.message }));
+    }
+    return;
+  }
+
+  if (url.pathname.startsWith("/conversations/") && req.method === "GET") {
+    const id = url.pathname.split("/")[2];
+    if (!id || !/^[a-z0-9-]+$/.test(id)) { res.writeHead(400); res.end('Invalid id'); return; }
+    try {
+      const data = await readFile(resolve(CONVOS_DIR, `${id}.json`), 'utf-8');
+      res.writeHead(200, { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" });
+      res.end(data);
+    } catch (e) {
+      res.writeHead(404, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ error: 'Not found' }));
+    }
+    return;
+  }
+
+  if (url.pathname === "/conversations" && req.method === "POST") {
+    let body = "";
+    for await (const chunk of req) body += chunk;
+    try {
+      const convo = JSON.parse(body);
+      if (!convo.id || !/^[a-z0-9-]+$/.test(convo.id)) throw new Error('Invalid conversation id');
+      await mkdir(CONVOS_DIR, { recursive: true });
+      const { writeFile: wf } = await import('node:fs/promises');
+      await wf(resolve(CONVOS_DIR, `${convo.id}.json`), JSON.stringify(convo, null, 2));
+      res.writeHead(200, { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" });
+      res.end(JSON.stringify({ ok: true }));
+    } catch (e) {
+      res.writeHead(400, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ error: e.message }));
+    }
+    return;
+  }
+
+  if (url.pathname.startsWith("/conversations/") && req.method === "DELETE") {
+    const id = url.pathname.split("/")[2];
+    if (!id || !/^[a-z0-9-]+$/.test(id)) { res.writeHead(400); res.end('Invalid id'); return; }
+    try {
+      const { unlink } = await import('node:fs/promises');
+      await unlink(resolve(CONVOS_DIR, `${id}.json`));
+      res.writeHead(200, { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" });
+      res.end(JSON.stringify({ ok: true }));
+    } catch (e) {
+      res.writeHead(404, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ error: 'Not found' }));
+    }
+    return;
+  }
+
   if (url.pathname === "/events") {
     res.writeHead(200, {
       "Content-Type": "text/event-stream",
