@@ -287,3 +287,66 @@ describe("RAG Pipeline — /chat auto-injection (integration)", () => {
     assert.ok(prompt.includes("Explain this code"));
   });
 });
+
+describe("Mode System — routing logic", () => {
+  const CLOUD_MODELS = {
+    fast: { provider: "groq", model: "llama-3.3-70b-versatile", tool: "cloud_fast" },
+    specialist: { provider: "groq", model: "llama-3.3-70b-versatile", tool: "cloud_specialist" },
+    reasoning: { provider: "gemini", model: "gemini-2.5-flash", tool: "cloud_reasoning" },
+  };
+
+  function routeWithMode(message, mode, activeMode) {
+    const FAST = "qwen2.5-coder:7b";
+    const SPECIALIST = "qwen2.5-coder:14b";
+    const REASONING = "deepseek-r1:14b";
+    const matches = (text, kws) => kws.some(kw => text.includes(kw));
+
+    let route;
+    if (mode === "fast") route = { model: FAST, tool: "consult_fast", reason: "fast" };
+    else if (mode === "reasoning") route = { model: REASONING, tool: "consult_reasoning", reason: "reasoning" };
+    else if (mode === "specialist") route = { model: SPECIALIST, tool: "consult_specialist", reason: "specialist" };
+    else {
+      const lower = message.toLowerCase();
+      if (matches(lower, ["architect", "design"])) route = { model: REASONING, tool: "consult_reasoning", reason: "architecture" };
+      else if (matches(lower, ["bug", "error"])) route = { model: SPECIALIST, tool: "consult_specialist", reason: "bug" };
+      else route = { model: FAST, tool: "consult_fast", reason: "default" };
+    }
+
+    if (activeMode === "cloud") {
+      const tier = mode !== "auto" ? mode : (route.tool.includes("fast") ? "fast" : route.tool.includes("reasoning") ? "reasoning" : "specialist");
+      const cloud = CLOUD_MODELS[tier] || CLOUD_MODELS.specialist;
+      return { ...route, model: cloud.model, tool: cloud.tool, provider: cloud.provider };
+    }
+    return route;
+  }
+
+  it("cloud mode routes to Groq for fast queries", () => {
+    const route = routeWithMode("what is a function", "auto", "cloud");
+    assert.equal(route.provider, "groq");
+    assert.equal(route.model, "llama-3.3-70b-versatile");
+  });
+
+  it("cloud mode routes to Gemini for reasoning queries", () => {
+    const route = routeWithMode("architect a system", "auto", "cloud");
+    assert.equal(route.provider, "gemini");
+    assert.equal(route.model, "gemini-2.5-flash");
+  });
+
+  it("local mode routes to Ollama models (no provider)", () => {
+    const route = routeWithMode("what is a function", "auto", "local");
+    assert.equal(route.provider, undefined);
+    assert.equal(route.model, "qwen2.5-coder:7b");
+  });
+
+  it("hybrid mode routes to local (provider undefined = Ollama path)", () => {
+    const route = routeWithMode("fix this bug", "auto", "hybrid");
+    assert.equal(route.provider, undefined);
+    assert.ok(route.model.includes("qwen"));
+  });
+
+  it("explicit mode selection overrides auto-routing in cloud", () => {
+    const route = routeWithMode("hello", "reasoning", "cloud");
+    assert.equal(route.provider, "gemini");
+    assert.equal(route.model, "gemini-2.5-flash");
+  });
+});

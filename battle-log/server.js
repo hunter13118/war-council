@@ -36,6 +36,9 @@ const LOG_DIR = resolve(WORKSPACE_ROOT, ".cline-context");
 const LOG_PATH = resolve(LOG_DIR, "battle-log.jsonl");
 const VECTOR_STORE_PATH = resolve(LOG_DIR, "vector-store.json");
 
+// === Operational Mode: cloud | local | hybrid ===
+let activeMode = "cloud"; // cold start default — safest, no hardware deps
+
 // Ensure .cline-context directory exists (auto-create on first use)
 async function ensureLogDir() {
   await mkdir(LOG_DIR, { recursive: true });
@@ -229,7 +232,44 @@ const server = createServer(async (req, res) => {
       ollama, models,
       rag: { vectorStore, chunks, path: VECTOR_STORE_PATH },
       workspace: WORKSPACE_ROOT,
+      mode: activeMode,
     }));
+    return;
+  }
+
+  // === Mode management ===
+  if (url.pathname === "/mode" && req.method === "GET") {
+    res.writeHead(200, { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" });
+    res.end(JSON.stringify({ mode: activeMode }));
+    return;
+  }
+  if (url.pathname === "/mode" && req.method === "POST") {
+    let body = "";
+    for await (const chunk of req) body += chunk;
+    try {
+      const { mode } = JSON.parse(body);
+      if (!["cloud", "local", "hybrid"].includes(mode)) throw new Error("Invalid mode: must be cloud, local, or hybrid");
+
+      // If switching to local or hybrid, ensure Ollama is running
+      if ((mode === "local" || mode === "hybrid") && activeMode === "cloud") {
+        const ollamaUp = await ensureOllamaRunning();
+        if (!ollamaUp) {
+          res.writeHead(503, { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" });
+          res.end(JSON.stringify({ error: "Could not start Ollama. Install from https://ollama.ai and ensure 'ollama serve' works." }));
+          return;
+        }
+      }
+
+      const prev = activeMode;
+      activeMode = mode;
+      broadcast({ type: "mode_change", from: prev, to: mode, timestamp: new Date().toISOString() });
+      console.log(`🔄 Mode: ${prev} → ${mode}`);
+      res.writeHead(200, { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" });
+      res.end(JSON.stringify({ mode: activeMode, previous: prev }));
+    } catch (e) {
+      res.writeHead(400, { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" });
+      res.end(JSON.stringify({ error: e.message }));
+    }
     return;
   }
 
@@ -279,12 +319,84 @@ const server = createServer(async (req, res) => {
         res.write(`data: ${JSON.stringify({ rag: true, chunks: ragContext.split('\n\n').length })}\n\n`);
       }
 
+      // Send mode info
+      res.write(`data: ${JSON.stringify({ mode: activeMode })}\n\n`);
+
       const startTime = Date.now();
+      let fullResponse = "";
+      let tokensOut = 0;
+      let usedModel = forceModel || route.model;
+
+      // === CLOUD MODE: stream from cloud provider ===
+      if (route.provider && (activeMode === "cloud" || (activeMode === "hybrid" && !forceModel))) {
+        try {
+          const cloudRes = await streamCloud(route.provider, route.model, prompt, res);
+          usedModel = route.model;
+
+          if (route.provider === "groq") {
+            // OpenAI-compatible SSE stream
+            let buf = "";
+            for await (const chunk of cloudRes.body) {
+              buf += chunk.toString();
+              const lines = buf.split("\n"); buf = lines.pop();
+              for (const line of lines) {
+                if (!line.startsWith("data: ") || line === "data: [DONE]") continue;
+                try {
+                  const d = JSON.parse(line.slice(6));
+                  const token = d.choices?.[0]?.delta?.content;
+                  if (token) { fullResponse += token; tokensOut++; res.write(`data: ${JSON.stringify({ token, model: usedModel, tool: route.tool, reason: route.reason })}\n\n`); }
+                } catch {}
+              }
+            }
+          } else if (route.provider === "gemini") {
+            // Gemini SSE stream
+            let buf = "";
+            for await (const chunk of cloudRes.body) {
+              buf += chunk.toString();
+              const lines = buf.split("\n"); buf = lines.pop();
+              for (const line of lines) {
+                if (!line.startsWith("data: ")) continue;
+                try {
+                  const d = JSON.parse(line.slice(6));
+                  const text = d.candidates?.[0]?.content?.parts?.[0]?.text;
+                  if (text) { fullResponse += text; tokensOut++; res.write(`data: ${JSON.stringify({ token: text, model: usedModel, tool: route.tool, reason: route.reason })}\n\n`); }
+                } catch {}
+              }
+            }
+          }
+
+          const elapsedMs = Date.now() - startTime;
+          res.write(`data: ${JSON.stringify({ done: true, elapsedMs, tokensOut, model: usedModel, tool: route.tool, reason: route.reason })}\n\n`);
+          broadcast({ type: "tool_call", tool: route.tool, text: fullResponse.slice(0, 100) + "...", model: usedModel, elapsedMs, tokensOut, id: eventId + "-done", timestamp: new Date().toISOString() });
+          res.end();
+          return;
+        } catch (cloudErr) {
+          if (activeMode === "hybrid") {
+            // Fallback to local Ollama
+            res.write(`data: ${JSON.stringify({ fallback: true, reason: `Cloud failed: ${cloudErr.message} — falling back to local` })}\n\n`);
+          } else {
+            // Pure cloud mode — no fallback
+            res.write(`data: ${JSON.stringify({ error: `Cloud error: ${cloudErr.message}` })}\n\n`);
+            res.end();
+            return;
+          }
+        }
+      }
+
+      // === LOCAL/HYBRID FALLBACK: stream from Ollama ===
+      usedModel = forceModel || (activeMode === "cloud" ? route.model : route.model); // re-derive local model for hybrid fallback
+      if (activeMode !== "cloud") {
+        // In hybrid fallback, re-route to local model
+        const localModels = { fast: "qwen2.5-coder:7b", specialist: "qwen2.5-coder:14b", reasoning: "deepseek-r1:14b" };
+        const tier = route.tool.includes("fast") ? "fast" : route.tool.includes("reasoning") ? "reasoning" : "specialist";
+        usedModel = forceModel || localModels[tier] || localModels.specialist;
+      }
+
       const ollamaRes = await fetch(`${ollamaBase}/api/generate`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          model: forceModel || route.model,
+          model: usedModel,
           prompt: prompt,
           stream: true,
         }),
@@ -296,16 +408,12 @@ const server = createServer(async (req, res) => {
         return;
       }
 
-      let fullResponse = "";
-      let tokensOut = 0;
       const reader = ollamaRes.body;
-
-      // Node readable stream from fetch — parse NDJSON
       let buffer = "";
       for await (const chunk of reader) {
         buffer += chunk.toString();
         const lines = buffer.split("\n");
-        buffer = lines.pop(); // keep incomplete line
+        buffer = lines.pop();
 
         for (const line of lines) {
           if (!line.trim()) continue;
@@ -314,13 +422,12 @@ const server = createServer(async (req, res) => {
             if (parsed.response) {
               fullResponse += parsed.response;
               tokensOut++;
-              res.write(`data: ${JSON.stringify({ token: parsed.response, model: forceModel || route.model, tool: route.tool, reason: route.reason })}\n\n`);
+              res.write(`data: ${JSON.stringify({ token: parsed.response, model: usedModel, tool: route.tool, reason: route.reason })}\n\n`);
             }
             if (parsed.done) {
               const elapsedMs = Date.now() - startTime;
-              res.write(`data: ${JSON.stringify({ done: true, elapsedMs, tokensOut, model: forceModel || route.model, tool: route.tool, reason: route.reason })}\n\n`);
-              // Emit completion event for war table
-              broadcast({ type: "tool_call", tool: route.tool, text: fullResponse.slice(0, 100) + "...", model: forceModel || route.model, elapsedMs, tokensOut, id: eventId + "-done", timestamp: new Date().toISOString() });
+              res.write(`data: ${JSON.stringify({ done: true, elapsedMs, tokensOut, model: usedModel, tool: route.tool, reason: route.reason })}\n\n`);
+              broadcast({ type: "tool_call", tool: route.tool, text: fullResponse.slice(0, 100) + "...", model: usedModel, elapsedMs, tokensOut, id: eventId + "-done", timestamp: new Date().toISOString() });
             }
           } catch {}
         }
@@ -723,36 +830,100 @@ const server = createServer(async (req, res) => {
 });
 
 // === Smart Message Router (lightweight decision tree) ===
+// Cloud model mapping — maps roles to cloud providers
+const CLOUD_MODELS = {
+  fast: { provider: "groq", model: "llama-3.3-70b-versatile", tool: "cloud_fast" },
+  specialist: { provider: "groq", model: "llama-3.3-70b-versatile", tool: "cloud_specialist" },
+  reasoning: { provider: "gemini", model: "gemini-2.5-flash", tool: "cloud_reasoning" },
+};
+
 function routeMessage(message, mode) {
-  // Load arsenal model names
+  // Local model names
   const FAST = "qwen2.5-coder:7b";
   const SPECIALIST = "qwen2.5-coder:14b";
   const REASONING = "deepseek-r1:14b";
 
-  if (mode === "fast") return { model: FAST, tool: "consult_fast", reason: "User selected fast mode" };
-  if (mode === "reasoning") return { model: REASONING, tool: "consult_reasoning", reason: "User selected reasoning mode" };
-  if (mode === "specialist") return { model: SPECIALIST, tool: "consult_specialist", reason: "User selected specialist mode" };
+  let route;
+  if (mode === "fast") route = { model: FAST, tool: "consult_fast", reason: "User selected fast mode" };
+  else if (mode === "reasoning") route = { model: REASONING, tool: "consult_reasoning", reason: "User selected reasoning mode" };
+  else if (mode === "specialist") route = { model: SPECIALIST, tool: "consult_specialist", reason: "User selected specialist mode" };
+  else {
+    const lower = message.toLowerCase();
+    if (matches(lower, ["architect", "design", "plan", "strategy", "approach", "how should", "tradeoff", "compare"])) {
+      route = { model: REASONING, tool: "consult_reasoning", reason: "Architecture/planning → deep reasoning" };
+    } else if (matches(lower, ["bug", "error", "broken", "crash", "failing", "fix", "doesn't work", "not working"])) {
+      route = { model: SPECIALIST, tool: "consult_specialist", reason: "Bug-fix → specialist" };
+    } else if (matches(lower, ["implement", "refactor", "write", "code", "function", "class", "module", "create"])) {
+      route = { model: SPECIALIST, tool: "consult_specialist", reason: "Code task → specialist" };
+    } else if (lower.length < 80 || matches(lower, ["what is", "how to", "quick", "simple", "format", "syntax"])) {
+      route = { model: FAST, tool: "consult_fast", reason: "Quick question → fast" };
+    } else {
+      route = { model: SPECIALIST, tool: "consult_specialist", reason: "General → specialist" };
+    }
+  }
 
-  const lower = message.toLowerCase();
+  // Apply mode override
+  if (activeMode === "cloud") {
+    // Map local route to cloud equivalent
+    const tier = mode !== "auto" ? mode : (route.tool.includes("fast") ? "fast" : route.tool.includes("reasoning") ? "reasoning" : "specialist");
+    const cloud = CLOUD_MODELS[tier] || CLOUD_MODELS.specialist;
+    return { ...route, model: cloud.model, tool: cloud.tool, provider: cloud.provider, reason: `[CLOUD] ${route.reason}` };
+  }
+  // hybrid: return local route (cloud used as fallback in the handler)
+  // local: return local route as-is
+  return route;
+}
 
-  // Architecture / planning → reasoning
-  if (matches(lower, ["architect", "design", "plan", "strategy", "approach", "how should", "tradeoff", "compare"])) {
-    return { model: REASONING, tool: "consult_reasoning", reason: "Architecture/planning detected → deep reasoning" };
+// === Cloud Provider Streaming ===
+async function streamCloud(provider, model, prompt, res) {
+  if (provider === "groq") {
+    const apiKey = process.env.GROQ_API_KEY;
+    if (!apiKey) throw new Error("GROQ_API_KEY not set");
+    const r = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "Authorization": `Bearer ${apiKey}` },
+      body: JSON.stringify({ model, messages: [{ role: "user", content: prompt }], stream: true }),
+    });
+    if (!r.ok) throw new Error(`Groq API error: ${r.status}`);
+    return r;
   }
-  // Bug / error → specialist
-  if (matches(lower, ["bug", "error", "broken", "crash", "failing", "fix", "doesn't work", "not working"])) {
-    return { model: SPECIALIST, tool: "consult_specialist", reason: "Bug-fix keywords → specialist analysis" };
+  if (provider === "gemini") {
+    const apiKey = process.env.GEMINI_API_KEY;
+    if (!apiKey) throw new Error("GEMINI_API_KEY not set");
+    const r = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:streamGenerateContent?alt=sse&key=${apiKey}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] }),
+    });
+    if (!r.ok) throw new Error(`Gemini API error: ${r.status}`);
+    return r;
   }
-  // Code tasks → specialist
-  if (matches(lower, ["implement", "refactor", "write", "code", "function", "class", "module", "create"])) {
-    return { model: SPECIALIST, tool: "consult_specialist", reason: "Code task → specialist" };
-  }
-  // Quick questions → fast
-  if (lower.length < 80 || matches(lower, ["what is", "how to", "quick", "simple", "format", "syntax"])) {
-    return { model: FAST, tool: "consult_fast", reason: "Quick question → fast model" };
-  }
-  // Default → specialist
-  return { model: SPECIALIST, tool: "consult_specialist", reason: "General query → specialist" };
+  throw new Error(`Unknown cloud provider: ${provider}`);
+}
+
+// === Ollama Launcher (Windows) ===
+async function ensureOllamaRunning() {
+  const ollamaBase = process.env.OLLAMA_BASE || "http://127.0.0.1:11434";
+  try {
+    const r = await fetch(`${ollamaBase}/api/tags`);
+    if (r.ok) return true;
+  } catch {}
+  // Try to start Ollama
+  console.log("🚀 Starting Ollama...");
+  try {
+    const { exec } = await import("node:child_process");
+    exec("ollama serve", { windowsHide: true });
+    // Wait up to 10s for it to come alive
+    for (let i = 0; i < 20; i++) {
+      await new Promise(r => setTimeout(r, 500));
+      try {
+        const r = await fetch(`${ollamaBase}/api/tags`);
+        if (r.ok) { console.log("✅ Ollama started"); return true; }
+      } catch {}
+    }
+  } catch {}
+  console.log("⚠️  Could not start Ollama");
+  return false;
 }
 
 function matches(text, keywords) {
@@ -857,10 +1028,32 @@ server.listen(PORT, async () => {
       console.log(`⚠️  Ollama responded with HTTP ${res.status}`);
     }
   } catch {
-    console.log(`⚠️  Ollama not reachable at ${ollamaBase} — RAG and chat disabled until 'ollama serve' runs`);
+    console.log(`⚠️  Ollama not reachable at ${ollamaBase}`);
   }
 
-  // 2. Check/pull embedding model for RAG
+  // 2. Check cloud API keys
+  const hasGroq = !!process.env.GROQ_API_KEY;
+  const hasGemini = !!process.env.GEMINI_API_KEY;
+  const cloudReady = hasGroq || hasGemini;
+  if (cloudReady) console.log(`✅ Cloud APIs: ${hasGroq ? 'Groq' : ''}${hasGroq && hasGemini ? ' + ' : ''}${hasGemini ? 'Gemini' : ''}`);
+  else console.log(`⚠️  No cloud API keys set (GROQ_API_KEY / GEMINI_API_KEY)`);
+
+  // 3. Auto-detect operational mode
+  if (ollamaReady && cloudReady) {
+    activeMode = "hybrid";
+    console.log(`🔀 Mode: HYBRID (local + cloud fallback)`);
+  } else if (ollamaReady) {
+    activeMode = "local";
+    console.log(`💻 Mode: LOCAL (Ollama only — no cloud keys found)`);
+  } else if (cloudReady) {
+    activeMode = "cloud";
+    console.log(`☁️  Mode: CLOUD (Ollama not available)`);
+  } else {
+    activeMode = "cloud"; // still default to cloud — user will get errors but can fix
+    console.log(`⚠️  Mode: CLOUD (degraded — no Ollama, no cloud keys)`);
+  }
+
+  // 4. Check/pull embedding model for RAG
   if (ollamaReady) {
     try {
       const tags = await (await fetch(`${ollamaBase}/api/tags`)).json();
@@ -885,7 +1078,7 @@ server.listen(PORT, async () => {
     }
   }
 
-  // 3. Auto-index workspace on first boot if no vector store exists
+  // 5. Auto-index workspace on first boot if no vector store exists
   if (ollamaReady && !existsSync(VECTOR_STORE_PATH)) {
     console.log(`🔍 No vector store found — auto-indexing workspace...`);
     try {
