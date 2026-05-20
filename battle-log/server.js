@@ -211,6 +211,28 @@ const server = createServer(async (req, res) => {
     return;
   }
 
+  // === Health check — reports system readiness ===
+  if (url.pathname === "/health" && req.method === "GET") {
+    const ollamaBase = process.env.OLLAMA_BASE || "http://127.0.0.1:11434";
+    let ollama = false, models = [], vectorStore = false, chunks = 0;
+    try {
+      const r = await fetch(`${ollamaBase}/api/tags`);
+      if (r.ok) { ollama = true; models = ((await r.json()).models || []).map(m => m.name); }
+    } catch {}
+    try {
+      const raw = JSON.parse(await readFile(VECTOR_STORE_PATH, "utf-8"));
+      vectorStore = true; chunks = raw.length;
+    } catch {}
+    res.writeHead(200, { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" });
+    res.end(JSON.stringify({
+      status: ollama && vectorStore ? "ready" : "degraded",
+      ollama, models,
+      rag: { vectorStore, chunks, path: VECTOR_STORE_PATH },
+      workspace: WORKSPACE_ROOT,
+    }));
+    return;
+  }
+
   // === Chat endpoint — streams Ollama response with smart routing ===
   if (url.pathname === "/chat" && req.method === "POST") {
     let body = "";
@@ -820,8 +842,51 @@ server.listen(PORT, async () => {
   console.log(`📜 History: http://localhost:${PORT}/history`);
   console.log(`🧠 Workspace: ${WORKSPACE_ROOT}`);
 
-  // Auto-index workspace on first boot if no vector store exists
-  if (!existsSync(VECTOR_STORE_PATH)) {
+  // === Self-diagnostic boot sequence ===
+  const ollamaBase = process.env.OLLAMA_BASE || "http://127.0.0.1:11434";
+
+  // 1. Check Ollama connectivity
+  let ollamaReady = false;
+  try {
+    const res = await fetch(`${ollamaBase}/api/tags`);
+    if (res.ok) {
+      const data = await res.json();
+      console.log(`✅ Ollama connected — ${data.models?.length || 0} models available`);
+      ollamaReady = true;
+    } else {
+      console.log(`⚠️  Ollama responded with HTTP ${res.status}`);
+    }
+  } catch {
+    console.log(`⚠️  Ollama not reachable at ${ollamaBase} — RAG and chat disabled until 'ollama serve' runs`);
+  }
+
+  // 2. Check/pull embedding model for RAG
+  if (ollamaReady) {
+    try {
+      const tags = await (await fetch(`${ollamaBase}/api/tags`)).json();
+      const models = (tags.models || []).map(m => m.name);
+      if (!models.some(m => m.startsWith("nomic-embed-text"))) {
+        console.log(`🔽 nomic-embed-text not found — pulling (274MB)...`);
+        const pullRes = await fetch(`${ollamaBase}/api/pull`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ name: "nomic-embed-text", stream: false }),
+        });
+        if (pullRes.ok) {
+          console.log(`✅ nomic-embed-text pulled successfully`);
+        } else {
+          console.log(`⚠️  Failed to pull nomic-embed-text: HTTP ${pullRes.status}`);
+        }
+      } else {
+        console.log(`✅ nomic-embed-text ready`);
+      }
+    } catch (e) {
+      console.log(`⚠️  Model check failed: ${e.message}`);
+    }
+  }
+
+  // 3. Auto-index workspace on first boot if no vector store exists
+  if (ollamaReady && !existsSync(VECTOR_STORE_PATH)) {
     console.log(`🔍 No vector store found — auto-indexing workspace...`);
     try {
       const result = await indexRepo({ rootDir: WORKSPACE_ROOT, storePath: VECTOR_STORE_PATH });
@@ -829,5 +894,11 @@ server.listen(PORT, async () => {
     } catch (e) {
       console.log(`⚠️  Auto-index failed (RAG disabled until manual /reindex): ${e.message}`);
     }
+  } else if (!ollamaReady) {
+    console.log(`⏭️  Skipping auto-index (Ollama not available). Run POST /reindex when ready.`);
+  } else {
+    console.log(`✅ Vector store loaded (${VECTOR_STORE_PATH})`);
   }
+
+  console.log(`\n🏁 War Council ready. Open http://localhost:${PORT}/command-center\n`);
 });

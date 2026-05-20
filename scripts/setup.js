@@ -89,7 +89,7 @@ const contextDir = resolve(ROOT, ".cline-context");
 await mkdir(contextDir, { recursive: true });
 console.log(`${OK} .cline-context/ directory ready`);
 
-// 7. Check models pulled
+// 7. Check models pulled — auto-pull if missing
 try {
   const arsenal = JSON.parse(await readFile(arsenalPath, "utf-8"));
   const needed = Object.values(arsenal.models).map(m => m.name);
@@ -100,7 +100,13 @@ try {
     if (available.some(a => a.startsWith(model.split(":")[0]))) {
       console.log(`${OK} Model available: ${model}`);
     } else {
-      console.log(`${WARN} Model not pulled: ${model} — run 'ollama pull ${model}'`);
+      console.log(`${WARN} Model not pulled: ${model} — pulling now...`);
+      try {
+        execSync(`ollama pull ${model}`, { stdio: "inherit" });
+        console.log(`${OK} Pulled: ${model}`);
+      } catch {
+        console.log(`${FAIL} Failed to pull ${model} — run 'ollama pull ${model}' manually`);
+      }
     }
   }
 } catch {
