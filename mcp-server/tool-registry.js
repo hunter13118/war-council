@@ -16,6 +16,7 @@ import { resolve, join } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { dirname } from "node:path";
 import { emitBattleEvent } from "./shared/battle-events.js";
+import { withInstrumentation } from "./shared/tool-middleware.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -57,7 +58,9 @@ export class ToolRegistry {
         continue;
       }
 
-      this.register(mod.schema, mod.handler);
+      // Wrap handler with circuit breaker + telemetry + confidence instrumentation
+      const instrumentedHandler = withInstrumentation(mod.schema.name, mod.handler);
+      this.register(mod.schema, instrumentedHandler);
     }
 
     process.stderr.write(
