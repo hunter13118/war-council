@@ -188,15 +188,25 @@ test('Showcase card + mode toggle + RAG badge', async ({ page }) => {
     }
   });
 
-  // === Showcase Card ===
-  await page.goto('http://localhost:3737/showcase/', { waitUntil: 'domcontentloaded' });
-  await page.waitForTimeout(1000);
-  await page.screenshot({ path: resolve(SCREENSHOTS, '13-showcase-card.png') });
+  // === Showcase Scroll Experience ===
+  await page.goto('http://localhost:3737/showcase', { waitUntil: 'domcontentloaded' });
+  await page.waitForTimeout(1500); // let animations trigger
+  await page.screenshot({ path: resolve(SCREENSHOTS, '13-showcase-hero.png') });
 
-  // === Embed page ===
-  await page.goto('http://localhost:3737/embed', { waitUntil: 'domcontentloaded' });
-  await page.waitForTimeout(1000);
-  await page.screenshot({ path: resolve(SCREENSHOTS, '14-embed-view.png') });
+  // Scroll to features section
+  await page.evaluate(() => document.getElementById('s1').scrollIntoView({ behavior: 'instant' }));
+  await page.waitForTimeout(800);
+  await page.screenshot({ path: resolve(SCREENSHOTS, '14-showcase-features.png') });
+
+  // Scroll to architecture
+  await page.evaluate(() => document.getElementById('s2').scrollIntoView({ behavior: 'instant' }));
+  await page.waitForTimeout(800);
+  await page.screenshot({ path: resolve(SCREENSHOTS, '15-showcase-architecture.png') });
+
+  // Scroll to modes
+  await page.evaluate(() => document.getElementById('s3').scrollIntoView({ behavior: 'instant' }));
+  await page.waitForTimeout(800);
+  await page.screenshot({ path: resolve(SCREENSHOTS, '16-showcase-modes.png') });
 
   // === Mode toggle + RAG badge in Command Center ===
   await page.route('**/chat', async (route, request) => {

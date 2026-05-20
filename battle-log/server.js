@@ -223,15 +223,15 @@ const server = createServer(async (req, res) => {
   }
 
   // === Showcase Web Component ===
+  if (url.pathname === "/showcase" || url.pathname === "/showcase/") {
+    // Main scroll-driven portfolio page
+    const html = await readFile(resolve(REPO_ROOT, "showcase", "index.html"), "utf-8");
+    res.writeHead(200, { "Content-Type": "text/html" });
+    res.end(html);
+    return;
+  }
   if (url.pathname.startsWith("/showcase/")) {
     const file = url.pathname.replace("/showcase/", "");
-    if (!file || file === '') {
-      // Serve demo page at /showcase/
-      const html = await readFile(resolve(REPO_ROOT, "showcase", "demo.html"), "utf-8");
-      res.writeHead(200, { "Content-Type": "text/html" });
-      res.end(html);
-      return;
-    }
     // Only allow .js and .html files from the showcase directory
     if (!/^[\w-]+\.(js|html)$/.test(file)) { res.writeHead(404); res.end(); return; }
     try {

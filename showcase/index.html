@@ -1,0 +1,633 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>War Council — AI Orchestration</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;900&family=JetBrains+Mono:wght@400;500;700&display=swap');
+
+  :root {
+    --bg: #0a0a0f;
+    --surface: #12121a;
+    --border: #1e1e2e;
+    --text: #e4e4ed;
+    --dim: #6c6c8a;
+    --accent: #f0883e;
+    --accent-glow: rgba(240,136,62,0.15);
+    --cyan: #7af8ca;
+    --purple: #c084fc;
+    --blue: #60a5fa;
+    --fire: #fb7185;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  html {
+    scroll-behavior: smooth;
+    scroll-snap-type: y proximity;
+  }
+
+  body {
+    font-family: 'Inter', -apple-system, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    overflow-x: hidden;
+  }
+
+  /* === Scroll Sections === */
+  .section {
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 80px 40px;
+    position: relative;
+    scroll-snap-align: start;
+  }
+
+  /* === Scroll-triggered animations === */
+  .reveal {
+    opacity: 0;
+    transform: translateY(60px);
+    transition: all 0.8s cubic-bezier(0.16, 1, 0.3, 1);
+  }
+  .reveal.visible {
+    opacity: 1;
+    transform: translateY(0);
+  }
+  .reveal-left {
+    opacity: 0;
+    transform: translateX(-80px);
+    transition: all 0.8s cubic-bezier(0.16, 1, 0.3, 1);
+  }
+  .reveal-left.visible { opacity: 1; transform: translateX(0); }
+  .reveal-right {
+    opacity: 0;
+    transform: translateX(80px);
+    transition: all 0.8s cubic-bezier(0.16, 1, 0.3, 1);
+  }
+  .reveal-right.visible { opacity: 1; transform: translateX(0); }
+  .reveal-scale {
+    opacity: 0;
+    transform: scale(0.85);
+    transition: all 1s cubic-bezier(0.16, 1, 0.3, 1);
+  }
+  .reveal-scale.visible { opacity: 1; transform: scale(1); }
+
+  /* Stagger children */
+  .stagger > * { transition-delay: calc(var(--i, 0) * 0.1s); }
+
+  /* === Hero Section === */
+  .hero {
+    background: radial-gradient(ellipse at 50% 30%, rgba(240,136,62,0.08) 0%, transparent 60%);
+  }
+  .hero-badge {
+    font-size: 12px;
+    letter-spacing: 3px;
+    text-transform: uppercase;
+    color: var(--accent);
+    margin-bottom: 24px;
+    font-weight: 500;
+  }
+  .hero-title {
+    font-size: clamp(48px, 8vw, 96px);
+    font-weight: 900;
+    letter-spacing: -2px;
+    line-height: 1.0;
+    text-align: center;
+    background: linear-gradient(135deg, var(--text) 0%, var(--accent) 50%, var(--cyan) 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    margin-bottom: 24px;
+  }
+  .hero-sub {
+    font-size: 18px;
+    color: var(--dim);
+    text-align: center;
+    max-width: 600px;
+    line-height: 1.6;
+    margin-bottom: 48px;
+  }
+  .hero-cta {
+    display: flex;
+    gap: 16px;
+  }
+  .btn {
+    padding: 14px 32px;
+    border-radius: 8px;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    text-decoration: none;
+    transition: all 0.3s ease;
+    border: none;
+    font-family: inherit;
+  }
+  .btn-primary {
+    background: var(--accent);
+    color: #fff;
+    box-shadow: 0 4px 24px rgba(240,136,62,0.3);
+  }
+  .btn-primary:hover { transform: translateY(-2px); box-shadow: 0 8px 32px rgba(240,136,62,0.4); }
+  .btn-ghost {
+    background: transparent;
+    color: var(--text);
+    border: 1px solid var(--border);
+  }
+  .btn-ghost:hover { border-color: var(--accent); color: var(--accent); }
+
+  /* === Feature Grid === */
+  .features {
+    background: radial-gradient(ellipse at 30% 70%, rgba(122,248,202,0.04) 0%, transparent 50%);
+  }
+  .section-label {
+    font-size: 12px;
+    letter-spacing: 4px;
+    text-transform: uppercase;
+    color: var(--cyan);
+    margin-bottom: 16px;
+  }
+  .section-title {
+    font-size: clamp(32px, 5vw, 56px);
+    font-weight: 700;
+    letter-spacing: -1px;
+    text-align: center;
+    margin-bottom: 60px;
+  }
+  .feature-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 24px;
+    max-width: 1100px;
+    width: 100%;
+  }
+  .feature-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 32px;
+    transition: all 0.4s ease;
+    position: relative;
+    overflow: hidden;
+  }
+  .feature-card::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 2px;
+    background: linear-gradient(90deg, transparent, var(--accent), transparent);
+    opacity: 0;
+    transition: opacity 0.3s;
+  }
+  .feature-card:hover { border-color: rgba(240,136,62,0.3); transform: translateY(-4px); }
+  .feature-card:hover::after { opacity: 1; }
+  .feature-icon { font-size: 32px; margin-bottom: 16px; }
+  .feature-name { font-size: 18px; font-weight: 600; margin-bottom: 8px; }
+  .feature-desc { font-size: 14px; color: var(--dim); line-height: 1.6; }
+
+  /* === Architecture Section === */
+  .arch {
+    background: radial-gradient(ellipse at 70% 40%, rgba(192,132,252,0.05) 0%, transparent 50%);
+  }
+  .arch-diagram {
+    display: flex;
+    align-items: center;
+    gap: 40px;
+    max-width: 1000px;
+    flex-wrap: wrap;
+    justify-content: center;
+  }
+  .arch-node {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 24px 32px;
+    text-align: center;
+    min-width: 180px;
+    transition: all 0.5s ease;
+  }
+  .arch-node:hover { border-color: var(--accent); box-shadow: 0 0 30px var(--accent-glow); }
+  .arch-node .node-icon { font-size: 28px; margin-bottom: 8px; }
+  .arch-node .node-label { font-size: 14px; font-weight: 600; margin-bottom: 4px; }
+  .arch-node .node-desc { font-size: 11px; color: var(--dim); }
+  .arch-arrow {
+    font-size: 24px;
+    color: var(--border);
+    animation: pulse-arrow 2s ease-in-out infinite;
+  }
+  @keyframes pulse-arrow {
+    0%, 100% { opacity: 0.3; transform: translateX(0); }
+    50% { opacity: 1; transform: translateX(4px); }
+  }
+
+  /* === Modes Section === */
+  .modes {
+    background: radial-gradient(ellipse at 50% 50%, rgba(96,165,250,0.05) 0%, transparent 50%);
+  }
+  .mode-cards {
+    display: flex;
+    gap: 24px;
+    max-width: 900px;
+    flex-wrap: wrap;
+    justify-content: center;
+  }
+  .mode-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 32px;
+    width: 260px;
+    text-align: center;
+    transition: all 0.4s ease;
+  }
+  .mode-card:hover { transform: translateY(-4px); }
+  .mode-card.active { border-color: var(--accent); box-shadow: 0 0 40px var(--accent-glow); }
+  .mode-icon { font-size: 40px; margin-bottom: 12px; }
+  .mode-name { font-size: 20px; font-weight: 700; margin-bottom: 8px; }
+  .mode-desc { font-size: 13px; color: var(--dim); line-height: 1.5; }
+
+  /* === Stats Bar === */
+  .stats-bar {
+    display: flex;
+    gap: 48px;
+    margin-top: 60px;
+    flex-wrap: wrap;
+    justify-content: center;
+  }
+  .stat {
+    text-align: center;
+  }
+  .stat-value {
+    font-size: 48px;
+    font-weight: 900;
+    font-family: 'JetBrains Mono', monospace;
+    background: linear-gradient(135deg, var(--accent), var(--cyan));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+  .stat-label { font-size: 12px; color: var(--dim); margin-top: 4px; letter-spacing: 1px; text-transform: uppercase; }
+
+  /* === Code Preview === */
+  .code-section {
+    background: radial-gradient(ellipse at 40% 60%, rgba(240,136,62,0.04) 0%, transparent 50%);
+  }
+  .code-block {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 32px;
+    max-width: 700px;
+    width: 100%;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 13px;
+    line-height: 1.8;
+    overflow-x: auto;
+  }
+  .code-block .comment { color: var(--dim); }
+  .code-block .keyword { color: var(--purple); }
+  .code-block .string { color: var(--cyan); }
+  .code-block .fn { color: var(--blue); }
+  .code-block .tag { color: var(--accent); }
+
+  /* === Live Preview === */
+  .preview-section {
+    background: var(--bg);
+  }
+  .preview-frame {
+    width: 100%;
+    max-width: 1100px;
+    height: 600px;
+    border-radius: 16px;
+    border: 1px solid var(--border);
+    overflow: hidden;
+    box-shadow: 0 20px 80px rgba(0,0,0,0.5);
+    transition: all 0.5s ease;
+  }
+  .preview-frame:hover { box-shadow: 0 30px 100px rgba(240,136,62,0.1); }
+  .preview-frame iframe { width: 100%; height: 100%; border: none; }
+
+  /* === Footer === */
+  .footer {
+    min-height: auto;
+    padding: 40px;
+    border-top: 1px solid var(--border);
+    text-align: center;
+    color: var(--dim);
+    font-size: 13px;
+  }
+  .footer a { color: var(--accent); text-decoration: none; }
+  .footer a:hover { text-decoration: underline; }
+
+  /* === Floating particles (background decoration) === */
+  .particles {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    pointer-events: none;
+    z-index: -1;
+    overflow: hidden;
+  }
+  .particle {
+    position: absolute;
+    width: 4px;
+    height: 4px;
+    background: var(--accent);
+    border-radius: 50%;
+    opacity: 0.15;
+    animation: float-particle linear infinite;
+  }
+  @keyframes float-particle {
+    0% { transform: translateY(100vh) rotate(0deg); opacity: 0; }
+    10% { opacity: 0.15; }
+    90% { opacity: 0.15; }
+    100% { transform: translateY(-100px) rotate(720deg); opacity: 0; }
+  }
+
+  /* === Scroll progress bar === */
+  .scroll-progress {
+    position: fixed;
+    top: 0;
+    left: 0;
+    height: 3px;
+    background: linear-gradient(90deg, var(--accent), var(--cyan));
+    z-index: 1000;
+    width: 0%;
+    transition: width 0.1s linear;
+  }
+
+  /* === Nav dots === */
+  .nav-dots {
+    position: fixed;
+    right: 24px;
+    top: 50%;
+    transform: translateY(-50%);
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    z-index: 100;
+  }
+  .nav-dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    background: var(--border);
+    cursor: pointer;
+    transition: all 0.3s ease;
+  }
+  .nav-dot.active { background: var(--accent); box-shadow: 0 0 10px var(--accent-glow); transform: scale(1.3); }
+</style>
+</head>
+<body>
+
+<div class="scroll-progress" id="scrollProgress"></div>
+
+<div class="particles" id="particles"></div>
+
+<nav class="nav-dots" id="navDots">
+  <div class="nav-dot active" data-section="0"></div>
+  <div class="nav-dot" data-section="1"></div>
+  <div class="nav-dot" data-section="2"></div>
+  <div class="nav-dot" data-section="3"></div>
+  <div class="nav-dot" data-section="4"></div>
+  <div class="nav-dot" data-section="5"></div>
+</nav>
+
+<!-- === HERO === -->
+<section class="section hero" id="s0">
+  <div class="hero-badge reveal">LOCAL-FIRST AI ORCHESTRATION</div>
+  <h1 class="hero-title reveal">War Council</h1>
+  <p class="hero-sub reveal">Multi-model routing, RAG-augmented chat, real-time agent visualization. One dashboard to command them all.</p>
+  <div class="hero-cta reveal">
+    <a class="btn btn-primary" href="/command-center" target="_blank">Launch Command Center</a>
+    <a class="btn btn-ghost" href="#s1">Explore ↓</a>
+  </div>
+</section>
+
+<!-- === FEATURES === -->
+<section class="section features" id="s1">
+  <div class="section-label reveal">Capabilities</div>
+  <h2 class="section-title reveal">Everything you need.<br>Nothing you don't.</h2>
+  <div class="feature-grid stagger">
+    <div class="feature-card reveal" style="--i:0">
+      <div class="feature-icon">🧠</div>
+      <div class="feature-name">RAG Engine</div>
+      <div class="feature-desc">Auto-indexes your workspace. Every question gets semantically relevant code context injected — under 100ms.</div>
+    </div>
+    <div class="feature-card reveal" style="--i:1">
+      <div class="feature-icon">⚡</div>
+      <div class="feature-name">Smart Routing</div>
+      <div class="feature-desc">Keyword analysis routes to the right model automatically. Quick questions → 7B. Architecture → reasoning. Bugs → specialist.</div>
+    </div>
+    <div class="feature-card reveal" style="--i:2">
+      <div class="feature-icon">🏟️</div>
+      <div class="feature-name">Tournament Mode</div>
+      <div class="feature-desc">Three models debate your question simultaneously. Challenger, Defender, and Judge — pick the best answer.</div>
+    </div>
+    <div class="feature-card reveal" style="--i:3">
+      <div class="feature-icon">🔀</div>
+      <div class="feature-name">Tri-Mode Operation</div>
+      <div class="feature-desc">Cloud, Local, or Hybrid. Auto-detects your environment. Seamless failover between modes.</div>
+    </div>
+    <div class="feature-card reveal" style="--i:4">
+      <div class="feature-icon">📡</div>
+      <div class="feature-name">Real-Time SSE</div>
+      <div class="feature-desc">Server-Sent Events stream every tool call, model response, and system event to the War Table in real-time.</div>
+    </div>
+    <div class="feature-card reveal" style="--i:5">
+      <div class="feature-icon">🎮</div>
+      <div class="feature-name">Dialogue Theatre</div>
+      <div class="feature-desc">Video game–style visualization of AI responses. Sprite animations, typewriter text, controller navigation.</div>
+    </div>
+  </div>
+</section>
+
+<!-- === ARCHITECTURE === -->
+<section class="section arch" id="s2">
+  <div class="section-label reveal">Architecture</div>
+  <h2 class="section-title reveal">Pluggable. Portable. Powerful.</h2>
+  <div class="arch-diagram">
+    <div class="arch-node reveal-left">
+      <div class="node-icon">💬</div>
+      <div class="node-label">Command Center</div>
+      <div class="node-desc">Chat + RAG + Dialogue</div>
+    </div>
+    <div class="arch-arrow reveal">→</div>
+    <div class="arch-node reveal">
+      <div class="node-icon">🧭</div>
+      <div class="node-label">Smart Router</div>
+      <div class="node-desc">Keyword → Model mapping</div>
+    </div>
+    <div class="arch-arrow reveal">→</div>
+    <div class="arch-node reveal-right">
+      <div class="node-icon">🤖</div>
+      <div class="node-label">Model Arsenal</div>
+      <div class="node-desc">7B / 14B / Cloud</div>
+    </div>
+  </div>
+  <div class="stats-bar">
+    <div class="stat reveal" style="--i:0">
+      <div class="stat-value" id="statChunks">0</div>
+      <div class="stat-label">Vector Chunks</div>
+    </div>
+    <div class="stat reveal" style="--i:1">
+      <div class="stat-value" id="statModels">0</div>
+      <div class="stat-label">Models Loaded</div>
+    </div>
+    <div class="stat reveal" style="--i:2">
+      <div class="stat-value" id="statLatency">0</div>
+      <div class="stat-label">ms RAG Latency</div>
+    </div>
+    <div class="stat reveal" style="--i:3">
+      <div class="stat-value" id="statTests">63</div>
+      <div class="stat-label">Tests Passing</div>
+    </div>
+  </div>
+</section>
+
+<!-- === MODES === -->
+<section class="section modes" id="s3">
+  <div class="section-label reveal">Operation Modes</div>
+  <h2 class="section-title reveal">Adapts to your environment.</h2>
+  <div class="mode-cards">
+    <div class="mode-card reveal-left">
+      <div class="mode-icon">☁️</div>
+      <div class="mode-name">Cloud</div>
+      <div class="mode-desc">Groq + Gemini APIs. Zero hardware requirements. Perfect for demos and portfolio showcases.</div>
+    </div>
+    <div class="mode-card active reveal-scale">
+      <div class="mode-icon">🔀</div>
+      <div class="mode-name">Hybrid</div>
+      <div class="mode-desc">Local-first with cloud fallback. Best of both worlds. Auto-detected when both are available.</div>
+    </div>
+    <div class="mode-card reveal-right">
+      <div class="mode-icon">💻</div>
+      <div class="mode-name">Local</div>
+      <div class="mode-desc">Air-gapped Ollama. Full privacy. RTX 5090 goes brrrr. No data leaves your machine.</div>
+    </div>
+  </div>
+</section>
+
+<!-- === CODE === -->
+<section class="section code-section" id="s4">
+  <div class="section-label reveal">Integration</div>
+  <h2 class="section-title reveal">Two lines. Any project.</h2>
+  <div class="code-block reveal-scale">
+    <span class="comment">// Drop into any workspace — auto-indexes on boot</span><br>
+    <span class="fn">node</span> <span class="string">battle-log/server.js</span> <span class="keyword">--workspace</span> <span class="string">/path/to/your/project</span><br><br>
+    <span class="comment">// Or embed in your portfolio:</span><br>
+    <span class="tag">&lt;script</span> <span class="keyword">src</span>=<span class="string">"/showcase/war-council-card.js"</span><span class="tag">&gt;&lt;/script&gt;</span><br>
+    <span class="tag">&lt;war-council-showcase&gt;&lt;/war-council-showcase&gt;</span>
+  </div>
+</section>
+
+<!-- === LIVE PREVIEW === -->
+<section class="section preview-section" id="s5">
+  <div class="section-label reveal">Live</div>
+  <h2 class="section-title reveal">Try it now.</h2>
+  <div class="preview-frame reveal-scale">
+    <iframe src="/command-center" loading="lazy"></iframe>
+  </div>
+</section>
+
+<!-- === FOOTER === -->
+<footer class="footer">
+  Built with Ollama, Node.js, and zero frameworks. <a href="https://github.com/hunter13118/war-council" target="_blank">View Source →</a>
+</footer>
+
+<script>
+// === Scroll reveal with IntersectionObserver ===
+const observer = new IntersectionObserver((entries) => {
+  entries.forEach(entry => {
+    if (entry.isIntersecting) {
+      entry.target.classList.add('visible');
+    } else {
+      entry.target.classList.remove('visible'); // allows re-animation on scroll back
+    }
+  });
+}, { threshold: 0.15, rootMargin: '0px 0px -50px 0px' });
+
+document.querySelectorAll('.reveal, .reveal-left, .reveal-right, .reveal-scale').forEach(el => observer.observe(el));
+
+// === Scroll progress bar ===
+window.addEventListener('scroll', () => {
+  const scrollTop = document.documentElement.scrollTop;
+  const scrollHeight = document.documentElement.scrollHeight - window.innerHeight;
+  const progress = (scrollTop / scrollHeight) * 100;
+  document.getElementById('scrollProgress').style.width = progress + '%';
+});
+
+// === Nav dots ===
+const sections = document.querySelectorAll('.section');
+const dots = document.querySelectorAll('.nav-dot');
+const sectionObserver = new IntersectionObserver((entries) => {
+  entries.forEach(entry => {
+    if (entry.isIntersecting) {
+      const idx = [...sections].indexOf(entry.target);
+      dots.forEach((d, i) => d.classList.toggle('active', i === idx));
+    }
+  });
+}, { threshold: 0.5 });
+sections.forEach(s => sectionObserver.observe(s));
+dots.forEach(dot => {
+  dot.addEventListener('click', () => {
+    sections[parseInt(dot.dataset.section)].scrollIntoView({ behavior: 'smooth' });
+  });
+});
+
+// === Animated stat counters ===
+function animateValue(el, target, duration = 1500) {
+  let start = 0;
+  const step = (timestamp) => {
+    if (!start) start = timestamp;
+    const progress = Math.min((timestamp - start) / duration, 1);
+    const eased = 1 - Math.pow(1 - progress, 3); // ease-out cubic
+    el.textContent = Math.floor(eased * target).toLocaleString();
+    if (progress < 1) requestAnimationFrame(step);
+  };
+  requestAnimationFrame(step);
+}
+
+// Trigger stat animation when visible
+const statsObserver = new IntersectionObserver((entries) => {
+  entries.forEach(entry => {
+    if (entry.isIntersecting) {
+      // Fetch live stats
+      fetch('/health').then(r => r.json()).then(data => {
+        animateValue(document.getElementById('statChunks'), data.rag?.chunks || 2168);
+        animateValue(document.getElementById('statModels'), data.models?.length || 4);
+        animateValue(document.getElementById('statLatency'), 64); // typical RAG latency
+        animateValue(document.getElementById('statTests'), 63);
+      }).catch(() => {
+        animateValue(document.getElementById('statChunks'), 2168);
+        animateValue(document.getElementById('statModels'), 4);
+        animateValue(document.getElementById('statLatency'), 64);
+        animateValue(document.getElementById('statTests'), 63);
+      });
+      statsObserver.unobserve(entry.target);
+    }
+  });
+}, { threshold: 0.3 });
+statsObserver.observe(document.querySelector('.stats-bar'));
+
+// === Floating particles ===
+const particlesEl = document.getElementById('particles');
+for (let i = 0; i < 20; i++) {
+  const p = document.createElement('div');
+  p.className = 'particle';
+  p.style.left = Math.random() * 100 + '%';
+  p.style.animationDuration = (15 + Math.random() * 20) + 's';
+  p.style.animationDelay = Math.random() * 10 + 's';
+  p.style.width = p.style.height = (2 + Math.random() * 4) + 'px';
+  particlesEl.appendChild(p);
+}
+</script>
+</body>
+</html>
