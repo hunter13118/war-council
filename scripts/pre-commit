@@ -1,0 +1,53 @@
+#!/bin/sh
+# War Council Pre-Commit Hook
+# Runs the verification pipeline before allowing commits.
+# Install: copy to .git/hooks/pre-commit (or symlink)
+#
+# This hook runs syntax + architecture + security checks.
+# Tests are skipped by default in pre-commit (too slow) — use CI for full test runs.
+# To run full pipeline including tests: set WAR_COUNCIL_FULL_VERIFY=1
+
+echo "⚔️  War Council Verification Pipeline..."
+
+# Determine workspace root (two levels up from .git/hooks/)
+REPO_ROOT="$(git rev-parse --show-toplevel)"
+
+# Run verification via the server API if running, else direct Node call
+if curl -s http://localhost:3737/health > /dev/null 2>&1; then
+  # Server is running — use HTTP API
+  SKIP='["tests"]'
+  if [ "$WAR_COUNCIL_FULL_VERIFY" = "1" ]; then
+    SKIP='[]'
+  fi
+  RESULT=$(curl -s -X POST http://localhost:3737/verify \
+    -H "Content-Type: application/json" \
+    -d "{\"workspace\": \"$REPO_ROOT\", \"skip\": $SKIP}")
+  
+  OVERALL=$(echo "$RESULT" | node -pe "JSON.parse(require('fs').readFileSync(0,'utf-8')).overall" 2>/dev/null)
+  
+  if [ "$OVERALL" = "fail" ]; then
+    echo "❌ Verification FAILED. Fix issues before committing."
+    echo "$RESULT" | node -pe "JSON.parse(require('fs').readFileSync(0,'utf-8')).checks.filter(c=>c.status==='fail').map(c=>c.name+': '+c.message).join('\n')" 2>/dev/null
+    exit 1
+  fi
+  echo "✅ Verification passed."
+else
+  # Server not running — run directly via Node
+  node --input-type=module -e "
+    import { runPipeline } from '$REPO_ROOT/mcp-server/shared/verification-pipeline.js';
+    const skip = process.env.WAR_COUNCIL_FULL_VERIFY === '1' ? [] : ['tests'];
+    const result = await runPipeline('$REPO_ROOT', { skip });
+    if (result.overall === 'fail') {
+      console.error('❌ Verification FAILED:');
+      result.checks.filter(c => c.status === 'fail').forEach(c => console.error('  ' + c.name + ': ' + c.message));
+      process.exit(1);
+    }
+    console.log('✅ Verification passed (' + result.checks.filter(c=>c.status==='pass').length + '/' + result.checks.length + ' checks)');
+  " 2>&1
+  
+  if [ $? -ne 0 ]; then
+    exit 1
+  fi
+fi
+
+exit 0
