@@ -30,6 +30,7 @@ import { buildHistoryContext, getHistory, appendToConversation } from "../mcp-se
 import { initRegistry, registerWorkspace, switchWorkspace, getActiveWorkspace, listWorkspaces, removeWorkspace, updateWorkspace } from "../mcp-server/shared/workspace-registry.js";
 import { scoreConfidence, confidenceLevel } from "../mcp-server/shared/confidence.js";
 import { validateDAG, executeDAG, getExecution, listExecutions } from "../mcp-server/shared/dag-engine.js";
+import { runPipeline } from "../mcp-server/shared/verification-pipeline.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -421,6 +422,24 @@ const server = createServer(async (req, res) => {
   if (url.pathname === "/dag/list" && req.method === "GET") {
     res.writeHead(200, { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" });
     res.end(JSON.stringify(listExecutions()));
+    return;
+  }
+
+  // === Verification Pipeline ===
+  if (url.pathname === "/verify" && req.method === "POST") {
+    let body = "";
+    for await (const chunk of req) body += chunk;
+    try {
+      const { workspace, skip, testCommand } = JSON.parse(body || "{}");
+      const target = workspace || WORKSPACE_ROOT;
+      const result = await runPipeline(target, { skip, testCommand });
+      broadcast({ type: "verification", overall: result.overall, checks: result.checks.length, timestamp: new Date().toISOString() });
+      res.writeHead(200, { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" });
+      res.end(JSON.stringify(result));
+    } catch (e) {
+      res.writeHead(500, { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" });
+      res.end(JSON.stringify({ error: e.message }));
+    }
     return;
   }
 
