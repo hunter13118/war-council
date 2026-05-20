@@ -208,57 +208,65 @@ body {
 .panel-tabs button.active { background: var(--accent); color: var(--bg); border-color: var(--accent); }
 .panel-tabs button:hover:not(.active) { border-color: var(--accent); color: var(--accent); }
 
-/* Dialogue frames — Stardew Valley / Animal Crossing style */
+/* Dialogue frames — Judge verdict style (Ace Attorney) */
 .dialogue-view {
   flex: 1; overflow-y: auto; padding: 16px; display: flex; flex-direction: column; gap: 12px;
+  background: radial-gradient(ellipse at center bottom, #1a0520 0%, var(--bg) 70%);
 }
 .dialogue-frame {
-  display: flex; gap: 12px; padding: 12px; border-radius: 8px;
-  border: 2px solid var(--border); background: var(--bg);
+  display: flex; gap: 14px; padding: 14px 16px; border-radius: 4px;
+  border: 2px solid var(--border); background: rgba(5,5,15,0.9);
   animation: slideIn 0.3s ease;
+  box-shadow: 0 2px 12px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.03);
 }
-@keyframes slideIn { from { opacity:0; transform:translateX(-10px); } to { opacity:1; transform:translateX(0); } }
+@keyframes slideIn { from { opacity:0; transform:translateY(8px); } to { opacity:1; transform:translateY(0); } }
 
-.dialogue-frame.frame-fast { border-color: var(--green); }
-.dialogue-frame.frame-specialist { border-color: var(--blue); }
-.dialogue-frame.frame-reasoning { border-color: var(--purple); }
-.dialogue-frame.frame-judge { border-color: var(--gold); }
-.dialogue-frame.frame-hypeman { border-color: var(--fire); }
-.dialogue-frame.frame-red { border-color: var(--red); background: linear-gradient(135deg, #1a0808 0%, var(--bg) 100%); }
-.dialogue-frame.frame-blue { border-color: var(--blue); background: linear-gradient(135deg, #08081a 0%, var(--bg) 100%); }
+.dialogue-frame.frame-fast { border-color: var(--green); box-shadow: 0 0 15px rgba(0,255,136,0.15), inset 0 1px 0 rgba(0,255,136,0.05); }
+.dialogue-frame.frame-specialist { border-color: var(--blue); box-shadow: 0 0 15px rgba(51,136,255,0.15), inset 0 1px 0 rgba(51,136,255,0.05); }
+.dialogue-frame.frame-reasoning { border-color: var(--purple); box-shadow: 0 0 15px rgba(168,85,247,0.15), inset 0 1px 0 rgba(168,85,247,0.05); }
+.dialogue-frame.frame-judge { border-color: var(--gold); box-shadow: 0 0 15px rgba(255,215,0,0.2), inset 0 1px 0 rgba(255,215,0,0.05); }
+.dialogue-frame.frame-hypeman { border-color: var(--fire); box-shadow: 0 0 15px rgba(255,68,68,0.15), inset 0 1px 0 rgba(255,68,68,0.05); }
+.dialogue-frame.frame-red { border-color: var(--red); background: linear-gradient(135deg, #1a0808 0%, rgba(5,5,15,0.9) 100%); box-shadow: 0 0 20px rgba(255,51,102,0.2); }
+.dialogue-frame.frame-blue { border-color: var(--blue); background: linear-gradient(135deg, #08081a 0%, rgba(5,5,15,0.9) 100%); box-shadow: 0 0 20px rgba(51,136,255,0.2); }
 
 .dialogue-portrait {
-  width: 56px; height: 56px; border-radius: 8px; flex-shrink: 0;
+  width: 64px; height: 64px; border-radius: 4px; flex-shrink: 0;
   display: flex; align-items: center; justify-content: center;
-  font-size: 28px; background: var(--surface2); border: 2px solid var(--border);
+  background: var(--surface2); border: 2px solid var(--border);
+  overflow: hidden; image-rendering: pixelated;
 }
-.frame-fast .dialogue-portrait { border-color: var(--green); }
-.frame-specialist .dialogue-portrait { border-color: var(--blue); }
-.frame-reasoning .dialogue-portrait { border-color: var(--purple); }
-.frame-judge .dialogue-portrait { border-color: var(--gold); }
-.frame-hypeman .dialogue-portrait { border-color: var(--fire); }
+.dialogue-portrait img {
+  width: 100%; height: 100%; object-fit: contain; image-rendering: pixelated;
+}
+.frame-fast .dialogue-portrait { border-color: var(--green); background: linear-gradient(180deg, #0a2a1a 0%, var(--surface2) 100%); }
+.frame-specialist .dialogue-portrait { border-color: var(--blue); background: linear-gradient(180deg, #0a1a2a 0%, var(--surface2) 100%); }
+.frame-reasoning .dialogue-portrait { border-color: var(--purple); background: linear-gradient(180deg, #1a0a2a 0%, var(--surface2) 100%); }
+.frame-judge .dialogue-portrait { border-color: var(--gold); background: linear-gradient(180deg, #2a2a0a 0%, var(--surface2) 100%); }
+.frame-hypeman .dialogue-portrait { border-color: var(--fire); background: linear-gradient(180deg, #2a0a0a 0%, var(--surface2) 100%); }
 .frame-red .dialogue-portrait { border-color: var(--red); }
 .frame-blue .dialogue-portrait { border-color: var(--blue); }
 
 .dialogue-content { flex: 1; min-width: 0; }
-.dialogue-name { font-size: 11px; font-weight: bold; margin-bottom: 4px; text-transform: uppercase; letter-spacing: 1px; }
-.frame-fast .dialogue-name { color: var(--green); }
-.frame-specialist .dialogue-name { color: var(--blue); }
-.frame-reasoning .dialogue-name { color: var(--purple); }
-.frame-judge .dialogue-name { color: var(--gold); }
-.frame-hypeman .dialogue-name { color: var(--fire); }
-.frame-red .dialogue-name { color: var(--red); }
-.frame-blue .dialogue-name { color: var(--blue); }
+.dialogue-name { font-size: 12px; font-weight: bold; margin-bottom: 6px; text-transform: uppercase; letter-spacing: 2px; }
+.frame-fast .dialogue-name { color: var(--green); text-shadow: 0 0 8px rgba(0,255,136,0.3); }
+.frame-specialist .dialogue-name { color: var(--blue); text-shadow: 0 0 8px rgba(51,136,255,0.3); }
+.frame-reasoning .dialogue-name { color: var(--purple); text-shadow: 0 0 8px rgba(168,85,247,0.3); }
+.frame-judge .dialogue-name { color: var(--gold); text-shadow: 0 0 8px rgba(255,215,0,0.3); }
+.frame-hypeman .dialogue-name { color: var(--fire); text-shadow: 0 0 8px rgba(255,68,68,0.3); }
+.frame-red .dialogue-name { color: var(--red); text-shadow: 0 0 8px rgba(255,51,102,0.3); }
+.frame-blue .dialogue-name { color: var(--blue); text-shadow: 0 0 8px rgba(51,136,255,0.3); }
 
-.dialogue-text { font-size: 12px; line-height: 1.5; white-space: pre-wrap; word-wrap: break-word; }
-.dialogue-meta { margin-top: 6px; font-size: 10px; color: var(--dim); }
+.dialogue-text { font-size: 12px; line-height: 1.6; white-space: pre-wrap; word-wrap: break-word; color: var(--text); }
+.dialogue-meta { margin-top: 8px; font-size: 10px; color: var(--dim); opacity: 0.7; }
 
 /* Tournament duel header */
 .duel-header {
-  text-align: center; padding: 10px; font-size: 13px; color: var(--gold);
-  text-transform: uppercase; letter-spacing: 2px;
-  border: 1px solid var(--gold); border-radius: 6px;
-  background: linear-gradient(135deg, #1a1500 0%, var(--bg) 100%);
+  text-align: center; padding: 12px 16px; font-size: 14px; color: var(--gold);
+  text-transform: uppercase; letter-spacing: 3px; font-weight: bold;
+  border: 2px solid var(--gold); border-radius: 4px;
+  background: linear-gradient(135deg, #1a1500 0%, rgba(5,5,15,0.9) 100%);
+  box-shadow: 0 0 20px rgba(255,215,0,0.15);
+  text-shadow: 0 0 10px rgba(255,215,0,0.4);
 }
 
 /* Events log */
@@ -346,12 +354,35 @@ body {
 let messageCount = 0, totalTokens = 0, totalMs = 0, isStreaming = false;
 
 const AGENT_CONFIG = {
-  consult_fast: { name: 'Scout', emoji: '🏃', frame: 'frame-fast' },
-  consult_specialist: { name: 'Specialist', emoji: '🎯', frame: 'frame-specialist' },
-  consult_reasoning: { name: 'Sage', emoji: '🧠', frame: 'frame-reasoning' },
-  self_eval: { name: 'Judge', emoji: '⚖️', frame: 'frame-judge' },
-  hypeman: { name: 'Hypeman', emoji: '🔥', frame: 'frame-hypeman' },
+  consult_fast: { name: 'Scout', sprite: 'scout', emoji: '🏃', frame: 'frame-fast' },
+  consult_specialist: { name: 'Specialist', sprite: 'specialist', emoji: '⚔️', frame: 'frame-specialist' },
+  consult_reasoning: { name: 'Sage', sprite: 'sage', emoji: '🧠', frame: 'frame-reasoning' },
+  self_eval: { name: 'Judge', sprite: 'judge', emoji: '⚖️', frame: 'frame-judge' },
+  hypeman: { name: 'Hypeman', sprite: 'hypeman', emoji: '🔥', frame: 'frame-hypeman' },
 };
+
+// Pixel art sprite data (inline SVGs)
+const SPRITES = {
+  scout: { grid: ['________________','___bbbb_________','__baaaab________','__baabab________','__baaaab________','___bbbb_________','____bb__________','__baaaab________','__baaaab________','___baab_________','___baab_________','___b__b_________','__bb__bb________','________________','________________','________________'], pal: {a:'#00ff88',b:'#004422'} },
+  specialist: { grid: ['________________','___cccc_________','__cccccc________','__caacac________','__cccccc________','___cccc_________','____cc__________','__cccccc________','_ccccccc c______','__cccccc________','___cccc_________','___c__c_________','__cc__cc________','________________','________________','________________'], pal: {a:'#ffffff',c:'#3388ff'} },
+  sage: { grid: ['___pppppp_______','__pppppppp______','__pa___ap_______','__pppppp________','___pppp_________','____pp__________','__pppppp________','__pppppp________','___pppp_________','___pppp_________','___p__p_________','__pp__pp________','________________','________________','________________','________________'], pal: {a:'#ffffff',p:'#a855f7'} },
+  judge: { grid: ['__gggggggg______','__gggggggg______','__gaaggaag______','__gggggggg______','___gggggg_______','____gg__________','__gggggggg______','_gggggggggg_____','__gggggggg______','___ggggg________','___gg_gg________','__ggg_ggg_______','________________','________________','________________','________________'], pal: {a:'#ffffff',g:'#ffd700'} },
+  hypeman: { grid: ['___dddd_________','___daad_________','___aaaa____d____','___abba____d____','__baaaab___d____','__bacaab__dd____','__baaaab________','__baaaab________','___babb_________','___ba_ab________','__bb___bb_______','__be___eb_______','________________','________________','________________','________________'], pal: {a:'#ff4444',b:'#440000',c:'#ffaa00',d:'#ff8800',e:'#880000'} },
+};
+
+function makeSpriteURI(name) {
+  const s = SPRITES[name];
+  if (!s) return '';
+  let rects = '';
+  for (let y = 0; y < 16; y++) {
+    const row = s.grid[y];
+    for (let x = 0; x < 16; x++) {
+      const ch = row[x];
+      if (ch !== '_' && s.pal[ch]) rects += `<rect x="${x}" y="${y}" width="1" height="1" fill="${s.pal[ch]}"/>`;
+    }
+  }
+  return 'data:image/svg+xml,' + encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" shape-rendering="crispEdges">${rects}</svg>`);
+}
 
 // SSE
 let evtSource;
@@ -454,17 +485,34 @@ async function sendTournament(message) {
 
 // Dialogue Theatre
 function addDialogueFrame(toolKey, text, meta, overrideFrame, overrideLabel) {
-  const config = AGENT_CONFIG[toolKey] || { name: toolKey.replace(/_/g,' '), emoji: '🤖', frame: 'frame-specialist' };
+  const config = AGENT_CONFIG[toolKey] || { name: toolKey.replace(/_/g,' '), sprite: 'scout', emoji: '🤖', frame: 'frame-specialist' };
   const frame = overrideFrame || config.frame;
   const displayName = overrideLabel ? `${overrideLabel} — ${config.name}` : config.name;
+  const spriteURI = makeSpriteURI(config.sprite);
+  const portraitHtml = spriteURI
+    ? `<img src="${spriteURI}" alt="${config.name}">`
+    : config.emoji;
   const el = document.createElement('div'); el.className = `dialogue-frame ${frame}`;
   el.innerHTML = `
-    <div class="dialogue-portrait">${config.emoji}</div>
+    <div class="dialogue-portrait">${portraitHtml}</div>
     <div class="dialogue-content">
       <div class="dialogue-name">${displayName}</div>
-      <div class="dialogue-text">${escapeHtml(text.length > 500 ? text.slice(0,497)+'...' : text)}</div>
+      <div class="dialogue-text"></div>
       <div class="dialogue-meta">${meta.model||''} · ${meta.elapsedMs?(meta.elapsedMs/1000).toFixed(1)+'s':''} · ${meta.tokensOut||0} tok</div>
     </div>`;
+  // Typewriter effect
+  const textEl = el.querySelector('.dialogue-text');
+  const truncated = text.length > 500 ? text.slice(0,497)+'...' : text;
+  const escaped = escapeHtml(truncated);
+  let i = 0;
+  function typeChar() {
+    if (i < escaped.length) {
+      textEl.textContent += truncated[i];
+      i++;
+      setTimeout(typeChar, 12);
+    }
+  }
+  typeChar();
   const container = document.getElementById('dialogueView');
   container.appendChild(el); container.scrollTop = container.scrollHeight;
 }
