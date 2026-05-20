@@ -37,16 +37,16 @@ test('Capture Command Center screenshots', async ({ page }) => {
   await page.fill('#chatInput', 'What is the MCP protocol?');
   await page.screenshot({ path: resolve(SCREENSHOTS, '02-command-center-typing.png') });
 
-  // Screenshot 3: After sending (with response)
+  // Screenshot 3: After sending (with response) — single speaker in stage
   await page.click('#sendBtn');
-  await page.waitForTimeout(1500);
+  await page.waitForTimeout(2000);
   await page.screenshot({ path: resolve(SCREENSHOTS, '03-command-center-response.png') });
 
   // Screenshot 4: Show routing reason
   await page.check('#showReason');
   await page.screenshot({ path: resolve(SCREENSHOTS, '04-command-center-routing.png') });
 
-  // Screenshot 5: Tournament mode with multiple agents talking
+  // Screenshot 5: Tournament mode ready
   await page.selectOption('#modeSelect', 'auto');
   await page.check('#tournamentToggle');
   await page.fill('#chatInput', 'Which is better: Rust or Go?');
@@ -56,9 +56,9 @@ test('Capture Command Center screenshots', async ({ page }) => {
 test('Capture tournament dialogue exchange', async ({ page }) => {
   let callCount = 0;
   const tournamentResponses = [
-    { text: 'Rust offers zero-cost abstractions and memory safety without garbage collection. The borrow checker catches entire classes of bugs at compile time.', tool: 'consult_fast', model: 'qwen2.5-coder:7b', frame: 'frame-red' },
-    { text: 'Go prioritizes simplicity and fast compilation. Goroutines make concurrent programming accessible to all developers, not just experts.', tool: 'consult_specialist', model: 'qwen2.5-coder:14b', frame: 'frame-blue' },
-    { text: 'Both languages serve different niches. Rust for systems programming where safety is paramount. Go for networked services where developer velocity matters. The winner depends on the domain.', tool: 'self_eval', model: 'deepseek-r1:14b', frame: 'frame-judge' },
+    { text: 'Rust offers zero-cost abstractions and memory safety without garbage collection. The borrow checker catches entire classes of bugs at compile time.', tool: 'consult_fast', model: 'qwen2.5-coder:7b' },
+    { text: 'Go prioritizes simplicity and fast compilation. Goroutines make concurrent programming accessible to all developers, not just experts.', tool: 'consult_specialist', model: 'qwen2.5-coder:14b' },
+    { text: 'Both languages serve different niches. Rust for systems programming where safety is paramount. Go for networked services where developer velocity matters. The winner depends on the domain.', tool: 'self_eval', model: 'deepseek-r1:14b' },
   ];
 
   await page.route('**/chat', async (route, request) => {
@@ -79,7 +79,19 @@ test('Capture tournament dialogue exchange', async ({ page }) => {
   await page.check('#tournamentToggle');
   await page.fill('#chatInput', 'Rust vs Go: which is better for backend?');
   await page.click('#sendBtn');
-  await page.waitForTimeout(4000);
 
-  await page.screenshot({ path: resolve(SCREENSHOTS, '06-command-center-tournament-dialogue.png') });
+  // Wait for first response (challenger)
+  await page.waitForTimeout(2500);
+  await page.screenshot({ path: resolve(SCREENSHOTS, '06-tournament-challenger.png') });
+
+  // Wait for all three to complete (the last speaker shown = judge)
+  await page.waitForTimeout(5000);
+  await page.screenshot({ path: resolve(SCREENSHOTS, '07-tournament-judge-verdict.png') });
+
+  // Navigate back to challenger using prev arrows
+  await page.click('#navPrev');
+  await page.waitForTimeout(300);
+  await page.click('#navPrev');
+  await page.waitForTimeout(300);
+  await page.screenshot({ path: resolve(SCREENSHOTS, '08-tournament-nav-back.png') });
 });

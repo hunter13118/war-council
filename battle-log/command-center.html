@@ -184,12 +184,12 @@ body {
 }
 .resize-divider:hover, .resize-divider.dragging { background: var(--accent); }
 
-/* === Dialogue Theatre (right) === */
+/* === Dialogue Theatre (right) — Video Game Dialogue System === */
 .theatre-panel {
   width: 420px;
   min-width: 280px;
   max-width: 700px;
-  background: var(--surface);
+  background: var(--bg);
   display: flex;
   flex-direction: column;
   overflow: hidden;
@@ -198,6 +198,7 @@ body {
   padding: 12px 16px;
   display: flex; align-items: center; gap: 12px;
   border-bottom: 1px solid var(--border);
+  background: var(--surface);
 }
 .theatre-header h2 { font-size: 13px; color: var(--accent); text-transform: uppercase; letter-spacing: 1px; }
 .panel-tabs { display: flex; gap: 6px; margin-left: auto; }
@@ -208,66 +209,97 @@ body {
 .panel-tabs button.active { background: var(--accent); color: var(--bg); border-color: var(--accent); }
 .panel-tabs button:hover:not(.active) { border-color: var(--accent); color: var(--accent); }
 
-/* Dialogue frames — Judge verdict style (Ace Attorney) */
-.dialogue-view {
-  flex: 1; overflow-y: auto; padding: 16px; display: flex; flex-direction: column; gap: 12px;
-  background: radial-gradient(ellipse at center bottom, #1a0520 0%, var(--bg) 70%);
+/* Stage — character sprite display area */
+#dialogueView {
+  flex: 1; display: flex; flex-direction: column;
 }
-.dialogue-frame {
-  display: flex; gap: 14px; padding: 14px 16px; border-radius: 4px;
-  border: 2px solid var(--border); background: rgba(5,5,15,0.9);
-  animation: slideIn 0.3s ease;
-  box-shadow: 0 2px 12px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.03);
+.dialogue-stage {
+  flex: 1; position: relative; overflow: hidden;
+  background: radial-gradient(ellipse at center bottom, #1a0520 0%, var(--bg) 80%);
+  display: flex; align-items: flex-end; justify-content: center;
+  min-height: 200px;
 }
-@keyframes slideIn { from { opacity:0; transform:translateY(8px); } to { opacity:1; transform:translateY(0); } }
-
-.dialogue-frame.frame-fast { border-color: var(--green); box-shadow: 0 0 15px rgba(0,255,136,0.15), inset 0 1px 0 rgba(0,255,136,0.05); }
-.dialogue-frame.frame-specialist { border-color: var(--blue); box-shadow: 0 0 15px rgba(51,136,255,0.15), inset 0 1px 0 rgba(51,136,255,0.05); }
-.dialogue-frame.frame-reasoning { border-color: var(--purple); box-shadow: 0 0 15px rgba(168,85,247,0.15), inset 0 1px 0 rgba(168,85,247,0.05); }
-.dialogue-frame.frame-judge { border-color: var(--gold); box-shadow: 0 0 15px rgba(255,215,0,0.2), inset 0 1px 0 rgba(255,215,0,0.05); }
-.dialogue-frame.frame-hypeman { border-color: var(--fire); box-shadow: 0 0 15px rgba(255,68,68,0.15), inset 0 1px 0 rgba(255,68,68,0.05); }
-.dialogue-frame.frame-red { border-color: var(--red); background: linear-gradient(135deg, #1a0808 0%, rgba(5,5,15,0.9) 100%); box-shadow: 0 0 20px rgba(255,51,102,0.2); }
-.dialogue-frame.frame-blue { border-color: var(--blue); background: linear-gradient(135deg, #08081a 0%, rgba(5,5,15,0.9) 100%); box-shadow: 0 0 20px rgba(51,136,255,0.2); }
-
-.dialogue-portrait {
-  width: 64px; height: 64px; border-radius: 4px; flex-shrink: 0;
-  display: flex; align-items: center; justify-content: center;
-  background: var(--surface2); border: 2px solid var(--border);
-  overflow: hidden; image-rendering: pixelated;
+.dialogue-stage::before {
+  content: ''; position: absolute; bottom: 0; left: 0; right: 0; height: 40%;
+  background: linear-gradient(to top, rgba(0,0,0,0.6) 0%, transparent 100%);
+  pointer-events: none;
 }
-.dialogue-portrait img {
+.stage-sprite {
+  position: absolute; bottom: 10px;
+  width: 120px; height: 120px;
+  image-rendering: pixelated;
+  transition: all 0.4s ease;
+  filter: drop-shadow(0 0 12px rgba(0,0,0,0.8));
+}
+.stage-sprite img {
   width: 100%; height: 100%; object-fit: contain; image-rendering: pixelated;
 }
-.frame-fast .dialogue-portrait { border-color: var(--green); background: linear-gradient(180deg, #0a2a1a 0%, var(--surface2) 100%); }
-.frame-specialist .dialogue-portrait { border-color: var(--blue); background: linear-gradient(180deg, #0a1a2a 0%, var(--surface2) 100%); }
-.frame-reasoning .dialogue-portrait { border-color: var(--purple); background: linear-gradient(180deg, #1a0a2a 0%, var(--surface2) 100%); }
-.frame-judge .dialogue-portrait { border-color: var(--gold); background: linear-gradient(180deg, #2a2a0a 0%, var(--surface2) 100%); }
-.frame-hypeman .dialogue-portrait { border-color: var(--fire); background: linear-gradient(180deg, #2a0a0a 0%, var(--surface2) 100%); }
-.frame-red .dialogue-portrait { border-color: var(--red); }
-.frame-blue .dialogue-portrait { border-color: var(--blue); }
+.stage-sprite.pos-left { left: 15%; }
+.stage-sprite.pos-center { left: 50%; transform: translateX(-50%); }
+.stage-sprite.pos-right { right: 15%; }
+.stage-sprite.role-challenger { filter: drop-shadow(0 0 16px rgba(255,51,102,0.5)); }
+.stage-sprite.role-defender { filter: drop-shadow(0 0 16px rgba(51,136,255,0.5)); }
+.stage-sprite.role-judge { filter: drop-shadow(0 0 16px rgba(255,215,0,0.5)); }
+.stage-sprite.role-normal { filter: drop-shadow(0 0 12px rgba(0,240,255,0.3)); }
 
-.dialogue-content { flex: 1; min-width: 0; }
-.dialogue-name { font-size: 12px; font-weight: bold; margin-bottom: 6px; text-transform: uppercase; letter-spacing: 2px; }
-.frame-fast .dialogue-name { color: var(--green); text-shadow: 0 0 8px rgba(0,255,136,0.3); }
-.frame-specialist .dialogue-name { color: var(--blue); text-shadow: 0 0 8px rgba(51,136,255,0.3); }
-.frame-reasoning .dialogue-name { color: var(--purple); text-shadow: 0 0 8px rgba(168,85,247,0.3); }
-.frame-judge .dialogue-name { color: var(--gold); text-shadow: 0 0 8px rgba(255,215,0,0.3); }
-.frame-hypeman .dialogue-name { color: var(--fire); text-shadow: 0 0 8px rgba(255,68,68,0.3); }
-.frame-red .dialogue-name { color: var(--red); text-shadow: 0 0 8px rgba(255,51,102,0.3); }
-.frame-blue .dialogue-name { color: var(--blue); text-shadow: 0 0 8px rgba(51,136,255,0.3); }
-
-.dialogue-text { font-size: 12px; line-height: 1.6; white-space: pre-wrap; word-wrap: break-word; color: var(--text); }
-.dialogue-meta { margin-top: 8px; font-size: 10px; color: var(--dim); opacity: 0.7; }
-
-/* Tournament duel header */
-.duel-header {
-  text-align: center; padding: 12px 16px; font-size: 14px; color: var(--gold);
-  text-transform: uppercase; letter-spacing: 3px; font-weight: bold;
-  border: 2px solid var(--gold); border-radius: 4px;
-  background: linear-gradient(135deg, #1a1500 0%, rgba(5,5,15,0.9) 100%);
-  box-shadow: 0 0 20px rgba(255,215,0,0.15);
-  text-shadow: 0 0 10px rgba(255,215,0,0.4);
+/* Dialogue textbox — JRPG style */
+.dialogue-box {
+  position: relative;
+  margin: 0 12px 12px;
+  padding: 14px 18px;
+  background: rgba(5, 5, 20, 0.92);
+  border: 2px solid var(--border);
+  border-radius: 6px;
+  min-height: 100px;
+  box-shadow: 0 -4px 20px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.03);
 }
+.dialogue-box.color-red { border-color: var(--red); box-shadow: 0 0 20px rgba(255,51,102,0.15); }
+.dialogue-box.color-blue { border-color: var(--blue); box-shadow: 0 0 20px rgba(51,136,255,0.15); }
+.dialogue-box.color-gold { border-color: var(--gold); box-shadow: 0 0 20px rgba(255,215,0,0.15); }
+.dialogue-box.color-green { border-color: var(--green); box-shadow: 0 0 20px rgba(0,255,136,0.15); }
+.dialogue-box.color-purple { border-color: var(--purple); box-shadow: 0 0 20px rgba(168,85,247,0.15); }
+.dialogue-box.color-cyan { border-color: var(--accent); box-shadow: 0 0 20px rgba(0,240,255,0.15); }
+
+.dialogue-box .speaker-name {
+  font-size: 12px; font-weight: bold; text-transform: uppercase; letter-spacing: 2px;
+  margin-bottom: 8px;
+}
+.dialogue-box.color-red .speaker-name { color: var(--red); text-shadow: 0 0 6px rgba(255,51,102,0.4); }
+.dialogue-box.color-blue .speaker-name { color: var(--blue); text-shadow: 0 0 6px rgba(51,136,255,0.4); }
+.dialogue-box.color-gold .speaker-name { color: var(--gold); text-shadow: 0 0 6px rgba(255,215,0,0.4); }
+.dialogue-box.color-green .speaker-name { color: var(--green); text-shadow: 0 0 6px rgba(0,255,136,0.4); }
+.dialogue-box.color-purple .speaker-name { color: var(--purple); text-shadow: 0 0 6px rgba(168,85,247,0.4); }
+.dialogue-box.color-cyan .speaker-name { color: var(--accent); text-shadow: 0 0 6px rgba(0,240,255,0.4); }
+
+.dialogue-box .speaker-text {
+  font-size: 13px; line-height: 1.6; color: var(--text);
+  white-space: pre-wrap; word-wrap: break-word;
+}
+.dialogue-box .speaker-meta {
+  margin-top: 8px; font-size: 10px; color: var(--dim); opacity: 0.6;
+}
+
+/* Blinking cursor during typewriter */
+.dialogue-box .speaker-text.typing::after { content: '▌'; animation: blink 0.7s infinite; color: var(--accent); }
+
+/* Navigation arrows for dialogue history */
+.dialogue-nav {
+  display: flex; justify-content: space-between; align-items: center;
+  padding: 6px 12px; background: var(--surface); border-top: 1px solid var(--border);
+}
+.dialogue-nav button {
+  background: var(--bg); border: 1px solid var(--border); color: var(--dim);
+  font-family: var(--font); font-size: 16px; padding: 4px 12px; border-radius: 4px; cursor: pointer;
+}
+.dialogue-nav button:hover:not(:disabled) { border-color: var(--accent); color: var(--accent); }
+.dialogue-nav button:disabled { opacity: 0.3; cursor: not-allowed; }
+.dialogue-nav .nav-counter { font-size: 10px; color: var(--dim); }
+
+/* Idle state — no speaker */
+.dialogue-stage.idle { background: radial-gradient(ellipse at center, #0a0515 0%, var(--bg) 80%); }
+.dialogue-box.idle { border-color: var(--border); }
+.dialogue-box.idle .speaker-name { color: var(--dim); }
+.dialogue-box.idle .speaker-text { color: var(--dim); font-style: italic; }
 
 /* Events log */
 .events-view {
@@ -283,6 +315,7 @@ body {
 .theatre-stats {
   padding: 8px 16px; border-top: 1px solid var(--border);
   font-size: 10px; color: var(--dim); display: flex; gap: 16px;
+  background: var(--surface);
 }
 .theatre-stats .stat-val { color: var(--green); }
 
@@ -340,7 +373,23 @@ body {
         <button id="tabEvents" onclick="switchTab('events')">Events</button>
       </div>
     </div>
-    <div class="dialogue-view" id="dialogueView"></div>
+    <div id="dialogueView">
+      <div class="dialogue-stage idle" id="dialogueStage">
+        <div class="stage-sprite pos-center role-normal" id="stageSprite" style="display:none;">
+          <img id="stageSpriteImg" src="" alt="">
+        </div>
+      </div>
+      <div class="dialogue-box idle" id="dialogueBox">
+        <div class="speaker-name" id="speakerName">Awaiting orders...</div>
+        <div class="speaker-text" id="speakerText">Send a message to summon the council.</div>
+        <div class="speaker-meta" id="speakerMeta"></div>
+      </div>
+      <div class="dialogue-nav">
+        <button id="navPrev" onclick="navDialogue(-1)" disabled>◀</button>
+        <span class="nav-counter" id="navCounter">—</span>
+        <button id="navNext" onclick="navDialogue(1)" disabled>▶</button>
+      </div>
+    </div>
     <div class="events-view" id="eventsView"></div>
     <div class="theatre-stats">
       <span>Msgs: <span class="stat-val" id="statMessages">0</span></span>
@@ -354,34 +403,82 @@ body {
 let messageCount = 0, totalTokens = 0, totalMs = 0, isStreaming = false;
 
 const AGENT_CONFIG = {
-  consult_fast: { name: 'Scout', sprite: 'scout', emoji: '🏃', frame: 'frame-fast' },
-  consult_specialist: { name: 'Specialist', sprite: 'specialist', emoji: '⚔️', frame: 'frame-specialist' },
-  consult_reasoning: { name: 'Sage', sprite: 'sage', emoji: '🧠', frame: 'frame-reasoning' },
-  self_eval: { name: 'Judge', sprite: 'judge', emoji: '⚖️', frame: 'frame-judge' },
-  hypeman: { name: 'Hypeman', sprite: 'hypeman', emoji: '🔥', frame: 'frame-hypeman' },
+  consult_fast: { name: 'Scout', sprite: 'scout', color: 'green', position: 'center' },
+  consult_specialist: { name: 'Specialist', sprite: 'specialist', color: 'blue', position: 'center' },
+  consult_reasoning: { name: 'Sage', sprite: 'sage', color: 'purple', position: 'center' },
+  self_eval: { name: 'Judge', sprite: 'judge', color: 'gold', position: 'left' },
+  hypeman: { name: 'Hypeman', sprite: 'hypeman', color: 'cyan', position: 'center' },
 };
 
-// Pixel art sprite data (inline SVGs)
-const SPRITES = {
-  scout: { grid: ['________________','___bbbb_________','__baaaab________','__baabab________','__baaaab________','___bbbb_________','____bb__________','__baaaab________','__baaaab________','___baab_________','___baab_________','___b__b_________','__bb__bb________','________________','________________','________________'], pal: {a:'#00ff88',b:'#004422'} },
-  specialist: { grid: ['________________','___cccc_________','__cccccc________','__caacac________','__cccccc________','___cccc_________','____cc__________','__cccccc________','_ccccccc c______','__cccccc________','___cccc_________','___c__c_________','__cc__cc________','________________','________________','________________'], pal: {a:'#ffffff',c:'#3388ff'} },
-  sage: { grid: ['___pppppp_______','__pppppppp______','__pa___ap_______','__pppppp________','___pppp_________','____pp__________','__pppppp________','__pppppp________','___pppp_________','___pppp_________','___p__p_________','__pp__pp________','________________','________________','________________','________________'], pal: {a:'#ffffff',p:'#a855f7'} },
-  judge: { grid: ['__gggggggg______','__gggggggg______','__gaaggaag______','__gggggggg______','___gggggg_______','____gg__________','__gggggggg______','_gggggggggg_____','__gggggggg______','___ggggg________','___gg_gg________','__ggg_ggg_______','________________','________________','________________','________________'], pal: {a:'#ffffff',g:'#ffd700'} },
-  hypeman: { grid: ['___dddd_________','___daad_________','___aaaa____d____','___abba____d____','__baaaab___d____','__bacaab__dd____','__baaaab________','__baaaab________','___babb_________','___ba_ab________','__bb___bb_______','__be___eb_______','________________','________________','________________','________________'], pal: {a:'#ff4444',b:'#440000',c:'#ffaa00',d:'#ff8800',e:'#880000'} },
-};
+// Dialogue history
+const dialogueHistory = [];
+let currentDialogueIdx = -1;
+let typewriterTimer = null;
 
-function makeSpriteURI(name) {
-  const s = SPRITES[name];
-  if (!s) return '';
-  let rects = '';
-  for (let y = 0; y < 16; y++) {
-    const row = s.grid[y];
-    for (let x = 0; x < 16; x++) {
-      const ch = row[x];
-      if (ch !== '_' && s.pal[ch]) rects += `<rect x="${x}" y="${y}" width="1" height="1" fill="${s.pal[ch]}"/>`;
-    }
+function getSpriteURL(spriteKey) {
+  return `assets/demon-castle/${spriteKey}.png`;
+}
+
+// Show a dialogue entry (by index)
+function showDialogue(idx) {
+  if (idx < 0 || idx >= dialogueHistory.length) return;
+  currentDialogueIdx = idx;
+  const entry = dialogueHistory[idx];
+  const stage = document.getElementById('dialogueStage');
+  const sprite = document.getElementById('stageSprite');
+  const spriteImg = document.getElementById('stageSpriteImg');
+  const box = document.getElementById('dialogueBox');
+  const nameEl = document.getElementById('speakerName');
+  const textEl = document.getElementById('speakerText');
+  const metaEl = document.getElementById('speakerMeta');
+
+  // Stage
+  stage.classList.remove('idle');
+  sprite.style.display = 'block';
+  spriteImg.src = getSpriteURL(entry.sprite);
+  spriteImg.alt = entry.name;
+  sprite.className = `stage-sprite pos-${entry.position} role-${entry.role}`;
+
+  // Box
+  box.className = `dialogue-box color-${entry.color}`;
+  nameEl.textContent = entry.displayName;
+  metaEl.textContent = entry.meta;
+
+  // Clear existing typewriter
+  if (typewriterTimer) { clearInterval(typewriterTimer); typewriterTimer = null; }
+
+  // If viewing history (not latest), show full text immediately
+  if (idx < dialogueHistory.length - 1) {
+    textEl.textContent = entry.text;
+    textEl.classList.remove('typing');
+  } else {
+    // Typewriter for latest entry
+    textEl.textContent = '';
+    textEl.classList.add('typing');
+    let charIdx = 0;
+    typewriterTimer = setInterval(() => {
+      if (charIdx < entry.text.length) {
+        textEl.textContent += entry.text[charIdx];
+        charIdx++;
+      } else {
+        clearInterval(typewriterTimer); typewriterTimer = null;
+        textEl.classList.remove('typing');
+      }
+    }, 15);
   }
-  return 'data:image/svg+xml,' + encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" shape-rendering="crispEdges">${rects}</svg>`);
+  updateNav();
+}
+
+function updateNav() {
+  const total = dialogueHistory.length;
+  document.getElementById('navPrev').disabled = currentDialogueIdx <= 0;
+  document.getElementById('navNext').disabled = currentDialogueIdx >= total - 1;
+  document.getElementById('navCounter').textContent = total > 0 ? `${currentDialogueIdx + 1} / ${total}` : '—';
+}
+
+function navDialogue(dir) {
+  const newIdx = currentDialogueIdx + dir;
+  if (newIdx >= 0 && newIdx < dialogueHistory.length) showDialogue(newIdx);
 }
 
 // SSE
@@ -446,16 +543,14 @@ async function sendChat(message, mode) {
 async function sendTournament(message) {
   isStreaming = true; document.getElementById('sendBtn').disabled = true;
   addMessage('system', '🏟️ Tournament — All models respond.');
-  const duelHeader = document.createElement('div'); duelHeader.className = 'duel-header'; duelHeader.textContent = '⚡ TOURNAMENT ROUND ⚡';
-  document.getElementById('dialogueView').appendChild(duelHeader);
 
   const modes = [
-    { mode: 'fast', frame: 'frame-red', label: 'CHALLENGER' },
-    { mode: 'specialist', frame: 'frame-blue', label: 'DEFENDER' },
-    { mode: 'reasoning', frame: 'frame-judge', label: 'ARBITER' },
+    { mode: 'fast', role: 'challenger', label: 'CHALLENGER' },
+    { mode: 'specialist', role: 'defender', label: 'DEFENDER' },
+    { mode: 'reasoning', role: 'judge', label: 'ARBITER' },
   ];
   const responses = [];
-  for (const { mode, frame, label } of modes) {
+  for (const { mode, role, label } of modes) {
     const msgEl = addMessage('assistant', ''); msgEl.classList.add('streaming');
     try {
       const res = await fetch('/chat', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ message, mode }) });
@@ -472,7 +567,7 @@ async function sendTournament(message) {
       const metaEl = document.createElement('div'); metaEl.className = 'meta';
       metaEl.innerHTML = `<span class="model">${meta.model||mode}</span><span>${meta.elapsedMs?(meta.elapsedMs/1000).toFixed(1)+'s':''}</span><span>${meta.tokensOut||0} tok</span>`;
       msgEl.appendChild(metaEl);
-      addDialogueFrame(meta.tool || `consult_${mode}`, fullText, meta, frame, label);
+      addDialogueFrame(meta.tool || `consult_${mode}`, fullText, meta, role, label);
       responses.push({ model: meta.model, text: fullText });
     } catch (e) { msgEl.classList.remove('streaming'); msgEl.querySelector('.msg-text').textContent = '⚠️ ' + e.message; }
   }
@@ -483,38 +578,37 @@ async function sendTournament(message) {
   isStreaming = false; document.getElementById('sendBtn').disabled = false; document.getElementById('chatInput').focus();
 }
 
-// Dialogue Theatre
-function addDialogueFrame(toolKey, text, meta, overrideFrame, overrideLabel) {
-  const config = AGENT_CONFIG[toolKey] || { name: toolKey.replace(/_/g,' '), sprite: 'scout', emoji: '🤖', frame: 'frame-specialist' };
-  const frame = overrideFrame || config.frame;
+// Dialogue Theatre — add entry and show it
+function addDialogueFrame(toolKey, text, meta, overrideRole, overrideLabel) {
+  const config = AGENT_CONFIG[toolKey] || { name: toolKey.replace(/_/g,' '), sprite: 'scout', color: 'cyan', position: 'center' };
+  const role = overrideRole || 'normal';
   const displayName = overrideLabel ? `${overrideLabel} — ${config.name}` : config.name;
-  const spriteURI = makeSpriteURI(config.sprite);
-  const portraitHtml = spriteURI
-    ? `<img src="${spriteURI}" alt="${config.name}">`
-    : config.emoji;
-  const el = document.createElement('div'); el.className = `dialogue-frame ${frame}`;
-  el.innerHTML = `
-    <div class="dialogue-portrait">${portraitHtml}</div>
-    <div class="dialogue-content">
-      <div class="dialogue-name">${displayName}</div>
-      <div class="dialogue-text"></div>
-      <div class="dialogue-meta">${meta.model||''} · ${meta.elapsedMs?(meta.elapsedMs/1000).toFixed(1)+'s':''} · ${meta.tokensOut||0} tok</div>
-    </div>`;
-  // Typewriter effect
-  const textEl = el.querySelector('.dialogue-text');
-  const truncated = text.length > 500 ? text.slice(0,497)+'...' : text;
-  const escaped = escapeHtml(truncated);
-  let i = 0;
-  function typeChar() {
-    if (i < escaped.length) {
-      textEl.textContent += truncated[i];
-      i++;
-      setTimeout(typeChar, 12);
-    }
-  }
-  typeChar();
-  const container = document.getElementById('dialogueView');
-  container.appendChild(el); container.scrollTop = container.scrollHeight;
+
+  // Tournament positioning: challenger=right, defender=left, judge=left
+  let position = config.position;
+  if (role === 'challenger') position = 'right';
+  else if (role === 'defender') position = 'left';
+  else if (role === 'judge') position = 'left';
+
+  // Tournament coloring
+  let color = config.color;
+  if (role === 'challenger') color = 'red';
+  else if (role === 'defender') color = 'blue';
+  else if (role === 'judge') color = 'gold';
+
+  const truncated = text.length > 600 ? text.slice(0,597) + '...' : text;
+  const entry = {
+    sprite: config.sprite,
+    name: config.name,
+    displayName,
+    text: truncated,
+    color,
+    position,
+    role,
+    meta: `${meta.model||''} · ${meta.elapsedMs?(meta.elapsedMs/1000).toFixed(1)+'s':''} · ${meta.tokensOut||0} tok`,
+  };
+  dialogueHistory.push(entry);
+  showDialogue(dialogueHistory.length - 1);
 }
 
 // Helpers
@@ -542,7 +636,7 @@ function escapeHtml(t) { return t.replace(/&/g,'&amp;').replace(/</g,'&lt;').rep
 function switchTab(tab) {
   const dv = document.getElementById('dialogueView'), ev = document.getElementById('eventsView');
   const td = document.getElementById('tabDialogue'), te = document.getElementById('tabEvents');
-  if (tab === 'dialogue') { dv.style.display='flex'; ev.classList.remove('active'); td.classList.add('active'); te.classList.remove('active'); }
+  if (tab === 'dialogue') { dv.style.display=''; ev.classList.remove('active'); td.classList.add('active'); te.classList.remove('active'); }
   else { dv.style.display='none'; ev.classList.add('active'); td.classList.remove('active'); te.classList.add('active'); }
 }
 
