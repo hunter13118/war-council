@@ -232,3 +232,65 @@ test('Showcase card + mode toggle + RAG badge', async ({ page }) => {
   await page.waitForTimeout(2000);
   await page.screenshot({ path: resolve(SCREENSHOTS, '16-rag-badge-active.png') });
 });
+
+test('Metrics HUD dashboard', async ({ page }) => {
+  // Mock all endpoints the HUD polls
+  await page.route('**/health', async (route) => {
+    await route.fulfill({ status: 200, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({
+      status: 'ready', mode: 'hybrid', ollama: true,
+      models: ['qwen2.5-coder:7b', 'qwen2.5-coder:14b', 'deepseek-r1:14b'],
+      rag: { vectorStore: true, chunks: 2168, path: '.cline-context/vector-store.json' },
+      workspace: 'D:\\war-council',
+      circuitBreakers: {
+        fast: { state: 'closed', failures: 0, threshold: 5 },
+        specialist: { state: 'closed', failures: 1, threshold: 3 },
+        reasoning: { state: 'half-open', failures: 2, threshold: 3 },
+        groq: { state: 'open', failures: 3, threshold: 3 },
+        gemini: { state: 'closed', failures: 0, threshold: 3 },
+      }
+    })});
+  });
+  await page.route('**/breakers', async (route) => {
+    await route.fulfill({ status: 200, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({
+      fast: { state: 'closed', failures: 0, threshold: 5 },
+      specialist: { state: 'closed', failures: 1, threshold: 3 },
+      reasoning: { state: 'half-open', failures: 2, threshold: 3 },
+      groq: { state: 'open', failures: 3, threshold: 3 },
+      gemini: { state: 'closed', failures: 0, threshold: 3 },
+    })});
+  });
+  await page.route('**/metrics', async (route) => {
+    await route.fulfill({ status: 200, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({
+      fast: { latencyP50: 1200, latencyP95: 3400, latencyP99: 5100, successes: 42, errors: 2, tokensPerSec: 38.5 },
+      specialist: { latencyP50: 4500, latencyP95: 8900, latencyP99: 12000, successes: 18, errors: 1, tokensPerSec: 22.1 },
+      reasoning: { latencyP50: 8200, latencyP95: 15000, latencyP99: 22000, successes: 7, errors: 2, tokensPerSec: 12.3 },
+      groq: { latencyP50: 800, latencyP95: 1500, latencyP99: 2200, successes: 31, errors: 3, tokensPerSec: 85.0 },
+      gemini: { latencyP50: 1100, latencyP95: 2800, latencyP99: 4000, successes: 15, errors: 0, tokensPerSec: 45.2 },
+    })});
+  });
+  await page.route('**/metrics/events**', async (route) => {
+    const events = [
+      { timestamp: Date.now() - 5000, tier: 'fast', latencyMs: 1150, tokens: 120, ragChunks: 3 },
+      { timestamp: Date.now() - 12000, tier: 'specialist', latencyMs: 4800, tokens: 340, ragChunks: 5 },
+      { timestamp: Date.now() - 20000, tier: 'groq', latencyMs: 750, tokens: 200, ragChunks: 0 },
+      { timestamp: Date.now() - 30000, tier: 'reasoning', latencyMs: 9100, tokens: 580, ragChunks: 2 },
+      { timestamp: Date.now() - 45000, tier: 'gemini', latencyMs: 1200, tokens: 150, ragChunks: 4, error: 'rate limited' },
+    ];
+    await route.fulfill({ status: 200, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(events) });
+  });
+  await page.route('**/dag/list', async (route) => {
+    await route.fulfill({ status: 200, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify([
+      { dagId: 'refactor-pipeline', dagName: 'Code Refactor', status: 'completed', duration: 12400 },
+      { dagId: 'test-gen', dagName: 'Test Generation', status: 'running', duration: null },
+    ])});
+  });
+
+  await page.goto('http://localhost:3737/metrics-hud', { waitUntil: 'domcontentloaded' });
+  await page.waitForTimeout(4000); // let polling tick fire
+  await page.screenshot({ path: resolve(SCREENSHOTS, '17-metrics-hud-overview.png') });
+
+  // Scroll to event feed
+  await page.evaluate(() => document.querySelector('.events-feed')?.scrollIntoView({ behavior: 'instant' }));
+  await page.waitForTimeout(500);
+  await page.screenshot({ path: resolve(SCREENSHOTS, '18-metrics-hud-events.png') });
+});
