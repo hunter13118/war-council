@@ -27,6 +27,7 @@ import { randomUUID } from "node:crypto";
 import { isAvailable, recordSuccess, recordFailure, getAllStatus, findFallback } from "../mcp-server/shared/circuit-breaker.js";
 import { initTelemetry, record as telemetryRecord, getMetrics, getRecentEvents } from "../mcp-server/shared/telemetry.js";
 import { buildHistoryContext, getHistory, appendToConversation } from "../mcp-server/shared/conversation-memory.js";
+import { initRegistry, registerWorkspace, switchWorkspace, getActiveWorkspace, listWorkspaces, removeWorkspace, updateWorkspace } from "../mcp-server/shared/workspace-registry.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -291,6 +292,61 @@ const server = createServer(async (req, res) => {
     return;
   }
 
+  // === Workspace Registry ===
+  if (url.pathname === "/workspaces" && req.method === "GET") {
+    res.writeHead(200, { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" });
+    res.end(JSON.stringify(listWorkspaces()));
+    return;
+  }
+  if (url.pathname === "/workspaces" && req.method === "POST") {
+    let body = "";
+    for await (const chunk of req) body += chunk;
+    try {
+      const { path: wsPath, name } = JSON.parse(body);
+      if (!wsPath) throw new Error("path required");
+      const ws = await registerWorkspace({ path: wsPath, name });
+      // Auto-index the new workspace
+      try {
+        const result = await indexRepo({ repoRoot: ws.path, storePath: ws.vectorStorePath });
+        await updateWorkspace(ws.id, { lastIndexedAt: new Date().toISOString(), chunks: result.chunksCreated });
+        broadcast({ type: "workspace_indexed", workspace: ws.name, chunks: result.chunksCreated, timestamp: new Date().toISOString() });
+      } catch {}
+      res.writeHead(201, { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" });
+      res.end(JSON.stringify(ws));
+    } catch (e) {
+      res.writeHead(400, { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" });
+      res.end(JSON.stringify({ error: e.message }));
+    }
+    return;
+  }
+  if (url.pathname === "/workspaces/active" && req.method === "POST") {
+    let body = "";
+    for await (const chunk of req) body += chunk;
+    try {
+      const { id } = JSON.parse(body);
+      const ws = switchWorkspace(id);
+      broadcast({ type: "workspace_switch", workspace: ws.name, id: ws.id, timestamp: new Date().toISOString() });
+      res.writeHead(200, { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" });
+      res.end(JSON.stringify(ws));
+    } catch (e) {
+      res.writeHead(400, { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" });
+      res.end(JSON.stringify({ error: e.message }));
+    }
+    return;
+  }
+  if (url.pathname.startsWith("/workspaces/") && req.method === "DELETE") {
+    const id = url.pathname.split("/")[2];
+    try {
+      await removeWorkspace(id);
+      res.writeHead(200, { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" });
+      res.end(JSON.stringify({ ok: true }));
+    } catch (e) {
+      res.writeHead(404, { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" });
+      res.end(JSON.stringify({ error: e.message }));
+    }
+    return;
+  }
+
   // === Mode management ===
   if (url.pathname === "/mode" && req.method === "GET") {
     res.writeHead(200, { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" });
@@ -369,10 +425,13 @@ const server = createServer(async (req, res) => {
       const historyContext = buildHistoryContext(history, message);
 
       // Auto-retrieve from vector store (Sovereign Memory RAG)
+      // Use active workspace's vector store if available, else default
+      const activeWs = getActiveWorkspace();
+      const ragStorePath = activeWs?.vectorStorePath || VECTOR_STORE_PATH;
       let ragContext = '';
       try {
         const ragStart = Date.now();
-        const ragResult = await retrieve(message, { storePath: VECTOR_STORE_PATH, k: 3, minRelevance: 0.35 });
+        const ragResult = await retrieve(message, { storePath: ragStorePath, k: 3, minRelevance: 0.35 });
         if (ragResult.relevant && ragResult.chunks.length > 0) {
           ragContext = ragResult.chunks.map(c => `[${c.source}]\n${c.text}`).join('\n\n');
           telemetryRecord({ category: 'memory', event: 'memory.hit', latencyMs: Date.now() - ragStart, meta: { chunks: ragResult.chunks.length } });
@@ -1107,6 +1166,16 @@ async function edgeTtsGenerate(text, voice) {
 server.listen(PORT, async () => {
   // Initialize telemetry
   await initTelemetry(resolve(LOG_DIR, 'telemetry'));
+
+  // Initialize workspace registry
+  await initRegistry(REPO_ROOT);
+  // Auto-register the current workspace if not already registered
+  try {
+    const existing = listWorkspaces();
+    if (!existing.find(w => w.path === WORKSPACE_ROOT)) {
+      await registerWorkspace({ path: WORKSPACE_ROOT });
+    }
+  } catch {}
 
   console.log(`⚔️  Battle Log Dashboard: http://localhost:${PORT}`);
   console.log(`📡 SSE stream: http://localhost:${PORT}/events`);
