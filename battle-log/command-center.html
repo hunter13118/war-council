@@ -408,6 +408,7 @@ body {
 <div class="convo-bar" style="position:relative;">
   <button onclick="newConversation()">+ New</button>
   <button onclick="toggleConvoList()">📂 History</button>
+  <button onclick="reindexWorkspace()" id="reindexBtn" title="Re-index workspace for RAG">🔄 Index</button>
   <div class="convo-title" id="convoTitle"><span>New Conversation</span></div>
   <div class="convo-list" id="convoList"></div>
 </div>
@@ -759,6 +760,21 @@ async function saveConversation() {
 function recordMessage(role, text, meta) {
   currentConvo.messages.push({ role, text, meta: meta || null, timestamp: new Date().toISOString() });
   saveConversation();
+}
+
+async function reindexWorkspace() {
+  const btn = document.getElementById('reindexBtn');
+  btn.disabled = true; btn.textContent = '⏳ Indexing...';
+  try {
+    const res = await fetch('/reindex', { method: 'POST' });
+    const data = await res.json();
+    if (data.error) throw new Error(data.error);
+    btn.textContent = `✅ ${data.chunksCreated} chunks`;
+    setTimeout(() => { btn.textContent = '🔄 Index'; btn.disabled = false; }, 3000);
+  } catch (e) {
+    btn.textContent = '❌ Failed'; btn.disabled = false;
+    setTimeout(() => { btn.textContent = '🔄 Index'; }, 3000);
+  }
 }
 
 function newConversation() {

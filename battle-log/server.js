@@ -19,6 +19,7 @@ import { readFile, readdir, stat, mkdir } from "node:fs/promises";
 import { resolve, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 import { retrieve } from "../memory-engine/retriever.js";
+import { indexRepo } from "../memory-engine/indexer.js";
 import { existsSync, createReadStream } from "node:fs";
 import { createInterface } from "node:readline";
 import { createHash } from "node:crypto";
@@ -29,8 +30,11 @@ const __dirname = dirname(__filename);
 
 const PORT = parseInt(process.argv.find((a, i) => process.argv[i - 1] === "--port") || "3737", 10);
 const REPO_ROOT = resolve(__dirname, "..");
-const LOG_DIR = resolve(REPO_ROOT, ".cline-context");
+// --workspace flag: index/RAG against ANY workspace, not just war-council itself
+const WORKSPACE_ROOT = resolve(process.argv.find((a, i) => process.argv[i - 1] === "--workspace") || REPO_ROOT);
+const LOG_DIR = resolve(WORKSPACE_ROOT, ".cline-context");
 const LOG_PATH = resolve(LOG_DIR, "battle-log.jsonl");
+const VECTOR_STORE_PATH = resolve(LOG_DIR, "vector-store.json");
 
 // Ensure .cline-context directory exists (auto-create on first use)
 async function ensureLogDir() {
@@ -224,8 +228,7 @@ const server = createServer(async (req, res) => {
       // Auto-retrieve from vector store (Sovereign Memory RAG)
       let ragContext = '';
       try {
-        const storePath = resolve(REPO_ROOT, ".cline-context/vector-store.json");
-        const ragResult = await retrieve(message, { storePath, k: 3, minRelevance: 0.35 });
+        const ragResult = await retrieve(message, { storePath: VECTOR_STORE_PATH, k: 3, minRelevance: 0.35 });
         if (ragResult.relevant && ragResult.chunks.length > 0) {
           ragContext = ragResult.chunks.map(c => `[${c.source}]\n${c.text}`).join('\n\n');
         }
@@ -318,6 +321,19 @@ const server = createServer(async (req, res) => {
       res.end(JSON.stringify(arsenal));
     } catch (e) {
       res.writeHead(500, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ error: e.message }));
+    }
+    return;
+  }
+
+  // === RAG: re-index workspace ===
+  if (url.pathname === "/reindex" && req.method === "POST") {
+    res.writeHead(200, { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" });
+    try {
+      const result = await indexRepo({ rootDir: WORKSPACE_ROOT, storePath: VECTOR_STORE_PATH });
+      broadcast({ type: "tool_call", tool: "memory_index", text: `Indexed ${result.filesProcessed} files → ${result.chunksCreated} chunks`, model: "nomic-embed-text", id: `reindex-${Date.now()}`, timestamp: new Date().toISOString() });
+      res.end(JSON.stringify(result));
+    } catch (e) {
       res.end(JSON.stringify({ error: e.message }));
     }
     return;
@@ -798,8 +814,20 @@ async function edgeTtsGenerate(text, voice) {
   });
 }
 
-server.listen(PORT, () => {
+server.listen(PORT, async () => {
   console.log(`⚔️  Battle Log Dashboard: http://localhost:${PORT}`);
   console.log(`📡 SSE stream: http://localhost:${PORT}/events`);
   console.log(`📜 History: http://localhost:${PORT}/history`);
+  console.log(`🧠 Workspace: ${WORKSPACE_ROOT}`);
+
+  // Auto-index workspace on first boot if no vector store exists
+  if (!existsSync(VECTOR_STORE_PATH)) {
+    console.log(`🔍 No vector store found — auto-indexing workspace...`);
+    try {
+      const result = await indexRepo({ rootDir: WORKSPACE_ROOT, storePath: VECTOR_STORE_PATH });
+      console.log(`✅ Indexed ${result.filesProcessed} files → ${result.chunksCreated} chunks`);
+    } catch (e) {
+      console.log(`⚠️  Auto-index failed (RAG disabled until manual /reindex): ${e.message}`);
+    }
+  }
 });
