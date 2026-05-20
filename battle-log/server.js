@@ -29,6 +29,7 @@ import { initTelemetry, record as telemetryRecord, getMetrics, getRecentEvents }
 import { buildHistoryContext, getHistory, appendToConversation } from "../mcp-server/shared/conversation-memory.js";
 import { initRegistry, registerWorkspace, switchWorkspace, getActiveWorkspace, listWorkspaces, removeWorkspace, updateWorkspace } from "../mcp-server/shared/workspace-registry.js";
 import { scoreConfidence, confidenceLevel } from "../mcp-server/shared/confidence.js";
+import { validateDAG, executeDAG, getExecution, listExecutions } from "../mcp-server/shared/dag-engine.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -345,6 +346,73 @@ const server = createServer(async (req, res) => {
       res.writeHead(404, { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" });
       res.end(JSON.stringify({ error: e.message }));
     }
+    return;
+  }
+
+  // === DAG Execution Engine ===
+  if (url.pathname === "/dag/run" && req.method === "POST") {
+    let body = "";
+    for await (const chunk of req) body += chunk;
+    try {
+      const { dag, context } = JSON.parse(body);
+      if (!dag) throw new Error("dag definition required");
+      const validation = validateDAG(dag);
+      if (!validation.valid) throw new Error(`Invalid DAG: ${validation.errors.join(', ')}`);
+
+      // Task executor — routes tasks through the same model routing as /chat
+      const taskExecutor = async (node, ctx, prevResults) => {
+        const { tool, args, tier } = node.config || {};
+        const prompt = args?.prompt || args?.query || JSON.stringify(args);
+        const route = routeMessage(prompt, tier || 'auto');
+        const ollamaBase = process.env.OLLAMA_BASE || "http://127.0.0.1:11434";
+
+        // Simple non-streaming execution for DAG tasks
+        if (route.provider && activeMode !== 'local') {
+          const cloudRes = await streamCloud(route.provider, route.model, prompt);
+          let text = '';
+          for await (const chunk of cloudRes.body) text += chunk.toString();
+          return { text: text.slice(0, 4000), model: route.model, tier };
+        }
+
+        const localModels = { fast: "qwen2.5-coder:7b", specialist: "qwen2.5-coder:14b", reasoning: "deepseek-r1:14b" };
+        const model = localModels[tier] || route.model;
+        const r = await fetch(`${ollamaBase}/api/generate`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ model, prompt, stream: false }),
+        });
+        if (!r.ok) throw new Error(`Ollama error: ${r.status}`);
+        const data = await r.json();
+        return { text: data.response, model, tier };
+      };
+
+      const { id, promise } = executeDAG(dag, context || {}, taskExecutor);
+      broadcast({ type: "dag_start", dagId: dag.id, executionId: id, nodes: Object.keys(dag.nodes).length, timestamp: new Date().toISOString() });
+
+      // Don't await — return immediately with execution ID
+      promise.then(trace => {
+        broadcast({ type: "dag_complete", dagId: dag.id, executionId: id, status: trace.status, elapsed: trace.completedAt - trace.startedAt, timestamp: new Date().toISOString() });
+      });
+
+      res.writeHead(202, { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" });
+      res.end(JSON.stringify({ executionId: id, status: 'running' }));
+    } catch (e) {
+      res.writeHead(400, { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" });
+      res.end(JSON.stringify({ error: e.message }));
+    }
+    return;
+  }
+  if (url.pathname.startsWith("/dag/status/") && req.method === "GET") {
+    const executionId = url.pathname.split("/")[3];
+    const execution = getExecution(executionId);
+    if (!execution) { res.writeHead(404, { "Content-Type": "application/json" }); res.end(JSON.stringify({ error: 'Not found' })); return; }
+    res.writeHead(200, { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" });
+    res.end(JSON.stringify(execution));
+    return;
+  }
+  if (url.pathname === "/dag/list" && req.method === "GET") {
+    res.writeHead(200, { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" });
+    res.end(JSON.stringify(listExecutions()));
     return;
   }
 
