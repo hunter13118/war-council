@@ -25,6 +25,7 @@ import { createInterface } from "node:readline";
 import { createHash } from "node:crypto";
 import { randomUUID } from "node:crypto";
 import { isAvailable, recordSuccess, recordFailure, getAllStatus, findFallback } from "../mcp-server/shared/circuit-breaker.js";
+import { initTelemetry, record as telemetryRecord, getMetrics, getRecentEvents } from "../mcp-server/shared/telemetry.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -275,6 +276,20 @@ const server = createServer(async (req, res) => {
     return;
   }
 
+  // === Telemetry Metrics ===
+  if (url.pathname === "/metrics" && req.method === "GET") {
+    const window = parseInt(url.searchParams.get("window") || "300000", 10);
+    res.writeHead(200, { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" });
+    res.end(JSON.stringify(getMetrics(window)));
+    return;
+  }
+  if (url.pathname === "/metrics/events" && req.method === "GET") {
+    const count = parseInt(url.searchParams.get("count") || "50", 10);
+    res.writeHead(200, { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" });
+    res.end(JSON.stringify(getRecentEvents(count)));
+    return;
+  }
+
   // === Mode management ===
   if (url.pathname === "/mode" && req.method === "GET") {
     res.writeHead(200, { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" });
@@ -329,6 +344,7 @@ const server = createServer(async (req, res) => {
       if (!isAvailable(routeTier)) {
         const fallbackTier = findFallback(routeTier, activeMode);
         if (fallbackTier) {
+          telemetryRecord({ category: 'routing', event: 'routing.fallback', tier: routeTier, meta: { fallbackTo: fallbackTier } });
           route.reason = `[BREAKER OPEN: ${routeTier}] Routed to ${fallbackTier} — ${route.reason}`;
           if (['groq', 'gemini'].includes(fallbackTier)) {
             const CLOUD_MODELS_MAP = { groq: { model: "llama-3.3-70b-versatile", provider: "groq", tool: "consult_cloud" }, gemini: { model: "gemini-2.5-flash", provider: "gemini", tool: "consult_cloud" } };
@@ -349,9 +365,13 @@ const server = createServer(async (req, res) => {
       // Auto-retrieve from vector store (Sovereign Memory RAG)
       let ragContext = '';
       try {
+        const ragStart = Date.now();
         const ragResult = await retrieve(message, { storePath: VECTOR_STORE_PATH, k: 3, minRelevance: 0.35 });
         if (ragResult.relevant && ragResult.chunks.length > 0) {
           ragContext = ragResult.chunks.map(c => `[${c.source}]\n${c.text}`).join('\n\n');
+          telemetryRecord({ category: 'memory', event: 'memory.hit', latencyMs: Date.now() - ragStart, meta: { chunks: ragResult.chunks.length } });
+        } else {
+          telemetryRecord({ category: 'memory', event: 'memory.miss', latencyMs: Date.now() - ragStart });
         }
       } catch {} // silently skip if vector store not built yet
 
@@ -428,10 +448,12 @@ const server = createServer(async (req, res) => {
           res.write(`data: ${JSON.stringify({ done: true, elapsedMs, tokensOut, model: usedModel, tool: route.tool, reason: route.reason })}\n\n`);
           broadcast({ type: "tool_call", tool: route.tool, text: fullResponse.slice(0, 100) + "...", model: usedModel, elapsedMs, tokensOut, id: eventId + "-done", timestamp: new Date().toISOString() });
           recordSuccess(routeTier);
+          telemetryRecord({ category: 'model', event: 'model.inference.complete', tier: routeTier, model: usedModel, latencyMs: elapsedMs, tokensOut, success: true, reason: route.reason });
           res.end();
           return;
         } catch (cloudErr) {
           recordFailure(routeTier);
+          telemetryRecord({ category: 'model', event: 'model.inference.error', tier: routeTier, model: usedModel, success: false, reason: cloudErr.message });
           if (activeMode === "hybrid") {
             // Fallback to local Ollama
             res.write(`data: ${JSON.stringify({ fallback: true, reason: `Cloud failed: ${cloudErr.message} — falling back to local` })}\n\n`);
@@ -465,6 +487,7 @@ const server = createServer(async (req, res) => {
 
       if (!ollamaRes.ok) {
         recordFailure(routeTier);
+        telemetryRecord({ category: 'model', event: 'model.inference.error', tier: routeTier, model: usedModel, success: false, reason: `Ollama HTTP ${ollamaRes.status}` });
         res.write(`data: ${JSON.stringify({ error: `Ollama error: ${ollamaRes.status}` })}\n\n`);
         res.end();
         return;
@@ -491,6 +514,7 @@ const server = createServer(async (req, res) => {
               res.write(`data: ${JSON.stringify({ done: true, elapsedMs, tokensOut, model: usedModel, tool: route.tool, reason: route.reason })}\n\n`);
               broadcast({ type: "tool_call", tool: route.tool, text: fullResponse.slice(0, 100) + "...", model: usedModel, elapsedMs, tokensOut, id: eventId + "-done", timestamp: new Date().toISOString() });
               recordSuccess(routeTier);
+              telemetryRecord({ category: 'model', event: 'model.inference.complete', tier: routeTier, model: usedModel, latencyMs: elapsedMs, tokensOut, success: true, reason: route.reason });
             }
           } catch {}
         }
@@ -1071,6 +1095,9 @@ async function edgeTtsGenerate(text, voice) {
 }
 
 server.listen(PORT, async () => {
+  // Initialize telemetry
+  await initTelemetry(resolve(LOG_DIR, 'telemetry'));
+
   console.log(`⚔️  Battle Log Dashboard: http://localhost:${PORT}`);
   console.log(`📡 SSE stream: http://localhost:${PORT}/events`);
   console.log(`📜 History: http://localhost:${PORT}/history`);
