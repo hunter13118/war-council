@@ -169,3 +169,56 @@ test('Conversation persistence flow', async ({ page }) => {
   await page.waitForTimeout(500);
   await page.screenshot({ path: resolve(SCREENSHOTS, '12-conversation-history.png') });
 });
+
+test('Showcase card + mode toggle + RAG badge', async ({ page }) => {
+  // Mock /health for the showcase card
+  await page.route('**/health', async (route) => {
+    await route.fulfill({ status: 200, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({
+      status: 'ready', mode: 'hybrid', ollama: true,
+      models: ['qwen2.5-coder:7b', 'qwen2.5-coder:14b', 'deepseek-r1:14b', 'nomic-embed-text'],
+      rag: { vectorStore: true, chunks: 2168, path: '.cline-context/vector-store.json' },
+      workspace: 'D:\\war-council'
+    })});
+  });
+  await page.route('**/mode', async (route, request) => {
+    if (request.method() === 'GET') {
+      await route.fulfill({ status: 200, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ mode: 'hybrid' }) });
+    } else {
+      await route.fulfill({ status: 200, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ mode: 'cloud', previous: 'hybrid' }) });
+    }
+  });
+
+  // === Showcase Card ===
+  await page.goto('http://localhost:3737/showcase/', { waitUntil: 'domcontentloaded' });
+  await page.waitForTimeout(1000);
+  await page.screenshot({ path: resolve(SCREENSHOTS, '13-showcase-card.png') });
+
+  // === Embed page ===
+  await page.goto('http://localhost:3737/embed', { waitUntil: 'domcontentloaded' });
+  await page.waitForTimeout(1000);
+  await page.screenshot({ path: resolve(SCREENSHOTS, '14-embed-view.png') });
+
+  // === Mode toggle + RAG badge in Command Center ===
+  await page.route('**/chat', async (route, request) => {
+    if (request.method() !== 'POST') return route.continue();
+    const text = 'Based on the retrieved context from your codebase, the VectorStore class uses cosine similarity for nearest-neighbor search.';
+    const tokens = text.split(/(?<=\s)/);
+    let sseBody = `data: ${JSON.stringify({ rag: true, chunks: 3 })}\n\n`;
+    sseBody += `data: ${JSON.stringify({ mode: 'hybrid' })}\n\n`;
+    for (const t of tokens) sseBody += `data: ${JSON.stringify({ token: t, model: 'qwen2.5-coder:14b', tool: 'consult_specialist', reason: '[HYBRID] Code task → specialist' })}\n\n`;
+    sseBody += `data: ${JSON.stringify({ done: true, elapsedMs: 2100, tokensOut: tokens.length, model: 'qwen2.5-coder:14b', tool: 'consult_specialist', reason: '[HYBRID] Code task → specialist' })}\n\n`;
+    await route.fulfill({ status: 200, headers: { 'Content-Type': 'text/event-stream' }, body: sseBody });
+  });
+
+  await page.goto('http://localhost:3737/command-center', { waitUntil: 'domcontentloaded' });
+  await page.waitForTimeout(500);
+
+  // Show mode toggle is set to hybrid
+  await page.screenshot({ path: resolve(SCREENSHOTS, '15-mode-toggle-hybrid.png') });
+
+  // Send a message — should show RAG badge
+  await page.fill('#chatInput', 'How does the vector store work?');
+  await page.click('#sendBtn');
+  await page.waitForTimeout(2000);
+  await page.screenshot({ path: resolve(SCREENSHOTS, '16-rag-badge-active.png') });
+});
