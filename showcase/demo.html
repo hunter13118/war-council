@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>War Council — Showcase Demo</title>
+<style>
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    background: #0d1117;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 40px;
+    gap: 24px;
+  }
+  h1 {
+    color: #e6edf3;
+    font-size: 14px;
+    font-weight: 400;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    color: #8b949e;
+  }
+  .variants {
+    display: flex;
+    gap: 24px;
+    flex-wrap: wrap;
+    justify-content: center;
+  }
+  code {
+    display: block;
+    margin-top: 32px;
+    background: #161b22;
+    border: 1px solid #30363d;
+    border-radius: 8px;
+    padding: 16px 24px;
+    color: #8b949e;
+    font-size: 12px;
+    font-family: 'JetBrains Mono', monospace;
+    max-width: 600px;
+  }
+  code .tag { color: #7ee787; }
+  code .attr { color: #d2a8ff; }
+  code .val { color: #a5d6ff; }
+</style>
+</head>
+<body>
+  <h1>Portfolio Component Preview</h1>
+  <div class="variants">
+    <!-- Default: links to war table on same origin -->
+    <war-council-showcase></war-council-showcase>
+    
+    <!-- Opens in new tab -->
+    <war-council-showcase target="_blank"></war-council-showcase>
+  </div>
+  <code>
+    <span class="tag">&lt;script</span> <span class="attr">src</span>=<span class="val">"/showcase/war-council-card.js"</span><span class="tag">&gt;&lt;/script&gt;</span><br>
+    <span class="tag">&lt;war-council-showcase</span><span class="tag">&gt;&lt;/war-council-showcase&gt;</span>
+  </code>
+  <script src="/showcase/war-council-card.js"></script>
+</body>
+</html>

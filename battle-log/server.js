@@ -214,6 +214,35 @@ const server = createServer(async (req, res) => {
     return;
   }
 
+  // === Embed page (iframe-friendly) ===
+  if (url.pathname === "/embed") {
+    const html = await readFile(resolve(__dirname, "embed.html"), "utf-8");
+    res.writeHead(200, { "Content-Type": "text/html", "X-Frame-Options": "ALLOWALL" });
+    res.end(html);
+    return;
+  }
+
+  // === Showcase Web Component ===
+  if (url.pathname.startsWith("/showcase/")) {
+    const file = url.pathname.replace("/showcase/", "");
+    if (!file || file === '') {
+      // Serve demo page at /showcase/
+      const html = await readFile(resolve(REPO_ROOT, "showcase", "demo.html"), "utf-8");
+      res.writeHead(200, { "Content-Type": "text/html" });
+      res.end(html);
+      return;
+    }
+    // Only allow .js and .html files from the showcase directory
+    if (!/^[\w-]+\.(js|html)$/.test(file)) { res.writeHead(404); res.end(); return; }
+    try {
+      const content = await readFile(resolve(REPO_ROOT, "showcase", file), "utf-8");
+      const ct = file.endsWith('.js') ? 'application/javascript' : 'text/html';
+      res.writeHead(200, { "Content-Type": ct, "Access-Control-Allow-Origin": "*", "Cache-Control": "public, max-age=3600" });
+      res.end(content);
+    } catch { res.writeHead(404); res.end("Not found"); }
+    return;
+  }
+
   // === Health check — reports system readiness ===
   if (url.pathname === "/health" && req.method === "GET") {
     const ollamaBase = process.env.OLLAMA_BASE || "http://127.0.0.1:11434";

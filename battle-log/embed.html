@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>⚔️ War Council — Embedded</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { width: 100%; height: 100%; overflow: hidden; background: #0d1117; }
+  iframe { width: 100%; height: 100%; border: none; }
+  .embed-bar {
+    position: fixed; top: 0; left: 0; right: 0; height: 32px; z-index: 100;
+    background: linear-gradient(90deg, #0d1117 0%, #161b22 100%);
+    border-bottom: 1px solid #30363d;
+    display: flex; align-items: center; padding: 0 12px;
+    font-family: 'JetBrains Mono', monospace; font-size: 11px; color: #8b949e;
+  }
+  .embed-bar .logo { color: #f0883e; font-weight: 700; margin-right: 12px; }
+  .embed-bar .mode { color: #58a6ff; margin-left: auto; }
+  .embed-bar .expand {
+    margin-left: 12px; color: #8b949e; text-decoration: none;
+    padding: 2px 8px; border: 1px solid #30363d; border-radius: 4px;
+    font-size: 10px; transition: all 0.2s;
+  }
+  .embed-bar .expand:hover { border-color: #f0883e; color: #f0883e; }
+  .content { position: absolute; top: 32px; left: 0; right: 0; bottom: 0; }
+</style>
+</head>
+<body>
+<div class="embed-bar">
+  <span class="logo">⚔️ War Council</span>
+  <span id="embedStatus">Loading...</span>
+  <span class="mode" id="embedMode"></span>
+  <a class="expand" href="/command-center" target="_blank">↗ Open Full</a>
+</div>
+<div class="content">
+  <iframe src="/command-center" id="embedFrame"></iframe>
+</div>
+<script>
+  async function checkHealth() {
+    try {
+      const res = await fetch('/health');
+      const data = await res.json();
+      const modeIcons = { cloud: '☁️', local: '💻', hybrid: '🔀' };
+      document.getElementById('embedStatus').textContent = data.status === 'ready' ? '● Operational' : '● Degraded';
+      document.getElementById('embedStatus').style.color = data.status === 'ready' ? '#3fb950' : '#f85149';
+      document.getElementById('embedMode').textContent = `${modeIcons[data.mode] || ''} ${data.mode}`;
+    } catch {
+      document.getElementById('embedStatus').textContent = '● Offline';
+      document.getElementById('embedStatus').style.color = '#f85149';
+    }
+  }
+  checkHealth();
+  setInterval(checkHealth, 30000);
+</script>
+</body>
+</html>
