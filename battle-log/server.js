@@ -18,6 +18,7 @@ import { createServer } from "node:http";
 import { readFile, readdir, stat, mkdir } from "node:fs/promises";
 import { resolve, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
+import { retrieve } from "../memory-engine/retriever.js";
 import { existsSync, createReadStream } from "node:fs";
 import { createInterface } from "node:readline";
 import { createHash } from "node:crypto";
@@ -219,8 +220,21 @@ const server = createServer(async (req, res) => {
 
       // Build prompt with optional RAG context
       let prompt = message;
+
+      // Auto-retrieve from vector store (Sovereign Memory RAG)
+      let ragContext = '';
+      try {
+        const storePath = resolve(REPO_ROOT, ".cline-context/vector-store.json");
+        const ragResult = await retrieve(message, { storePath, k: 3, minRelevance: 0.35 });
+        if (ragResult.relevant && ragResult.chunks.length > 0) {
+          ragContext = ragResult.chunks.map(c => `[${c.source}]\n${c.text}`).join('\n\n');
+        }
+      } catch {} // silently skip if vector store not built yet
+
       if (context && context.trim()) {
-        prompt = `The user has provided the following reference files for context:\n\n${context}\n\nUser question: ${message}`;
+        prompt = `The user has provided the following reference files for context:\n\n${context}\n\n${ragContext ? `Relevant codebase context (auto-retrieved):\n${ragContext}\n\n` : ''}User question: ${message}`;
+      } else if (ragContext) {
+        prompt = `Relevant codebase context (auto-retrieved):\n${ragContext}\n\nUser question: ${message}`;
       }
 
       // Emit tool_call event so war table shows activity
@@ -234,6 +248,11 @@ const server = createServer(async (req, res) => {
         "Connection": "keep-alive",
         "Access-Control-Allow-Origin": "*",
       });
+
+      // Send RAG metadata before streaming response
+      if (ragContext) {
+        res.write(`data: ${JSON.stringify({ rag: true, chunks: ragContext.split('\n\n').length })}\n\n`);
+      }
 
       const startTime = Date.now();
       const ollamaRes = await fetch(`${ollamaBase}/api/generate`, {
