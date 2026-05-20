@@ -28,6 +28,7 @@ import { isAvailable, recordSuccess, recordFailure, getAllStatus, findFallback }
 import { initTelemetry, record as telemetryRecord, getMetrics, getRecentEvents } from "../mcp-server/shared/telemetry.js";
 import { buildHistoryContext, getHistory, appendToConversation } from "../mcp-server/shared/conversation-memory.js";
 import { initRegistry, registerWorkspace, switchWorkspace, getActiveWorkspace, listWorkspaces, removeWorkspace, updateWorkspace } from "../mcp-server/shared/workspace-registry.js";
+import { scoreConfidence, confidenceLevel } from "../mcp-server/shared/confidence.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -510,10 +511,11 @@ const server = createServer(async (req, res) => {
           }
 
           const elapsedMs = Date.now() - startTime;
-          res.write(`data: ${JSON.stringify({ done: true, elapsedMs, tokensOut, model: usedModel, tool: route.tool, reason: route.reason })}\n\n`);
-          broadcast({ type: "tool_call", tool: route.tool, text: fullResponse.slice(0, 100) + "...", model: usedModel, elapsedMs, tokensOut, id: eventId + "-done", timestamp: new Date().toISOString() });
+          const confidence = scoreConfidence({ response: fullResponse, question: message, latencyMs: elapsedMs, tokensOut, tier: routeTier, ragHit: !!ragContext, turnCount: history.length / 2 });
+          res.write(`data: ${JSON.stringify({ done: true, elapsedMs, tokensOut, model: usedModel, tool: route.tool, reason: route.reason, confidence })}\n\n`);
+          broadcast({ type: "tool_call", tool: route.tool, text: fullResponse.slice(0, 100) + "...", model: usedModel, elapsedMs, tokensOut, confidence: confidence.composite, id: eventId + "-done", timestamp: new Date().toISOString() });
           recordSuccess(routeTier);
-          telemetryRecord({ category: 'model', event: 'model.inference.complete', tier: routeTier, model: usedModel, latencyMs: elapsedMs, tokensOut, success: true, reason: route.reason });
+          telemetryRecord({ category: 'model', event: 'model.inference.complete', tier: routeTier, model: usedModel, latencyMs: elapsedMs, tokensOut, success: true, reason: route.reason, meta: { confidence: confidence.composite } });
           // Save to conversation memory
           appendToConversation(conversationId, CONVOS_DIR, message, fullResponse).catch(() => {});
           res.end();
@@ -578,10 +580,11 @@ const server = createServer(async (req, res) => {
             }
             if (parsed.done) {
               const elapsedMs = Date.now() - startTime;
-              res.write(`data: ${JSON.stringify({ done: true, elapsedMs, tokensOut, model: usedModel, tool: route.tool, reason: route.reason })}\n\n`);
-              broadcast({ type: "tool_call", tool: route.tool, text: fullResponse.slice(0, 100) + "...", model: usedModel, elapsedMs, tokensOut, id: eventId + "-done", timestamp: new Date().toISOString() });
+              const confidence = scoreConfidence({ response: fullResponse, question: message, latencyMs: elapsedMs, tokensOut, tier: routeTier, ragHit: !!ragContext, turnCount: history.length / 2 });
+              res.write(`data: ${JSON.stringify({ done: true, elapsedMs, tokensOut, model: usedModel, tool: route.tool, reason: route.reason, confidence })}\n\n`);
+              broadcast({ type: "tool_call", tool: route.tool, text: fullResponse.slice(0, 100) + "...", model: usedModel, elapsedMs, tokensOut, confidence: confidence.composite, id: eventId + "-done", timestamp: new Date().toISOString() });
               recordSuccess(routeTier);
-              telemetryRecord({ category: 'model', event: 'model.inference.complete', tier: routeTier, model: usedModel, latencyMs: elapsedMs, tokensOut, success: true, reason: route.reason });
+              telemetryRecord({ category: 'model', event: 'model.inference.complete', tier: routeTier, model: usedModel, latencyMs: elapsedMs, tokensOut, success: true, reason: route.reason, meta: { confidence: confidence.composite } });
             }
           } catch {}
         }
