@@ -145,16 +145,20 @@ describe('CircuitBreaker — registry functions', () => {
   });
 
   it('findFallback returns null when all tiers in mode are the preferred one', () => {
-    // Only one cloud option besides groq is gemini
-    // Trip gemini so only groq remains — but groq is the preferred, so null
+    // Trip gemini and openrouter so only groq remains — but groq is the preferred, so null
     const geminiBreaker = getBreaker('gemini');
-    const origState = geminiBreaker.state;
+    const openrouterBreaker = getBreaker('openrouter');
+    const origGemini = geminiBreaker.state;
+    const origOpenrouter = openrouterBreaker.state;
     // Force open
     for (let i = 0; i < 5; i++) geminiBreaker.recordFailure();
+    for (let i = 0; i < 5; i++) openrouterBreaker.recordFailure();
     const result = findFallback('groq', 'cloud');
     assert.equal(result, null);
     // Restore
-    geminiBreaker.state = origState;
+    geminiBreaker.state = origGemini;
     geminiBreaker.failures = 0;
+    openrouterBreaker.state = origOpenrouter;
+    openrouterBreaker.failures = 0;
   });
 });

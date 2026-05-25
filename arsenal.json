@@ -41,6 +41,17 @@
       "name": "llama-3.3-70b-versatile",
       "role": "Cloud escalation — high throughput",
       "provider": "groq"
+    },
+    "openrouter": {
+      "name": "deepseek/deepseek-v4-flash:free",
+      "role": "Cloud escalation — 1M context, reasoning + code, free via OpenRouter",
+      "provider": "openrouter",
+      "alternatives": [
+        "nvidia/nemotron-3-super-120b-a12b:free",
+        "poolside/laguna-m.1:free",
+        "minimax/minimax-m2.5:free",
+        "arcee-ai/trinity-large-thinking:free"
+      ]
     }
   },
   "defaults": {

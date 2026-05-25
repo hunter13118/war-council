@@ -68,6 +68,7 @@ class SlidingWindowCounter {
 const LIMITS = {
   gemini: { rpm: 14, windowMs: 60_000 }, // Free tier: 15 RPM, leave 1 margin
   groq: { rpm: 28, windowMs: 60_000 },   // Free tier: 30 RPM, leave 2 margin
+  openrouter: { rpm: 18, windowMs: 60_000 }, // Free tier: 20 RPM, leave 2 margin
 };
 
 const counters = new Map();

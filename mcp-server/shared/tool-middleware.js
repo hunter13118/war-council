@@ -28,7 +28,9 @@ const TOOL_TIER_MAP = {
  */
 function resolveTier(toolName, args) {
   if (toolName === 'consult_cloud') {
-    return args?.provider === 'gemini' ? 'gemini' : 'groq';
+    if (args?.provider === 'gemini') return 'gemini';
+    if (args?.provider === 'openrouter') return 'openrouter';
+    return 'groq';
   }
   return TOOL_TIER_MAP[toolName] || null;
 }

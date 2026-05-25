@@ -499,8 +499,8 @@ const server = createServer(async (req, res) => {
         if (fallbackTier) {
           telemetryRecord({ category: 'routing', event: 'routing.fallback', tier: routeTier, meta: { fallbackTo: fallbackTier } });
           route.reason = `[BREAKER OPEN: ${routeTier}] Routed to ${fallbackTier} — ${route.reason}`;
-          if (['groq', 'gemini'].includes(fallbackTier)) {
-            const CLOUD_MODELS_MAP = { groq: { model: "llama-3.3-70b-versatile", provider: "groq", tool: "consult_cloud" }, gemini: { model: "gemini-2.5-flash", provider: "gemini", tool: "consult_cloud" } };
+          if (['groq', 'gemini', 'openrouter'].includes(fallbackTier)) {
+            const CLOUD_MODELS_MAP = { groq: { model: "llama-3.3-70b-versatile", provider: "groq", tool: "consult_cloud" }, gemini: { model: "gemini-2.5-flash", provider: "gemini", tool: "consult_cloud" }, openrouter: { model: "deepseek/deepseek-v4-flash:free", provider: "openrouter", tool: "consult_cloud" } };
             Object.assign(route, CLOUD_MODELS_MAP[fallbackTier]);
           } else {
             const LOCAL_MODELS_MAP = { fast: "qwen2.5-coder:7b", specialist: "qwen2.5-coder:14b", reasoning: "deepseek-r1:14b" };
@@ -1150,6 +1150,22 @@ async function streamCloud(provider, model, prompt, res) {
       body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] }),
     });
     if (!r.ok) throw new Error(`Gemini API error: ${r.status}`);
+    return r;
+  }
+  if (provider === "openrouter") {
+    const apiKey = process.env.OPENROUTER_API_KEY;
+    if (!apiKey) throw new Error("OPENROUTER_API_KEY not set");
+    const r = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${apiKey}`,
+        "HTTP-Referer": "https://github.com/hunter13118/war-council",
+        "X-Title": "War Council",
+      },
+      body: JSON.stringify({ model, messages: [{ role: "user", content: prompt }], stream: true }),
+    });
+    if (!r.ok) throw new Error(`OpenRouter API error: ${r.status}`);
     return r;
   }
   throw new Error(`Unknown cloud provider: ${provider}`);

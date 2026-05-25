@@ -1,38 +1,34 @@
 /**
- * Cloud API integrations — Gemini (1M ctx) and Groq (fast inference).
+ * Cloud API integrations — Gemini, Groq, and OpenRouter (free tier models).
  */
-import { GEMINI_API_KEY, GEMINI_MODEL, GROQ_API_KEY, GROQ_MODEL } from "./config.js";
+import { GEMINI_API_KEY, GEMINI_MODEL, GROQ_API_KEY, GROQ_MODEL, OPENROUTER_API_KEY, OPENROUTER_MODEL } from "./config.js";
 import { withRetry } from "./retry.js";
 import { checkRateLimit, getRateLimitStats } from "./rate-limiter.js";
 
 /**
  * Cloud generate with automatic failover.
- * Tries primary provider first; on rate limit or error, falls back to secondary.
+ * Tries primary provider first; on rate limit or error, falls back through chain.
  * @param {string} prompt
- * @param {object} options - { primary: "gemini"|"groq", maxTokens, temperature }
+ * @param {object} options - { primary: "gemini"|"groq"|"openrouter", maxTokens, temperature }
  * @returns {Promise<object>} - standard result with { text, model, provider, failedOver }
  */
 export async function cloudGenerateWithFailover(prompt, options = {}) {
   const primary = options.primary ?? "gemini";
-  const secondary = primary === "gemini" ? "groq" : "gemini";
-  const generators = { gemini: geminiGenerate, groq: groqGenerate };
+  const generators = { gemini: geminiGenerate, groq: groqGenerate, openrouter: openRouterGenerate };
+  const keys = { gemini: GEMINI_API_KEY, groq: GROQ_API_KEY, openrouter: OPENROUTER_API_KEY };
+  const fallbackOrder = ["gemini", "groq", "openrouter"].filter(p => p !== primary && keys[p]);
 
   try {
     const result = await generators[primary](prompt, options);
     return { ...result, failedOver: false };
   } catch (primaryErr) {
-    // Only failover if secondary is configured
-    const secondaryKey = secondary === "gemini" ? GEMINI_API_KEY : GROQ_API_KEY;
-    if (!secondaryKey) throw primaryErr;
-
-    try {
-      const result = await generators[secondary](prompt, options);
-      return { ...result, failedOver: true, primaryError: primaryErr.message };
-    } catch (secondaryErr) {
-      throw new Error(
-        `Both providers failed. ${primary}: ${primaryErr.message} | ${secondary}: ${secondaryErr.message}`
-      );
+    for (const fallback of fallbackOrder) {
+      try {
+        const result = await generators[fallback](prompt, options);
+        return { ...result, failedOver: true, primaryError: primaryErr.message };
+      } catch { continue; }
     }
+    throw new Error(`All cloud providers failed. Primary (${primary}): ${primaryErr.message}`);
   }
 }
 
@@ -109,6 +105,48 @@ export async function groqGenerate(prompt, options = {}) {
     text,
     model,
     provider: "groq",
+    elapsedMs: Date.now() - t0,
+    tokensIn: usage.prompt_tokens ?? null,
+    tokensOut: usage.completion_tokens ?? null,
+  };
+}
+
+export async function openRouterGenerate(prompt, options = {}) {
+  if (!OPENROUTER_API_KEY) throw new Error("OPENROUTER_API_KEY not set. Get one free at https://openrouter.ai/keys");
+  checkRateLimit("openrouter");
+  const t0 = Date.now();
+  const model = options.model ?? OPENROUTER_MODEL;
+
+  const body = {
+    model,
+    messages: [{ role: "user", content: prompt }],
+    max_tokens: options.maxTokens ?? 8192,
+    temperature: options.temperature ?? 0.3,
+  };
+
+  const res = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "Authorization": `Bearer ${OPENROUTER_API_KEY}`,
+      "HTTP-Referer": "https://github.com/hunter13118/war-council",
+      "X-Title": "War Council",
+    },
+    body: JSON.stringify(body),
+  });
+
+  if (!res.ok) {
+    const errText = await res.text();
+    throw new Error(`OpenRouter HTTP ${res.status}: ${errText}`);
+  }
+  const data = await res.json();
+  const text = data.choices?.[0]?.message?.content ?? "";
+  const usage = data.usage ?? {};
+
+  return {
+    text,
+    model: data.model || model,
+    provider: "openrouter",
     elapsedMs: Date.now() - t0,
     tokensIn: usage.prompt_tokens ?? null,
     tokensOut: usage.completion_tokens ?? null,

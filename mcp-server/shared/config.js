@@ -29,8 +29,10 @@ export const MEMORY_EMBED_MODEL =
 
 export const GEMINI_API_KEY = process.env.GEMINI_API_KEY || "";
 export const GROQ_API_KEY = process.env.GROQ_API_KEY || "";
+export const OPENROUTER_API_KEY = process.env.OPENROUTER_API_KEY || "";
 export const GEMINI_MODEL = process.env.GEMINI_MODEL || arsenalConfig.cloud.gemini.name;
 export const GROQ_MODEL = process.env.GROQ_MODEL || arsenalConfig.cloud.groq.name;
+export const OPENROUTER_MODEL = process.env.OPENROUTER_MODEL || arsenalConfig.cloud.openrouter.name;
 
 export const ARSENAL = {
   fast: process.env.MODEL_FAST || arsenalConfig.models.fast.name,

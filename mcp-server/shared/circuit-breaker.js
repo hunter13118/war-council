@@ -80,6 +80,7 @@ const breakers = {
   reasoning: new CircuitBreaker(3, 60000),  // deepseek-r1: moderate
   groq: new CircuitBreaker(3, 300000),      // Cloud: longer reset (rate limits)
   gemini: new CircuitBreaker(3, 300000),    // Cloud: longer reset
+  openrouter: new CircuitBreaker(3, 300000), // Cloud: longer reset
 };
 
 /**
@@ -143,7 +144,7 @@ export function getAllStatus() {
  */
 export function findFallback(preferredTier, mode = 'hybrid') {
   const localFallbacks = ['fast', 'specialist', 'reasoning'];
-  const cloudFallbacks = ['groq', 'gemini'];
+  const cloudFallbacks = ['groq', 'gemini', 'openrouter'];
 
   let candidates;
   if (mode === 'local') candidates = localFallbacks;
