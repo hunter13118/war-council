@@ -19,7 +19,7 @@ import { dirname, resolve } from "node:path";
 
 import { ToolRegistry } from "./tool-registry.js";
 import { OLLAMA_BASE, arsenalConfig } from "./shared/config.js";
-import { battleLogListeners, emitBattleEvent } from "./shared/battle-events.js";
+import { emitBattleEvent } from "./shared/battle-events.js";
 import { BATTLE_LOG_PATH } from "./shared/config.js";
 import { initTelemetry } from "./shared/telemetry.js";
 
@@ -30,7 +30,7 @@ const __dirname = dirname(__filename);
 const ctx = { __dirname };
 
 // Export for dashboard server to import
-export { battleLogListeners, BATTLE_LOG_PATH };
+export { BATTLE_LOG_PATH };
 
 // ===== Initialize Telemetry =====
 initTelemetry(resolve(__dirname, '..', '.cline-context'));

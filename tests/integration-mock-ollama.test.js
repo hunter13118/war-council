@@ -24,6 +24,9 @@ function createMockOllama() {
           eval_duration: 1000000000,
           prompt_eval_count: 10,
         }));
+      } else if (req.url === "/api/version") {
+        res.writeHead(200, { "Content-Type": "application/json" });
+        res.end(JSON.stringify({ version: "0.0.0-mock" }));
       } else if (req.url === "/api/tags") {
         res.writeHead(200, { "Content-Type": "application/json" });
         res.end(JSON.stringify({
@@ -102,5 +105,70 @@ describe("Integration: MCP tools with mock Ollama", () => {
     });
     const data = await res.json();
     assert.equal(data.embedding.length, 768);
+  });
+
+  it("ToolRegistry discovers and wraps all tools", async () => {
+    const { ToolRegistry } = await import("../mcp-server/tool-registry.js");
+    const registry = new ToolRegistry();
+    const { resolve: resolvePath } = await import("node:path");
+    await registry.discover(resolvePath(import.meta.dirname, "..", "mcp-server", "tools"));
+    // Should have 30+ tools
+    assert.ok(registry.size >= 30, `Expected 30+ tools, got ${registry.size}`);
+    // Should be able to list schemas
+    const schemas = registry.listSchemas();
+    assert.ok(schemas.length >= 30);
+    assert.ok(schemas.every(s => s.name && s.description && s.inputSchema));
+  });
+
+  it("ToolRegistry executes consult_fast via mock", async () => {
+    const { ToolRegistry } = await import("../mcp-server/tool-registry.js");
+    const registry = new ToolRegistry();
+    const { resolve: resolvePath } = await import("node:path");
+    await registry.discover(resolvePath(import.meta.dirname, "..", "mcp-server", "tools"));
+    const result = await registry.execute("consult_fast", { prompt: "What is 2+2?" }, {});
+    // Should get a response (not error)
+    assert.ok(!result.isError, `Got error: ${result.content?.[0]?.text}`);
+    assert.ok(result.content[0].text.includes("Mock response"));
+  });
+
+  it("ToolRegistry returns error for unknown tool", async () => {
+    const { ToolRegistry } = await import("../mcp-server/tool-registry.js");
+    const registry = new ToolRegistry();
+    const result = await registry.execute("nonexistent_tool", {}, {});
+    assert.ok(result.isError);
+    assert.ok(result.content[0].text.includes("Unknown tool"));
+  });
+
+  it("list_arsenal tool returns model info", async () => {
+    const { ToolRegistry } = await import("../mcp-server/tool-registry.js");
+    const registry = new ToolRegistry();
+    const { resolve: resolvePath } = await import("node:path");
+    await registry.discover(resolvePath(import.meta.dirname, "..", "mcp-server", "tools"));
+    const result = await registry.execute("list_arsenal", {}, {});
+    assert.ok(!result.isError);
+    // Should list models from arsenal.json
+    assert.ok(result.content[0].text.includes("fast") || result.content[0].text.includes("specialist"));
+  });
+
+  it("run_dag tool validates DAG before execution", async () => {
+    const { ToolRegistry } = await import("../mcp-server/tool-registry.js");
+    const registry = new ToolRegistry();
+    const { resolve: resolvePath } = await import("node:path");
+    await registry.discover(resolvePath(import.meta.dirname, "..", "mcp-server", "tools"));
+    // Invalid DAG — no entryNode
+    const result = await registry.execute("run_dag", { dag: { id: "test", nodes: {} } }, {});
+    assert.ok(result.isError);
+    assert.ok(result.content[0].text.includes("Invalid DAG"));
+  });
+
+  it("switch_workspace tool lists workspaces", async () => {
+    const { ToolRegistry } = await import("../mcp-server/tool-registry.js");
+    const registry = new ToolRegistry();
+    const { resolve: resolvePath } = await import("node:path");
+    await registry.discover(resolvePath(import.meta.dirname, "..", "mcp-server", "tools"));
+    const result = await registry.execute("switch_workspace", { action: "list" }, {});
+    assert.ok(!result.isError);
+    // Should return text (either workspaces listed or "No workspaces")
+    assert.ok(result.content[0].text.length > 0);
   });
 });
