@@ -266,6 +266,32 @@ const server = createServer(async (req, res) => {
     return;
   }
 
+  // === Memory Archive ===
+  if (url.pathname === "/memory-archive" || url.pathname === "/memory-archive/") {
+    const html = await readFile(resolve(__dirname, "memory-archive.html"), "utf-8");
+    res.writeHead(200, { "Content-Type": "text/html" });
+    res.end(html);
+    return;
+  }
+  if (url.pathname === "/memory/vectors" && req.method === "GET") {
+    try {
+      const raw = JSON.parse(await readFile(VECTOR_STORE_PATH, "utf-8"));
+      // Return chunks without full embeddings (too large) — include metadata + truncated content
+      const chunks = raw.map(c => ({
+        file: c.file || c.path || '',
+        content: (c.text || c.content || '').slice(0, 200),
+        lines: c.lines || '',
+        embedding: c.embedding ? c.embedding.slice(0, 3) : null, // just 3 dims for projection hint
+      }));
+      res.writeHead(200, { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" });
+      res.end(JSON.stringify({ chunks, total: raw.length }));
+    } catch {
+      res.writeHead(200, { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" });
+      res.end(JSON.stringify({ chunks: [], total: 0 }));
+    }
+    return;
+  }
+
   // === Health check — reports system readiness ===
   if (url.pathname === "/health" && req.method === "GET") {
     const ollamaBase = process.env.OLLAMA_BASE || "http://127.0.0.1:11434";

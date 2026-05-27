@@ -1,0 +1,480 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>War Council — Memory Archive</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{
+  --bg:#0a0a0f;--surface:#12121a;--border:#1e1e2e;
+  --text:#e0e0e0;--dim:#8888aa;--accent:#a855f7;
+  --green:#10b981;--yellow:#f59e0b;--red:#ef4444;--blue:#3b82f6;
+  --cyan:#06b6d4;--pink:#ec4899;--orange:#f97316;
+}
+body{background:var(--bg);color:var(--text);font-family:'JetBrains Mono','Fira Code',monospace;height:100vh;overflow:hidden;display:flex;flex-direction:column}
+header{padding:1rem 2rem;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:1rem;background:rgba(10,10,15,0.95);z-index:10}
+header h1{font-size:1.1rem;background:linear-gradient(135deg,var(--cyan),var(--accent));-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+.controls{margin-left:auto;display:flex;gap:0.75rem;align-items:center}
+.btn{padding:6px 14px;border-radius:6px;border:1px solid var(--border);background:var(--surface);color:var(--text);font-size:0.75rem;cursor:pointer;transition:all 0.2s}
+.btn:hover{border-color:var(--accent);box-shadow:0 0 10px rgba(168,85,247,0.2)}
+.btn.active{border-color:var(--accent);background:rgba(168,85,247,0.1)}
+.search-box{padding:6px 12px;border-radius:6px;border:1px solid var(--border);background:var(--surface);color:var(--text);font-size:0.8rem;width:200px;font-family:inherit}
+.search-box:focus{outline:none;border-color:var(--accent)}
+
+.main{flex:1;display:flex;overflow:hidden}
+.canvas-area{flex:1;position:relative}
+canvas{width:100%;height:100%;cursor:crosshair}
+
+/* Side panel */
+.side-panel{width:320px;background:var(--surface);border-left:1px solid var(--border);padding:1.25rem;overflow-y:auto;display:flex;flex-direction:column;gap:1rem}
+.panel-section h3{font-size:0.8rem;text-transform:uppercase;letter-spacing:0.06em;color:var(--dim);margin-bottom:0.5rem}
+.panel-row{display:flex;justify-content:space-between;padding:0.3rem 0;font-size:0.78rem}
+.panel-row .label{color:var(--dim)}
+.panel-row .value{font-weight:600}
+
+/* Chunk preview */
+.chunk-preview{background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:0.75rem;font-size:0.72rem;max-height:200px;overflow-y:auto;line-height:1.5;white-space:pre-wrap;word-break:break-word}
+.chunk-file{color:var(--accent);font-size:0.7rem;margin-bottom:0.5rem;display:block}
+
+/* Cluster list */
+.cluster-item{display:flex;align-items:center;gap:0.5rem;padding:0.4rem 0;border-bottom:1px solid var(--border);font-size:0.78rem;cursor:pointer}
+.cluster-item:hover{color:var(--accent)}
+.cluster-dot{width:12px;height:12px;border-radius:50%;flex-shrink:0}
+.cluster-count{color:var(--dim);margin-left:auto}
+
+/* Stats bar */
+.stats-bar{display:flex;gap:1.5rem;padding:0.5rem 2rem;background:var(--surface);border-top:1px solid var(--border);font-size:0.72rem;color:var(--dim)}
+.stats-bar span{display:flex;align-items:center;gap:0.4rem}
+.stats-bar .value{color:var(--text);font-weight:600}
+
+/* Tooltip */
+.tooltip{position:absolute;background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:0.5rem 0.75rem;font-size:0.72rem;max-width:300px;pointer-events:none;opacity:0;transition:opacity 0.2s;z-index:100;box-shadow:0 4px 20px rgba(0,0,0,0.5)}
+.tooltip.visible{opacity:1}
+.tooltip .file{color:var(--accent)}
+.tooltip .preview{color:var(--dim);margin-top:0.25rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+
+@media(max-width:900px){.side-panel{display:none}}
+</style>
+</head>
+<body>
+<header>
+  <h1>🧠 MEMORY ARCHIVE</h1>
+  <div class="controls">
+    <input type="text" class="search-box" id="search" placeholder="Search memories..." oninput="filterChunks(this.value)">
+    <button class="btn" id="btn-cluster" onclick="toggleClusters()">Clusters</button>
+    <button class="btn" onclick="resetView()">↺ Reset</button>
+  </div>
+</header>
+
+<div class="main">
+  <div class="canvas-area">
+    <canvas id="canvas"></canvas>
+    <div class="tooltip" id="tooltip"></div>
+  </div>
+
+  <div class="side-panel">
+    <div class="panel-section">
+      <h3>Archive Stats</h3>
+      <div class="panel-row"><span class="label">Total Chunks</span><span class="value" id="s-chunks">—</span></div>
+      <div class="panel-row"><span class="label">Files Indexed</span><span class="value" id="s-files">—</span></div>
+      <div class="panel-row"><span class="label">Clusters</span><span class="value" id="s-clusters">—</span></div>
+      <div class="panel-row"><span class="label">Dimensions</span><span class="value" id="s-dims">—</span></div>
+    </div>
+
+    <div class="panel-section">
+      <h3>Clusters</h3>
+      <div id="cluster-list"></div>
+    </div>
+
+    <div class="panel-section">
+      <h3>Selected Chunk</h3>
+      <div id="chunk-detail">
+        <div class="panel-row"><span class="label">Hover a point to inspect</span></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="stats-bar">
+  <span>Zoom: <span class="value" id="zoom-level">1.0x</span></span>
+  <span>Visible: <span class="value" id="visible-count">—</span></span>
+  <span>Highlighted: <span class="value" id="highlight-count">0</span></span>
+</div>
+
+<script>
+const canvas = document.getElementById('canvas');
+const ctx = canvas.getContext('2d');
+const tooltip = document.getElementById('tooltip');
+const $ = id => document.getElementById(id);
+
+// --- State ---
+let chunks = [];
+let points2D = [];
+let clusters = [];
+let showClusters = true;
+let camera = { x: 0, y: 0, zoom: 1 };
+let hoveredIdx = -1;
+let searchFilter = '';
+let dragging = false;
+let dragStart = { x: 0, y: 0 };
+let cameraStart = { x: 0, y: 0 };
+
+// Color palette for clusters
+const COLORS = ['#a855f7','#3b82f6','#10b981','#f59e0b','#ec4899','#06b6d4','#f97316','#84cc16','#ef4444','#8b5cf6','#14b8a6','#f43f5e'];
+
+function resize() {
+  canvas.width = canvas.clientWidth * devicePixelRatio;
+  canvas.height = canvas.clientHeight * devicePixelRatio;
+  ctx.scale(devicePixelRatio, devicePixelRatio);
+  draw();
+}
+window.addEventListener('resize', resize);
+
+// --- Data Generation (simulated from vector store structure) ---
+async function loadData() {
+  try {
+    const res = await fetch('/memory/vectors');
+    if (res.ok) {
+      const data = await res.json();
+      if (data.chunks && data.chunks.length > 0) {
+        chunks = data.chunks;
+        if (chunks[0].embedding) {
+          points2D = projectTo2D(chunks.map(c => c.embedding));
+        } else {
+          generateLayout(chunks);
+        }
+        clusterPoints();
+        updateStats();
+        draw();
+        return;
+      }
+    }
+  } catch {}
+
+  // Fallback: generate demo data
+  generateDemoData();
+  draw();
+}
+
+function generateDemoData() {
+  // Simulate ~200 code chunks with file-based clustering
+  const fileGroups = [
+    { file: 'battle-log/server.js', count: 35, cx: 0.2, cy: 0.3, color: 0 },
+    { file: 'mcp-server/shared/circuit-breaker.js', count: 12, cx: 0.7, cy: 0.2, color: 1 },
+    { file: 'mcp-server/shared/telemetry.js', count: 10, cx: 0.8, cy: 0.4, color: 2 },
+    { file: 'mcp-server/shared/dag-engine.js', count: 18, cx: 0.6, cy: 0.7, color: 3 },
+    { file: 'mcp-server/tools/consult-fast.js', count: 8, cx: 0.3, cy: 0.8, color: 4 },
+    { file: 'mcp-server/tools/tournament-vote.js', count: 10, cx: 0.4, cy: 0.6, color: 5 },
+    { file: 'memory-engine/retriever.js', count: 14, cx: 0.15, cy: 0.6, color: 6 },
+    { file: 'memory-engine/indexer.js', count: 11, cx: 0.1, cy: 0.75, color: 7 },
+    { file: 'tests/dag-engine.test.js', count: 15, cx: 0.85, cy: 0.7, color: 8 },
+    { file: 'showcase/index.html', count: 12, cx: 0.5, cy: 0.15, color: 9 },
+    { file: 'battle-log/dag-theater.html', count: 16, cx: 0.55, cy: 0.35, color: 10 },
+    { file: 'mcp-server/shared/confidence.js', count: 9, cx: 0.75, cy: 0.55, color: 11 },
+  ];
+
+  chunks = [];
+  points2D = [];
+
+  const codeSnippets = [
+    'export async function executeDAG(dag, context, taskExecutor) {',
+    'const breaker = getBreaker(tier); if (!breaker.isAvailable()) throw new Error(...)',
+    'const embedding = await generateEmbedding(text, model);',
+    'res.writeHead(200, { "Content-Type": "text/event-stream" });',
+    'const confidence = scoreConfidence({ response, question, ragChunks });',
+    'async function streamCloudResponse(provider, model, prompt) {',
+    'describe("Circuit Breaker", () => { it("trips after threshold", ...',
+    'const topK = await vectorStore.search(queryEmbedding, k);',
+    'function renderDAG(dag) { currentDAG = dag; ... }',
+    'const fallback = findFallback(tier, activeMode);',
+  ];
+
+  fileGroups.forEach(group => {
+    for (let i = 0; i < group.count; i++) {
+      const angle = Math.random() * Math.PI * 2;
+      const radius = Math.random() * 0.08 + 0.01;
+      const x = group.cx + Math.cos(angle) * radius + (Math.random() - 0.5) * 0.03;
+      const y = group.cy + Math.sin(angle) * radius + (Math.random() - 0.5) * 0.03;
+
+      chunks.push({
+        file: group.file,
+        content: codeSnippets[Math.floor(Math.random() * codeSnippets.length)],
+        cluster: group.color,
+        lines: `${Math.floor(Math.random() * 200) + 1}-${Math.floor(Math.random() * 50) + 10}`,
+      });
+      points2D.push({ x: Math.max(0.02, Math.min(0.98, x)), y: Math.max(0.02, Math.min(0.98, y)) });
+    }
+  });
+
+  // Build clusters
+  clusters = fileGroups.map((g, i) => ({
+    id: i,
+    label: g.file.split('/').pop(),
+    file: g.file,
+    color: COLORS[g.color % COLORS.length],
+    count: g.count,
+    cx: g.cx,
+    cy: g.cy,
+  }));
+
+  updateStats();
+}
+
+function projectTo2D(embeddings) {
+  // Simple PCA-lite: project onto 2 random orthogonal directions
+  const dim = embeddings[0]?.length || 768;
+  const axis1 = Array.from({ length: dim }, () => Math.random() - 0.5);
+  const axis2 = Array.from({ length: dim }, () => Math.random() - 0.5);
+  const norm = v => Math.sqrt(v.reduce((s, x) => s + x * x, 0));
+  const n1 = norm(axis1); const n2 = norm(axis2);
+
+  return embeddings.map(emb => {
+    const x = emb.reduce((s, v, i) => s + v * axis1[i] / n1, 0);
+    const y = emb.reduce((s, v, i) => s + v * axis2[i] / n2, 0);
+    return { x: (x + 1) / 2, y: (y + 1) / 2 }; // normalize to 0-1
+  });
+}
+
+function clusterPoints() {
+  if (clusters.length > 0) return; // already clustered
+  // K-means lite on 2D points
+  const k = Math.min(8, Math.ceil(chunks.length / 15));
+  // ... simplified for demo
+}
+
+function generateLayout(chunkList) {
+  // Position chunks by file — group by file, circular layout per group
+  const byFile = new Map();
+  chunkList.forEach((c, i) => {
+    const f = c.file || c.path || 'unknown';
+    if (!byFile.has(f)) byFile.set(f, []);
+    byFile.get(f).push(i);
+  });
+
+  const files = [...byFile.keys()];
+  points2D = new Array(chunkList.length);
+
+  files.forEach((file, fi) => {
+    const angle = (fi / files.length) * Math.PI * 2;
+    const cx = 0.5 + Math.cos(angle) * 0.3;
+    const cy = 0.5 + Math.sin(angle) * 0.3;
+    const indices = byFile.get(file);
+    indices.forEach((idx, i) => {
+      const a = (i / indices.length) * Math.PI * 2;
+      const r = 0.02 + Math.random() * 0.05;
+      points2D[idx] = { x: cx + Math.cos(a) * r, y: cy + Math.sin(a) * r };
+    });
+  });
+}
+
+function updateStats() {
+  $('s-chunks').textContent = chunks.length.toLocaleString();
+  const files = new Set(chunks.map(c => c.file));
+  $('s-files').textContent = files.size;
+  $('s-clusters').textContent = clusters.length;
+  $('s-dims').textContent = chunks[0]?.embedding?.length || '768 (projected)';
+  $('visible-count').textContent = chunks.length;
+
+  // Render cluster list
+  const listHtml = clusters.map(c => `
+    <div class="cluster-item" onclick="focusCluster(${c.id})">
+      <div class="cluster-dot" style="background:${c.color}"></div>
+      <span>${c.label}</span>
+      <span class="cluster-count">${c.count}</span>
+    </div>
+  `).join('');
+  $('cluster-list').innerHTML = listHtml || '<span class="panel-row"><span class="label">Loading...</span></span>';
+}
+
+// --- Drawing ---
+function draw() {
+  const w = canvas.clientWidth;
+  const h = canvas.clientHeight;
+  ctx.clearRect(0, 0, w, h);
+
+  // Background grid
+  ctx.strokeStyle = 'rgba(30,30,46,0.5)';
+  ctx.lineWidth = 0.5;
+  const gridSize = 40 * camera.zoom;
+  const offsetX = (camera.x * camera.zoom) % gridSize;
+  const offsetY = (camera.y * camera.zoom) % gridSize;
+  for (let x = offsetX; x < w; x += gridSize) { ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, h); ctx.stroke(); }
+  for (let y = offsetY; y < h; y += gridSize) { ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(w, y); ctx.stroke(); }
+
+  // Draw cluster boundaries (soft glow)
+  if (showClusters) {
+    clusters.forEach(cluster => {
+      const sx = (cluster.cx + camera.x) * camera.zoom * w;
+      const sy = (cluster.cy + camera.y) * camera.zoom * h;
+      const radius = 0.09 * camera.zoom * Math.min(w, h);
+
+      ctx.beginPath();
+      ctx.arc(sx, sy, radius, 0, Math.PI * 2);
+      ctx.fillStyle = cluster.color + '10';
+      ctx.fill();
+      ctx.strokeStyle = cluster.color + '30';
+      ctx.lineWidth = 1;
+      ctx.stroke();
+
+      // Label
+      ctx.fillStyle = cluster.color + '80';
+      ctx.font = `${10 * camera.zoom}px monospace`;
+      ctx.textAlign = 'center';
+      ctx.fillText(cluster.label, sx, sy - radius - 5);
+    });
+  }
+
+  // Draw points
+  const matchesSearch = searchFilter ? chunks.map((c, i) =>
+    c.file?.toLowerCase().includes(searchFilter) ||
+    c.content?.toLowerCase().includes(searchFilter)
+  ) : null;
+
+  let highlighted = 0;
+  points2D.forEach((p, i) => {
+    const sx = (p.x + camera.x) * camera.zoom * w;
+    const sy = (p.y + camera.y) * camera.zoom * h;
+    const isMatch = matchesSearch ? matchesSearch[i] : true;
+    const isHovered = i === hoveredIdx;
+
+    if (!isMatch) {
+      // Dim unmatched
+      ctx.beginPath();
+      ctx.arc(sx, sy, 2, 0, Math.PI * 2);
+      ctx.fillStyle = 'rgba(50,50,70,0.3)';
+      ctx.fill();
+      return;
+    }
+
+    highlighted++;
+    const cluster = clusters[chunks[i]?.cluster];
+    const color = cluster?.color || COLORS[0];
+    const size = isHovered ? 7 : 3.5;
+
+    // Glow for hovered
+    if (isHovered) {
+      ctx.beginPath();
+      ctx.arc(sx, sy, 12, 0, Math.PI * 2);
+      ctx.fillStyle = color + '30';
+      ctx.fill();
+    }
+
+    ctx.beginPath();
+    ctx.arc(sx, sy, size, 0, Math.PI * 2);
+    ctx.fillStyle = isHovered ? '#ffffff' : color;
+    ctx.fill();
+  });
+
+  if (matchesSearch) $('highlight-count').textContent = highlighted;
+  else $('highlight-count').textContent = '0';
+}
+
+// --- Interaction ---
+canvas.addEventListener('mousemove', e => {
+  const rect = canvas.getBoundingClientRect();
+  const mx = e.clientX - rect.left;
+  const my = e.clientY - rect.top;
+  const w = canvas.clientWidth;
+  const h = canvas.clientHeight;
+
+  if (dragging) {
+    const dx = (e.clientX - dragStart.x) / (w * camera.zoom);
+    const dy = (e.clientY - dragStart.y) / (h * camera.zoom);
+    camera.x = cameraStart.x + dx;
+    camera.y = cameraStart.y + dy;
+    draw();
+    return;
+  }
+
+  // Find nearest point
+  let nearestIdx = -1;
+  let nearestDist = 20; // pixel threshold
+  points2D.forEach((p, i) => {
+    const sx = (p.x + camera.x) * camera.zoom * w;
+    const sy = (p.y + camera.y) * camera.zoom * h;
+    const dist = Math.sqrt((mx - sx) ** 2 + (my - sy) ** 2);
+    if (dist < nearestDist) { nearestDist = dist; nearestIdx = i; }
+  });
+
+  if (nearestIdx !== hoveredIdx) {
+    hoveredIdx = nearestIdx;
+    draw();
+    updateTooltip(e, nearestIdx);
+    if (nearestIdx >= 0) updateChunkDetail(nearestIdx);
+  }
+});
+
+canvas.addEventListener('mousedown', e => {
+  dragging = true;
+  dragStart = { x: e.clientX, y: e.clientY };
+  cameraStart = { x: camera.x, y: camera.y };
+});
+canvas.addEventListener('mouseup', () => { dragging = false; });
+canvas.addEventListener('mouseleave', () => { dragging = false; tooltip.classList.remove('visible'); });
+
+canvas.addEventListener('wheel', e => {
+  e.preventDefault();
+  const factor = e.deltaY > 0 ? 0.9 : 1.1;
+  camera.zoom = Math.max(0.5, Math.min(5, camera.zoom * factor));
+  $('zoom-level').textContent = camera.zoom.toFixed(1) + 'x';
+  draw();
+}, { passive: false });
+
+function updateTooltip(e, idx) {
+  if (idx < 0) { tooltip.classList.remove('visible'); return; }
+  const chunk = chunks[idx];
+  tooltip.innerHTML = `
+    <div class="file">${chunk.file}</div>
+    <div class="preview">${(chunk.content || '').slice(0, 80)}...</div>
+  `;
+  tooltip.style.left = (e.clientX + 12) + 'px';
+  tooltip.style.top = (e.clientY - 30) + 'px';
+  tooltip.classList.add('visible');
+}
+
+function updateChunkDetail(idx) {
+  const chunk = chunks[idx];
+  $('chunk-detail').innerHTML = `
+    <span class="chunk-file">${chunk.file}</span>
+    <div class="chunk-preview">${(chunk.content || '').slice(0, 500)}</div>
+  `;
+}
+
+function filterChunks(query) {
+  searchFilter = query.toLowerCase();
+  draw();
+}
+
+function toggleClusters() {
+  showClusters = !showClusters;
+  $('btn-cluster').classList.toggle('active', showClusters);
+  draw();
+}
+
+function focusCluster(id) {
+  const cluster = clusters[id];
+  if (!cluster) return;
+  camera.x = 0.5 - cluster.cx;
+  camera.y = 0.5 - cluster.cy;
+  camera.zoom = 2.5;
+  $('zoom-level').textContent = camera.zoom.toFixed(1) + 'x';
+  draw();
+}
+
+function resetView() {
+  camera = { x: 0, y: 0, zoom: 1 };
+  searchFilter = '';
+  $('search').value = '';
+  $('zoom-level').textContent = '1.0x';
+  $('highlight-count').textContent = '0';
+  hoveredIdx = -1;
+  draw();
+}
+
+// --- Init ---
+resize();
+loadData();
+</script>
+</body>
+</html>

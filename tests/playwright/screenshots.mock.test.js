@@ -316,3 +316,21 @@ test('DAG Theater — visual pipeline renderer', async ({ page }) => {
   await page.waitForTimeout(8000);
   await page.screenshot({ path: resolve(SCREENSHOTS, '22-dag-theater-completed.png') });
 });
+
+test('Memory Archive — vector space visualization', async ({ page }) => {
+  // Mock the memory/vectors endpoint
+  await page.route('**/memory/vectors', async (route) => {
+    await route.fulfill({ status: 200, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ chunks: [], total: 0 }) });
+  });
+
+  await page.goto('http://localhost:3737/memory-archive', { waitUntil: 'domcontentloaded' });
+  await page.waitForTimeout(1500); // let canvas render with demo data
+
+  // Screenshot 23: Full archive view with clusters
+  await page.screenshot({ path: resolve(SCREENSHOTS, '23-memory-archive-overview.png') });
+
+  // Search filter
+  await page.fill('#search', 'circuit');
+  await page.waitForTimeout(500);
+  await page.screenshot({ path: resolve(SCREENSHOTS, '24-memory-archive-search.png') });
+});
