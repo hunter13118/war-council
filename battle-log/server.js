@@ -32,6 +32,7 @@ import { scoreConfidence } from "../mcp-server/shared/confidence.js";
 import { validateDAG, executeDAG, getExecution, listExecutions } from "../mcp-server/shared/dag-engine.js";
 import { runPipeline } from "../mcp-server/shared/verification-pipeline.js";
 import { recordOutcome, getThresholds, adaptiveLevel, getTierAccuracy, resetAdaptive } from "../mcp-server/shared/adaptive-thresholds.js";
+import { extractGraph, getGraph, getGraphStats, queryGraph, loadGraph, saveGraph } from "../memory-engine/knowledge-graph.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -286,6 +287,12 @@ const server = createServer(async (req, res) => {
     res.end(html);
     return;
   }
+  if (url.pathname === "/knowledge-graph-viz" || url.pathname === "/knowledge-graph-viz/") {
+    const html = await readFile(resolve(__dirname, "knowledge-graph-viz.html"), "utf-8");
+    res.writeHead(200, { "Content-Type": "text/html" });
+    res.end(html);
+    return;
+  }
   if (url.pathname === "/memory/vectors" && req.method === "GET") {
     try {
       const raw = JSON.parse(await readFile(VECTOR_STORE_PATH, "utf-8"));
@@ -380,6 +387,38 @@ const server = createServer(async (req, res) => {
     const score = parseFloat(url.searchParams.get("score") || "0");
     res.writeHead(200, { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" });
     res.end(JSON.stringify({ score, level: adaptiveLevel(score) }));
+    return;
+  }
+
+  // === Knowledge Graph ===
+  if (url.pathname === "/knowledge-graph" && req.method === "GET") {
+    const q = url.searchParams.get("q");
+    if (q) {
+      const depth = parseInt(url.searchParams.get("depth") || "1", 10);
+      const result = queryGraph(q, depth);
+      res.writeHead(200, { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" });
+      res.end(JSON.stringify(result));
+    } else {
+      res.writeHead(200, { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" });
+      res.end(JSON.stringify(getGraph()));
+    }
+    return;
+  }
+  if (url.pathname === "/knowledge-graph/stats" && req.method === "GET") {
+    res.writeHead(200, { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" });
+    res.end(JSON.stringify(getGraphStats()));
+    return;
+  }
+  if (url.pathname === "/knowledge-graph/extract" && req.method === "POST") {
+    try {
+      await extractGraph(REPO_ROOT, { extensions: [".js"], ignore: ["node_modules", ".git", ".cline-context", "dist", "build"] });
+      await saveGraph(REPO_ROOT);
+      res.writeHead(200, { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" });
+      res.end(JSON.stringify({ ok: true, stats: getGraphStats() }));
+    } catch (e) {
+      res.writeHead(500, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ error: e.message }));
+    }
     return;
   }
 

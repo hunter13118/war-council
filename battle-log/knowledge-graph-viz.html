@@ -1,0 +1,510 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>War Council — Knowledge Graph</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      background: #0a0e1a;
+      color: #e0e0e0;
+      font-family: 'JetBrains Mono', 'Fira Code', monospace;
+      height: 100vh;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+    }
+    .header {
+      padding: 12px 20px;
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      border-bottom: 1px solid #1e2a4a;
+      flex-shrink: 0;
+    }
+    .header h1 {
+      font-size: 1.3rem;
+      background: linear-gradient(90deg, #7aa2f7, #bb9af7, #6bcf7f);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+    .search-box {
+      flex: 1;
+      max-width: 400px;
+    }
+    .search-box input {
+      width: 100%;
+      background: #12182b;
+      border: 1px solid #1e2a4a;
+      border-radius: 6px;
+      padding: 8px 14px;
+      color: #e0e0e0;
+      font-family: inherit;
+      font-size: 0.85rem;
+    }
+    .search-box input:focus { outline: none; border-color: #7aa2f7; }
+    .stats-bar {
+      display: flex;
+      gap: 20px;
+      font-size: 0.7rem;
+      color: #666;
+    }
+    .stats-bar span { display: flex; align-items: center; gap: 4px; }
+    .stats-bar .dot {
+      width: 8px; height: 8px; border-radius: 50%; display: inline-block;
+    }
+
+    .main {
+      display: flex;
+      flex: 1;
+      overflow: hidden;
+    }
+
+    /* Canvas area */
+    .graph-area {
+      flex: 1;
+      position: relative;
+    }
+    canvas {
+      width: 100%;
+      height: 100%;
+      cursor: grab;
+    }
+    canvas:active { cursor: grabbing; }
+
+    /* Side panel */
+    .side-panel {
+      width: 280px;
+      background: #12182b;
+      border-left: 1px solid #1e2a4a;
+      padding: 16px;
+      overflow-y: auto;
+      flex-shrink: 0;
+    }
+    .side-panel h3 {
+      font-size: 0.8rem;
+      color: #7aa2f7;
+      text-transform: uppercase;
+      margin-bottom: 12px;
+    }
+    .node-detail {
+      background: #0a0e1a;
+      border: 1px solid #1e2a4a;
+      border-radius: 8px;
+      padding: 12px;
+      margin-bottom: 12px;
+    }
+    .node-detail .type-badge {
+      display: inline-block;
+      padding: 2px 8px;
+      border-radius: 4px;
+      font-size: 0.65rem;
+      font-weight: bold;
+      text-transform: uppercase;
+      margin-bottom: 6px;
+    }
+    .node-detail .name { font-size: 0.9rem; font-weight: bold; margin-bottom: 4px; }
+    .node-detail .path { font-size: 0.7rem; color: #666; }
+
+    .legend {
+      margin-top: 16px;
+    }
+    .legend-item {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 4px 0;
+      font-size: 0.75rem;
+    }
+    .legend-dot {
+      width: 12px; height: 12px; border-radius: 50%;
+    }
+
+    .edge-legend { margin-top: 16px; }
+    .edge-legend-item {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 3px 0;
+      font-size: 0.7rem;
+      color: #888;
+    }
+    .edge-line {
+      width: 20px; height: 2px; border-radius: 1px;
+    }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <h1>🕸️ Knowledge Graph</h1>
+    <div class="search-box">
+      <input type="text" id="search" placeholder="Search nodes... (e.g. 'confidence', 'server', 'circuit')" />
+    </div>
+    <div class="stats-bar" id="stats-bar">
+      <span><span class="dot" style="background:#7aa2f7"></span> Loading...</span>
+    </div>
+  </div>
+
+  <div class="main">
+    <div class="graph-area">
+      <canvas id="graph"></canvas>
+    </div>
+    <div class="side-panel">
+      <h3>📍 Selected Node</h3>
+      <div class="node-detail" id="node-detail">
+        <em style="color:#555">Click a node to inspect</em>
+      </div>
+
+      <h3>🎨 Node Types</h3>
+      <div class="legend" id="legend"></div>
+
+      <h3>➡️ Edge Types</h3>
+      <div class="edge-legend" id="edge-legend"></div>
+    </div>
+  </div>
+
+  <script>
+    const NODE_COLORS = {
+      file: '#7aa2f7',
+      function: '#6bcf7f',
+      class: '#bb9af7',
+      export: '#ffd93d',
+      agent: '#ff6b6b',
+    };
+    const EDGE_COLORS = {
+      imports: '#3d5a80',
+      defines: '#2a4a2a',
+      calls: '#4a3a2a',
+      exports: '#4a4a2a',
+    };
+    const NODE_SIZES = { file: 8, function: 5, class: 7, export: 4, agent: 9 };
+
+    let nodes = [];
+    let edges = [];
+    let simulation = null;
+    let selectedNode = null;
+    let searchFilter = '';
+    let transform = { x: 0, y: 0, scale: 1 };
+    let dragging = false;
+    let dragStart = { x: 0, y: 0 };
+
+    const canvas = document.getElementById('graph');
+    const ctx = canvas.getContext('2d');
+
+    function resize() {
+      const rect = canvas.parentElement.getBoundingClientRect();
+      canvas.width = rect.width * 2;
+      canvas.height = rect.height * 2;
+      canvas.style.width = rect.width + 'px';
+      canvas.style.height = rect.height + 'px';
+      ctx.scale(2, 2);
+    }
+
+    async function loadData() {
+      let data;
+      try {
+        const res = await fetch('/knowledge-graph');
+        data = await res.json();
+      } catch {
+        data = generateDemoGraph();
+      }
+
+      if (!data.nodes || data.nodes.length === 0) {
+        data = generateDemoGraph();
+      }
+
+      nodes = data.nodes.map((n, i) => ({
+        ...n,
+        x: Math.random() * 600 + 100,
+        y: Math.random() * 400 + 100,
+        vx: 0, vy: 0,
+        size: NODE_SIZES[n.type] || 5,
+        color: NODE_COLORS[n.type] || '#666',
+      }));
+
+      const nodeIds = new Set(nodes.map(n => n.id));
+      edges = (data.edges || []).filter(e => nodeIds.has(e.source) && nodeIds.has(e.target));
+
+      updateStats();
+      renderLegend();
+      startSimulation();
+    }
+
+    function generateDemoGraph() {
+      const demoNodes = [
+        { id: 'file:battle-log/server.js', type: 'file', name: 'server.js', path: 'battle-log/server.js' },
+        { id: 'file:mcp-server/server.js', type: 'file', name: 'server.js', path: 'mcp-server/server.js' },
+        { id: 'file:mcp-server/shared/confidence.js', type: 'file', name: 'confidence.js', path: 'mcp-server/shared/confidence.js' },
+        { id: 'file:mcp-server/shared/circuit-breaker.js', type: 'file', name: 'circuit-breaker.js', path: 'mcp-server/shared/circuit-breaker.js' },
+        { id: 'file:mcp-server/shared/telemetry.js', type: 'file', name: 'telemetry.js', path: 'mcp-server/shared/telemetry.js' },
+        { id: 'file:mcp-server/shared/ollama.js', type: 'file', name: 'ollama.js', path: 'mcp-server/shared/ollama.js' },
+        { id: 'file:mcp-server/shared/rate-limiter.js', type: 'file', name: 'rate-limiter.js', path: 'mcp-server/shared/rate-limiter.js' },
+        { id: 'file:mcp-server/shared/dag-engine.js', type: 'file', name: 'dag-engine.js', path: 'mcp-server/shared/dag-engine.js' },
+        { id: 'file:mcp-server/shared/adaptive-thresholds.js', type: 'file', name: 'adaptive-thresholds.js', path: 'mcp-server/shared/adaptive-thresholds.js' },
+        { id: 'file:memory-engine/retriever.js', type: 'file', name: 'retriever.js', path: 'memory-engine/retriever.js' },
+        { id: 'file:memory-engine/indexer.js', type: 'file', name: 'indexer.js', path: 'memory-engine/indexer.js' },
+        { id: 'file:memory-engine/knowledge-graph.js', type: 'file', name: 'knowledge-graph.js', path: 'memory-engine/knowledge-graph.js' },
+        { id: 'fn:scoreConfidence', type: 'function', name: 'scoreConfidence', file: 'mcp-server/shared/confidence.js' },
+        { id: 'fn:ollamaGenerate', type: 'function', name: 'ollamaGenerate', file: 'mcp-server/shared/ollama.js' },
+        { id: 'fn:checkRateLimit', type: 'function', name: 'checkRateLimit', file: 'mcp-server/shared/rate-limiter.js' },
+        { id: 'fn:isAvailable', type: 'function', name: 'isAvailable', file: 'mcp-server/shared/circuit-breaker.js' },
+        { id: 'fn:recordOutcome', type: 'function', name: 'recordOutcome', file: 'mcp-server/shared/adaptive-thresholds.js' },
+        { id: 'fn:executeDAG', type: 'function', name: 'executeDAG', file: 'mcp-server/shared/dag-engine.js' },
+        { id: 'fn:extractGraph', type: 'function', name: 'extractGraph', file: 'memory-engine/knowledge-graph.js' },
+        { id: 'fn:retrieve', type: 'function', name: 'retrieve', file: 'memory-engine/retriever.js' },
+        { id: 'fn:indexRepo', type: 'function', name: 'indexRepo', file: 'memory-engine/indexer.js' },
+        { id: 'class:SlidingWindowCounter', type: 'class', name: 'SlidingWindowCounter', file: 'mcp-server/shared/rate-limiter.js' },
+        { id: 'fn:recordSuccess', type: 'function', name: 'recordSuccess', file: 'mcp-server/shared/circuit-breaker.js' },
+        { id: 'fn:recordFailure', type: 'function', name: 'recordFailure', file: 'mcp-server/shared/circuit-breaker.js' },
+      ];
+      const demoEdges = [
+        { source: 'file:battle-log/server.js', target: 'file:mcp-server/shared/confidence.js', type: 'imports' },
+        { source: 'file:battle-log/server.js', target: 'file:mcp-server/shared/circuit-breaker.js', type: 'imports' },
+        { source: 'file:battle-log/server.js', target: 'file:mcp-server/shared/telemetry.js', type: 'imports' },
+        { source: 'file:battle-log/server.js', target: 'file:mcp-server/shared/dag-engine.js', type: 'imports' },
+        { source: 'file:battle-log/server.js', target: 'file:mcp-server/shared/adaptive-thresholds.js', type: 'imports' },
+        { source: 'file:battle-log/server.js', target: 'file:memory-engine/retriever.js', type: 'imports' },
+        { source: 'file:battle-log/server.js', target: 'file:memory-engine/indexer.js', type: 'imports' },
+        { source: 'file:battle-log/server.js', target: 'file:memory-engine/knowledge-graph.js', type: 'imports' },
+        { source: 'file:mcp-server/server.js', target: 'file:mcp-server/shared/ollama.js', type: 'imports' },
+        { source: 'file:mcp-server/server.js', target: 'file:mcp-server/shared/confidence.js', type: 'imports' },
+        { source: 'file:mcp-server/server.js', target: 'file:mcp-server/shared/rate-limiter.js', type: 'imports' },
+        { source: 'file:mcp-server/shared/confidence.js', target: 'fn:scoreConfidence', type: 'defines' },
+        { source: 'file:mcp-server/shared/ollama.js', target: 'fn:ollamaGenerate', type: 'defines' },
+        { source: 'file:mcp-server/shared/rate-limiter.js', target: 'fn:checkRateLimit', type: 'defines' },
+        { source: 'file:mcp-server/shared/rate-limiter.js', target: 'class:SlidingWindowCounter', type: 'defines' },
+        { source: 'file:mcp-server/shared/circuit-breaker.js', target: 'fn:isAvailable', type: 'defines' },
+        { source: 'file:mcp-server/shared/circuit-breaker.js', target: 'fn:recordSuccess', type: 'defines' },
+        { source: 'file:mcp-server/shared/circuit-breaker.js', target: 'fn:recordFailure', type: 'defines' },
+        { source: 'file:mcp-server/shared/adaptive-thresholds.js', target: 'fn:recordOutcome', type: 'defines' },
+        { source: 'file:mcp-server/shared/dag-engine.js', target: 'fn:executeDAG', type: 'defines' },
+        { source: 'file:memory-engine/knowledge-graph.js', target: 'fn:extractGraph', type: 'defines' },
+        { source: 'file:memory-engine/retriever.js', target: 'fn:retrieve', type: 'defines' },
+        { source: 'file:memory-engine/indexer.js', target: 'fn:indexRepo', type: 'defines' },
+        { source: 'file:battle-log/server.js', target: 'fn:scoreConfidence', type: 'calls' },
+        { source: 'file:battle-log/server.js', target: 'fn:isAvailable', type: 'calls' },
+        { source: 'file:battle-log/server.js', target: 'fn:recordOutcome', type: 'calls' },
+        { source: 'file:battle-log/server.js', target: 'fn:retrieve', type: 'calls' },
+        { source: 'file:mcp-server/server.js', target: 'fn:ollamaGenerate', type: 'calls' },
+        { source: 'file:mcp-server/server.js', target: 'fn:checkRateLimit', type: 'calls' },
+      ];
+      return { nodes: demoNodes, edges: demoEdges };
+    }
+
+    function startSimulation() {
+      // Simple force-directed layout
+      const W = canvas.width / 2;
+      const H = canvas.height / 2;
+      const centerX = W / 2;
+      const centerY = H / 2;
+
+      // Position nodes in a rough circle first
+      nodes.forEach((n, i) => {
+        const angle = (i / nodes.length) * Math.PI * 2;
+        const radius = 150 + Math.random() * 100;
+        n.x = centerX + Math.cos(angle) * radius;
+        n.y = centerY + Math.sin(angle) * radius;
+      });
+
+      // Run force simulation for N iterations
+      const iterations = 150;
+      for (let iter = 0; iter < iterations; iter++) {
+        const alpha = 1 - iter / iterations;
+
+        // Repulsion between all nodes
+        for (let i = 0; i < nodes.length; i++) {
+          for (let j = i + 1; j < nodes.length; j++) {
+            const dx = nodes[j].x - nodes[i].x;
+            const dy = nodes[j].y - nodes[i].y;
+            const dist = Math.sqrt(dx * dx + dy * dy) || 1;
+            const force = 800 / (dist * dist);
+            const fx = (dx / dist) * force * alpha;
+            const fy = (dy / dist) * force * alpha;
+            nodes[i].x -= fx;
+            nodes[i].y -= fy;
+            nodes[j].x += fx;
+            nodes[j].y += fy;
+          }
+        }
+
+        // Attraction along edges
+        const nodeIndex = new Map(nodes.map(n => [n.id, n]));
+        for (const edge of edges) {
+          const source = nodeIndex.get(edge.source);
+          const target = nodeIndex.get(edge.target);
+          if (!source || !target) continue;
+          const dx = target.x - source.x;
+          const dy = target.y - source.y;
+          const dist = Math.sqrt(dx * dx + dy * dy) || 1;
+          const force = (dist - 80) * 0.01 * alpha;
+          const fx = (dx / dist) * force;
+          const fy = (dy / dist) * force;
+          source.x += fx;
+          source.y += fy;
+          target.x -= fx;
+          target.y -= fy;
+        }
+
+        // Center gravity
+        for (const n of nodes) {
+          n.x += (centerX - n.x) * 0.01 * alpha;
+          n.y += (centerY - n.y) * 0.01 * alpha;
+        }
+      }
+
+      render();
+    }
+
+    function render() {
+      const W = canvas.width / 2;
+      const H = canvas.height / 2;
+      ctx.clearRect(0, 0, W, H);
+
+      ctx.save();
+      ctx.translate(transform.x, transform.y);
+      ctx.scale(transform.scale, transform.scale);
+
+      const nodeIndex = new Map(nodes.map(n => [n.id, n]));
+
+      // Draw edges
+      for (const edge of edges) {
+        const source = nodeIndex.get(edge.source);
+        const target = nodeIndex.get(edge.target);
+        if (!source || !target) continue;
+
+        const edgeColor = EDGE_COLORS[edge.type] || '#222';
+        const dimmed = searchFilter && !isHighlighted(source) && !isHighlighted(target);
+
+        ctx.beginPath();
+        ctx.moveTo(source.x, source.y);
+        ctx.lineTo(target.x, target.y);
+        ctx.strokeStyle = dimmed ? 'rgba(30,42,74,0.3)' : edgeColor;
+        ctx.lineWidth = dimmed ? 0.5 : 1;
+        ctx.stroke();
+      }
+
+      // Draw nodes
+      for (const node of nodes) {
+        const highlighted = isHighlighted(node);
+        const dimmed = searchFilter && !highlighted;
+        const size = node.size * (highlighted ? 1.5 : 1);
+
+        ctx.beginPath();
+        ctx.arc(node.x, node.y, size, 0, Math.PI * 2);
+        ctx.fillStyle = dimmed ? 'rgba(50,50,50,0.3)' : node.color;
+        ctx.fill();
+
+        if (node === selectedNode) {
+          ctx.strokeStyle = '#fff';
+          ctx.lineWidth = 2;
+          ctx.stroke();
+        }
+
+        // Label for files and highlighted nodes
+        if ((node.type === 'file' || highlighted) && !dimmed) {
+          ctx.fillStyle = dimmed ? 'transparent' : 'rgba(200,200,200,0.8)';
+          ctx.font = `${highlighted ? '11' : '9'}px monospace`;
+          ctx.fillText(node.name, node.x + size + 4, node.y + 3);
+        }
+      }
+
+      ctx.restore();
+    }
+
+    function isHighlighted(node) {
+      if (!searchFilter) return false;
+      return node.name.toLowerCase().includes(searchFilter) ||
+             (node.path && node.path.toLowerCase().includes(searchFilter));
+    }
+
+    function updateStats() {
+      const byType = {};
+      for (const n of nodes) byType[n.type] = (byType[n.type] || 0) + 1;
+      document.getElementById('stats-bar').innerHTML = `
+        <span><span class="dot" style="background:#7aa2f7"></span> ${byType.file || 0} files</span>
+        <span><span class="dot" style="background:#6bcf7f"></span> ${byType.function || 0} functions</span>
+        <span><span class="dot" style="background:#bb9af7"></span> ${byType.class || 0} classes</span>
+        <span style="color:#444">|</span>
+        <span>${edges.length} edges</span>
+      `;
+    }
+
+    function renderLegend() {
+      document.getElementById('legend').innerHTML = Object.entries(NODE_COLORS).map(([type, color]) => `
+        <div class="legend-item"><div class="legend-dot" style="background:${color}"></div>${type}</div>
+      `).join('');
+      document.getElementById('edge-legend').innerHTML = Object.entries(EDGE_COLORS).map(([type, color]) => `
+        <div class="edge-legend-item"><div class="edge-line" style="background:${color}"></div>${type}</div>
+      `).join('');
+    }
+
+    // Interaction
+    document.getElementById('search').addEventListener('input', (e) => {
+      searchFilter = e.target.value.toLowerCase();
+      render();
+    });
+
+    canvas.addEventListener('mousedown', (e) => {
+      dragging = true;
+      dragStart = { x: e.clientX - transform.x, y: e.clientY - transform.y };
+    });
+    canvas.addEventListener('mousemove', (e) => {
+      if (!dragging) return;
+      transform.x = e.clientX - dragStart.x;
+      transform.y = e.clientY - dragStart.y;
+      render();
+    });
+    canvas.addEventListener('mouseup', () => { dragging = false; });
+    canvas.addEventListener('wheel', (e) => {
+      e.preventDefault();
+      const factor = e.deltaY > 0 ? 0.9 : 1.1;
+      transform.scale *= factor;
+      transform.scale = Math.max(0.3, Math.min(3, transform.scale));
+      render();
+    });
+
+    canvas.addEventListener('click', (e) => {
+      const rect = canvas.getBoundingClientRect();
+      const mx = (e.clientX - rect.left - transform.x) / transform.scale;
+      const my = (e.clientY - rect.top - transform.y) / transform.scale;
+
+      selectedNode = null;
+      for (const node of nodes) {
+        const dx = node.x - mx;
+        const dy = node.y - my;
+        if (dx * dx + dy * dy < (node.size + 4) * (node.size + 4)) {
+          selectedNode = node;
+          break;
+        }
+      }
+      renderNodeDetail();
+      render();
+    });
+
+    function renderNodeDetail() {
+      const panel = document.getElementById('node-detail');
+      if (!selectedNode) {
+        panel.innerHTML = '<em style="color:#555">Click a node to inspect</em>';
+        return;
+      }
+      const n = selectedNode;
+      const color = NODE_COLORS[n.type] || '#666';
+      const connections = edges.filter(e => e.source === n.id || e.target === n.id);
+      panel.innerHTML = `
+        <div class="type-badge" style="background:${color}20; color:${color}">${n.type}</div>
+        <div class="name">${n.name}</div>
+        <div class="path">${n.path || n.file || ''}</div>
+        ${n.exported ? '<div style="margin-top:4px;font-size:0.7rem;color:#ffd93d">⬆️ exported</div>' : ''}
+        ${n.async ? '<div style="font-size:0.7rem;color:#6bcf7f">⚡ async</div>' : ''}
+        <div style="margin-top:8px;font-size:0.7rem;color:#666">
+          ${connections.length} connection${connections.length !== 1 ? 's' : ''}
+        </div>
+      `;
+    }
+
+    resize();
+    window.addEventListener('resize', () => { resize(); render(); });
+    loadData();
+  </script>
+</body>
+</html>

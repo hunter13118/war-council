@@ -374,3 +374,21 @@ test('Arbitration Court — tournament verdict visualization', async ({ page }) 
   await page.waitForTimeout(500);
   await page.screenshot({ path: resolve(SCREENSHOTS, '28-arbitration-court-scores.png') });
 });
+
+test('Knowledge Graph — force-directed codebase visualization', async ({ page }) => {
+  // Mock the knowledge-graph endpoint with empty (triggers demo data)
+  await page.route('**/knowledge-graph', async (route) => {
+    await route.fulfill({ status: 200, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ nodes: [], edges: [] }) });
+  });
+
+  await page.goto('http://localhost:3737/knowledge-graph-viz', { waitUntil: 'domcontentloaded' });
+  await page.waitForTimeout(2000); // let force simulation settle
+
+  // Screenshot 29: Full knowledge graph overview
+  await page.screenshot({ path: resolve(SCREENSHOTS, '29-knowledge-graph-overview.png') });
+
+  // Screenshot 30: Search filtering
+  await page.fill('#search', 'circuit');
+  await page.waitForTimeout(500);
+  await page.screenshot({ path: resolve(SCREENSHOTS, '30-knowledge-graph-search.png') });
+});
