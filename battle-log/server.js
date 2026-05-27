@@ -484,6 +484,23 @@ const server = createServer(async (req, res) => {
     res.end(JSON.stringify(getRepoIndexStats()));
     return;
   }
+
+  // === HNSW Vector Store Stats ===
+  if (url.pathname === "/hnsw/stats" && req.method === "GET") {
+    try {
+      const { VectorStore } = await import("../memory-engine/store.js");
+      const store = new VectorStore(".cline-context/vector-store.json");
+      await store.load();
+      const s = store.stats();
+      res.writeHead(200, { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" });
+      res.end(JSON.stringify(s));
+    } catch (e) {
+      res.writeHead(500, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ error: e.message }));
+    }
+    return;
+  }
+
   if (url.pathname === "/repo-index/search" && req.method === "GET") {
     const q = url.searchParams.get("q") || "";
     res.writeHead(200, { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" });

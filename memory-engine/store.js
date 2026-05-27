@@ -1,11 +1,13 @@
 /**
- * memory-engine/store.js — JSON-backed vector store with cosine similarity search.
+ * memory-engine/store.js — HNSW-accelerated vector store with JSON persistence.
  *
- * Stores embeddings + metadata as a JSON file. Uses brute-force cosine similarity
- * for search (fast enough for <100K chunks). Upgrade to hnswlib-node when scale demands.
+ * Stores embeddings + metadata as a JSON file. Builds an in-memory HNSW index
+ * for O(log N) approximate nearest neighbor search. Falls back to brute-force
+ * cosine for source-filtered queries or when HNSW is unavailable.
  */
 import { readFile, writeFile, mkdir } from "node:fs/promises";
 import { dirname } from "node:path";
+import { HNSWIndex } from "./hnsw-index.js";
 
 function cosineSimilarity(a, b) {
   let dot = 0, normA = 0, normB = 0;
@@ -18,9 +20,23 @@ function cosineSimilarity(a, b) {
 }
 
 export class VectorStore {
-  constructor(storePath) {
+  constructor(storePath, opts = {}) {
     this.storePath = storePath;
     this.chunks = [];
+    this.hnswOpts = { M: opts.M || 16, efConstruction: opts.efConstruction || 200, efSearch: opts.efSearch || 50 };
+    this._hnsw = null;
+    this._indexDirty = false;
+  }
+
+  _buildHNSW() {
+    this._hnsw = new HNSWIndex(this.hnswOpts);
+    for (let i = 0; i < this.chunks.length; i++) {
+      const c = this.chunks[i];
+      if (c.embedding && c.embedding.length > 0) {
+        this._hnsw.insert(`idx-${i}`, c.embedding, { index: i });
+      }
+    }
+    this._indexDirty = false;
   }
 
   async load() {
@@ -30,6 +46,9 @@ export class VectorStore {
     } catch (e) {
       if (e.code !== "ENOENT") throw e;
       this.chunks = [];
+    }
+    if (this.chunks.length > 0) {
+      this._buildHNSW();
     }
     return this;
   }
@@ -42,17 +61,20 @@ export class VectorStore {
 
   stats() {
     const files = new Set(this.chunks.map(c => c.source));
+    const hnswStats = this._hnsw ? this._hnsw.stats() : null;
     return {
       totalChunks: this.chunks.length,
       uniqueFiles: files.size,
       totalTokens: this.chunks.reduce((s, c) => s + (c.tokenCount || 0), 0),
       storePath: this.storePath,
       stub: false,
+      hnsw: hnswStats,
+      searchMode: this._hnsw ? 'hnsw' : 'brute-force',
     };
   }
 
   /**
-   * Search for nearest chunks by cosine similarity.
+   * Search for nearest chunks by HNSW (or brute-force fallback).
    * @param {number[]} embedding - query embedding vector
    * @param {number} k - number of results
    * @param {object} opts - { minScore, source }
@@ -62,18 +84,37 @@ export class VectorStore {
     const minScore = opts.minScore ?? 0.0;
     const sourceFilter = opts.source;
 
+    // Rebuild HNSW if chunks were added since last build
+    if (this._indexDirty && this.chunks.length > 0) {
+      this._buildHNSW();
+    }
+
+    // Use brute-force for source-filtered queries (subset search)
+    if (sourceFilter || !this._hnsw) {
+      return this._bruteForceScan(embedding, k, minScore, sourceFilter);
+    }
+
+    // HNSW search — fetch extra to account for minScore filtering
+    const hnswResults = this._hnsw.search(embedding, Math.min(k * 3, this.chunks.length));
+    return hnswResults
+      .filter(r => r.score >= minScore)
+      .slice(0, k)
+      .map(r => ({
+        chunk: this.chunks[r.data.index],
+        score: r.score,
+      }));
+  }
+
+  _bruteForceScan(embedding, k, minScore, sourceFilter) {
     let candidates = this.chunks;
     if (sourceFilter) {
       candidates = candidates.filter(c => c.source === sourceFilter);
     }
-
-    const scored = candidates
+    return candidates
       .map(chunk => ({ chunk, score: cosineSimilarity(embedding, chunk.embedding) }))
       .filter(r => r.score >= minScore)
       .sort((a, b) => b.score - a.score)
       .slice(0, k);
-
-    return scored;
   }
 
   /**
@@ -83,6 +124,7 @@ export class VectorStore {
    */
   async add(newChunks) {
     this.chunks.push(...newChunks);
+    this._indexDirty = true;
     return { added: newChunks.length };
   }
 }
