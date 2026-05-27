@@ -297,6 +297,19 @@ const server = createServer(async (req, res) => {
     return;
   }
 
+  // === Rate Limits ===
+  if (url.pathname === "/rate-limits" && req.method === "GET") {
+    try {
+      const { getAllRateLimitStats } = await import("../mcp-server/shared/rate-limiter.js");
+      res.writeHead(200, { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" });
+      res.end(JSON.stringify(getAllRateLimitStats()));
+    } catch {
+      res.writeHead(200, { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" });
+      res.end(JSON.stringify({}));
+    }
+    return;
+  }
+
   // === Telemetry Metrics ===
   if (url.pathname === "/metrics" && req.method === "GET") {
     const window = parseInt(url.searchParams.get("window") || "300000", 10);

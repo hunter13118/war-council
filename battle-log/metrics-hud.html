@@ -128,6 +128,12 @@ header .status{margin-left:auto;display:flex;gap:0.75rem;align-items:center}
     <div id="dag-list"><span class="stat-label">No executions yet</span></div>
   </div>
 
+  <!-- Rate Limits -->
+  <div class="card">
+    <h2>Rate Limits (per minute)</h2>
+    <div id="rate-limits"><span class="stat-label">Loading...</span></div>
+  </div>
+
   <!-- Live Event Feed -->
   <div class="card" style="grid-column:1/-1">
     <h2>Event Feed (last 50)</h2>
@@ -235,6 +241,24 @@ async function refreshDAGs() {
   $('dag-list').innerHTML = html;
 }
 
+async function refreshRateLimits() {
+  const d = await fetchJSON('/rate-limits');
+  if (!d || Object.keys(d).length === 0) { $('rate-limits').innerHTML = '<span class="stat-label">No providers tracked</span>'; return; }
+  const html = Object.entries(d).map(([provider, stats]) => {
+    const pct = stats.limit > 0 ? (stats.used / stats.limit) * 100 : 0;
+    const color = pct >= 90 ? 'var(--red)' : pct >= 60 ? 'var(--yellow)' : 'var(--green)';
+    return `
+      <div class="bar-group">
+        <div class="bar-label" style="display:flex;justify-content:space-between">
+          <span>${provider}</span>
+          <span>${stats.used}/${stats.limit} (${stats.remaining} left)</span>
+        </div>
+        <div class="bar-track"><div class="bar-fill" style="width:${pct}%;background:${color}"></div></div>
+      </div>`;
+  }).join('');
+  $('rate-limits').innerHTML = html;
+}
+
 async function refreshEvents() {
   const d = await fetchJSON('/metrics/events?count=50');
   if (!d || d.length === 0) { $('events-feed').innerHTML = '<span class="stat-label">No events yet</span>'; return; }
@@ -260,7 +284,7 @@ function setStatus(color, text) {
 
 // Refresh loop
 async function tick() {
-  await Promise.all([refreshHealth(), refreshMetrics(), refreshBreakers(), refreshDAGs(), refreshEvents()]);
+  await Promise.all([refreshHealth(), refreshMetrics(), refreshBreakers(), refreshDAGs(), refreshRateLimits(), refreshEvents()]);
 }
 tick();
 setInterval(tick, 3000);
