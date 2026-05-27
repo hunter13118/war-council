@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>⚔️ War Council — Battle Log</title>
+<title>War Council — Battle Log</title>
 <style>
   :root {
     --bg-primary: #0a0a0f;
@@ -275,8 +275,8 @@
 <body>
 
 <div class="header">
-  <h1>⚔️ War Council — Battle Log</h1>
-  <a href="/war-table" style="margin-left: 16px; color: #8888aa; text-decoration: none; font-size: 0.75rem; border: 1px solid #3a3a5a; padding: 4px 10px; border-radius: 4px; transition: all 0.2s;" onmouseover="this.style.color='#ffd700';this.style.borderColor='#ffd700'" onmouseout="this.style.color='#8888aa';this.style.borderColor='#3a3a5a'">⚔️ WAR TABLE</a>
+  <h1>War Council — Battle Log</h1>
+  <a href="/war-table" style="margin-left: 16px; color: #8888aa; text-decoration: none; font-size: 0.75rem; border: 1px solid #3a3a5a; padding: 4px 10px; border-radius: 4px; transition: all 0.2s;" onmouseover="this.style.color='#ffd700';this.style.borderColor='#ffd700'" onmouseout="this.style.color='#8888aa';this.style.borderColor='#3a3a5a'">WAR TABLE</a>
   <div class="status">
     <div class="status-dot" id="statusDot"></div>
     <span id="statusText">Connecting...</span>
@@ -294,9 +294,9 @@
 
   <div class="timeline" id="timeline">
     <div class="empty-state" id="emptyState">
-      <div class="icon">⚔️</div>
-      <p>Awaiting orders, Commander.</p>
-      <p style="font-size: 0.75rem;">Events will appear here when the army is activated.</p>
+      <div class="icon" style="font-size:2rem;opacity:0.3;">—</div>
+      <p>No events yet.</p>
+      <p style="font-size: 0.75rem;">Events will appear here when models are invoked.</p>
     </div>
   </div>
 </div>
@@ -310,20 +310,20 @@
 
 <script>
 const AGENTS = {
-  'consult_fast': { name: 'Scout (7B)', model: 'qwen2.5-coder:7b', icon: '🏃', color: 'var(--accent-green)' },
-  'consult_specialist': { name: 'Specialist (14B)', model: 'qwen2.5-coder:14b', icon: '⚔️', color: 'var(--accent-cyan)' },
-  'consult_reasoning': { name: 'Sage (R1 14B)', model: 'deepseek-r1:14b', icon: '🧠', color: 'var(--accent-purple)' },
-  'consult_cloud': { name: 'Cloud Oracle', model: 'gemini/groq', icon: '☁️', color: 'var(--accent-gold)' },
-  'strategic_plan': { name: 'Strategist', model: 'gemini-2.5-flash', icon: '📋', color: 'var(--accent-gold)' },
-  'rapid_fan_out': { name: 'Swarm', model: 'groq-70b × N', icon: '🐝', color: 'var(--accent-orange)' },
-  'council_deliberate': { name: 'War Council', model: 'multi-model', icon: '👥', color: 'var(--accent-purple)' },
-  'council_debate': { name: 'Arena', model: 'adversarial', icon: '⚡', color: 'var(--accent-fire)' },
-  'run_chain': { name: 'Chain Runner', model: 'pipeline', icon: '🔗', color: 'var(--accent-cyan)' },
-  'smart_route': { name: 'Router', model: 'decision-tree', icon: '🧭', color: 'var(--accent-green)' },
-  'self_eval': { name: 'Quality Gate', model: 'groq-70b', icon: '✅', color: 'var(--accent-green)' },
-  'memory_query': { name: 'Memory', model: 'nomic-embed', icon: '📚', color: 'var(--accent-cyan)' },
-  'run_tests': { name: 'Test Runner', model: 'jest+pw+py', icon: '🧪', color: 'var(--accent-green)' },
-  'visual_consult': { name: 'Eye', model: 'qwen2.5vl', icon: '👁️', color: 'var(--accent-purple)' },
+  'consult_fast': { name: 'Scout (7B)', model: 'qwen2.5-coder:7b', icon: '●', color: 'var(--accent-green)' },
+  'consult_specialist': { name: 'Specialist (14B)', model: 'qwen2.5-coder:14b', icon: '●', color: 'var(--accent-cyan)' },
+  'consult_reasoning': { name: 'Sage (R1 14B)', model: 'deepseek-r1:14b', icon: '●', color: 'var(--accent-purple)' },
+  'consult_cloud': { name: 'Cloud Oracle', model: 'gemini/groq', icon: '●', color: 'var(--accent-gold)' },
+  'strategic_plan': { name: 'Strategist', model: 'gemini-2.5-flash', icon: '●', color: 'var(--accent-gold)' },
+  'rapid_fan_out': { name: 'Swarm', model: 'groq-70b × N', icon: '●', color: 'var(--accent-orange)' },
+  'council_deliberate': { name: 'War Council', model: 'multi-model', icon: '●', color: 'var(--accent-purple)' },
+  'council_debate': { name: 'Arena', model: 'adversarial', icon: '●', color: 'var(--accent-fire)' },
+  'run_chain': { name: 'Chain Runner', model: 'pipeline', icon: '●', color: 'var(--accent-cyan)' },
+  'smart_route': { name: 'Router', model: 'decision-tree', icon: '●', color: 'var(--accent-green)' },
+  'self_eval': { name: 'Quality Gate', model: 'groq-70b', icon: '●', color: 'var(--accent-green)' },
+  'memory_query': { name: 'Memory', model: 'nomic-embed', icon: '●', color: 'var(--accent-cyan)' },
+  'run_tests': { name: 'Test Runner', model: 'jest+pw+py', icon: '●', color: 'var(--accent-green)' },
+  'visual_consult': { name: 'Eye', model: 'qwen2.5vl', icon: '●', color: 'var(--accent-purple)' },
 };
 
 const state = {
@@ -336,15 +336,15 @@ const state = {
 };
 
 function getAgent(toolName) {
-  return AGENTS[toolName] || { name: toolName, model: '?', icon: '🔧', color: 'var(--text-dim)' };
+  return AGENTS[toolName] || { name: toolName, model: '?', icon: '●', color: 'var(--text-dim)' };
 }
 
 function getEventIcon(type) {
   switch (type) {
-    case 'tool_start': return '▶️';
-    case 'tool_complete': return '✅';
-    case 'tool_error': return '❌';
-    default: return '📝';
+    case 'tool_start': return '►';
+    case 'tool_complete': return '✓';
+    case 'tool_error': return '✗';
+    default: return '·';
   }
 }
 
@@ -359,10 +359,10 @@ function renderEvent(event) {
   card.className = `event-card ${event.type}${event.tool?.includes('council') ? ' council' : ''}`;
 
   let meta = '';
-  if (event.durationMs) meta += `<span class="duration">⏱️ ${event.durationMs}ms</span>`;
-  if (event.tokensOut) meta += `<span class="tokens">📝 ${event.tokensOut} tok</span>`;
-  if (event.tps) meta += `<span class="tps">⚡ ${event.tps} tok/s</span>`;
-  if (event.error) meta += `<span class="error">💀 ${event.error}</span>`;
+  if (event.durationMs) meta += `<span class="duration">${event.durationMs}ms</span>`;
+  if (event.tokensOut) meta += `<span class="tokens">${event.tokensOut} tok</span>`;
+  if (event.tps) meta += `<span class="tps">${event.tps} tok/s</span>`;
+  if (event.error) meta += `<span class="error">${event.error}</span>`;
 
   let body = '';
   if (event.preview) body = event.preview;

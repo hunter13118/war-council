@@ -41,7 +41,7 @@
     try {
       const res = await fetch('/health');
       const data = await res.json();
-      const modeIcons = { cloud: '☁️', local: '💻', hybrid: '🔀' };
+      const modeIcons = { cloud: '☁', local: '■', hybrid: '⇄' };
       document.getElementById('embedStatus').textContent = data.status === 'ready' ? '● Operational' : '● Degraded';
       document.getElementById('embedStatus').style.color = data.status === 'ready' ? '#3fb950' : '#f85149';
       document.getElementById('embedMode').textContent = `${modeIcons[data.mode] || ''} ${data.mode}`;

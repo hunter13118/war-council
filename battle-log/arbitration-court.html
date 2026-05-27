@@ -301,7 +301,7 @@
     <!-- Judge's Bench -->
     <div class="judge-bench animate-fade" id="judge-bench">
       <div class="judge-title">Presiding Judge</div>
-      <div class="gavel">🔨</div>
+      <div class="gavel">⚖</div>
       <div class="judge-model" id="judge-model">deepseek-r1:14b (reasoning)</div>
       <div class="verdict-box" id="verdict-box">
         <em style="color:#555">Awaiting case submission...</em>
@@ -312,7 +312,7 @@
     <div class="contestants" id="contestants">
       <div class="contestant animate-left" id="contestant-1">
         <div class="contestant-header">
-          <div class="contestant-avatar" style="background: rgba(122,162,247,0.2);">🧠</div>
+          <div class="contestant-avatar" style="background: rgba(122,162,247,0.2);">●</div>
           <div>
             <div class="contestant-name" id="c1-name">Contestant 1</div>
             <div class="contestant-tier" id="c1-tier">specialist</div>
@@ -323,10 +323,10 @@
         </div>
         <div class="contestant-stats" id="c1-stats"></div>
       </div>
-      <div class="vs-separator">⚔️<br>VS</div>
+      <div class="vs-separator">VS</div>
       <div class="contestant animate-right" id="contestant-2">
         <div class="contestant-header">
-          <div class="contestant-avatar" style="background: rgba(187,154,247,0.2);">💭</div>
+          <div class="contestant-avatar" style="background: rgba(187,154,247,0.2);">●</div>
           <div>
             <div class="contestant-name" id="c2-name">Contestant 2</div>
             <div class="contestant-tier" id="c2-tier">reasoning</div>
@@ -341,13 +341,13 @@
 
     <!-- Score Comparison -->
     <div class="score-section" id="scores">
-      <h3>📊 Dimension Breakdown</h3>
+      <h3>Dimension Breakdown</h3>
       <div id="score-bars"></div>
     </div>
 
     <!-- Case History -->
     <div class="history-panel">
-      <h3>📜 Case History</h3>
+      <h3>Case History</h3>
       <div class="history-list" id="history-list"></div>
     </div>
   </div>
@@ -438,18 +438,18 @@
       document.getElementById('c1-tier').textContent = c1.tier;
       document.getElementById('c1-response').textContent = c1.response;
       document.getElementById('c1-stats').innerHTML = `
-        <span>⏱️ ${c1.elapsedMs}ms</span>
-        <span>📝 ${c1.tokensOut} tokens</span>
-        <span>🎯 ${((c1.confidence.relevance + c1.confidence.completeness + c1.confidence.certainty + c1.confidence.consistency) / 4).toFixed(2)}</span>
+        <span>${c1.elapsedMs}ms</span>
+        <span>${c1.tokensOut} tokens</span>
+        <span>conf: ${((c1.confidence.relevance + c1.confidence.completeness + c1.confidence.certainty + c1.confidence.consistency) / 4).toFixed(2)}</span>
       `;
 
       document.getElementById('c2-name').textContent = c2.name;
       document.getElementById('c2-tier').textContent = c2.tier;
       document.getElementById('c2-response').textContent = c2.response;
       document.getElementById('c2-stats').innerHTML = `
-        <span>⏱️ ${c2.elapsedMs}ms</span>
-        <span>📝 ${c2.tokensOut} tokens</span>
-        <span>🎯 ${((c2.confidence.relevance + c2.confidence.completeness + c2.confidence.certainty + c2.confidence.consistency) / 4).toFixed(2)}</span>
+        <span>${c2.elapsedMs}ms</span>
+        <span>${c2.tokensOut} tokens</span>
+        <span>conf: ${((c2.confidence.relevance + c2.confidence.completeness + c2.confidence.certainty + c2.confidence.consistency) / 4).toFixed(2)}</span>
       `;
 
       // Winner/loser badges
@@ -464,17 +464,17 @@
 
       const badge1 = document.createElement('div');
       badge1.className = `badge ${winIdx === 0 ? 'badge-winner' : 'badge-loser'}`;
-      badge1.textContent = winIdx === 0 ? '👑 WINNER' : '❌ DEFEATED';
+      badge1.textContent = winIdx === 0 ? 'WINNER' : 'DEFEATED';
       el1.appendChild(badge1);
 
       const badge2 = document.createElement('div');
       badge2.className = `badge ${winIdx === 1 ? 'badge-winner' : 'badge-loser'}`;
-      badge2.textContent = winIdx === 1 ? '👑 WINNER' : '❌ DEFEATED';
+      badge2.textContent = winIdx === 1 ? 'WINNER' : 'DEFEATED';
       el2.appendChild(badge2);
 
       // Verdict
       document.getElementById('verdict-box').innerHTML = `
-        <div class="verdict-winner">🏆 ${c.contestants[winIdx].name} (${c.contestants[winIdx].tier}) prevails!</div>
+        <div class="verdict-winner">${c.contestants[winIdx].name} (${c.contestants[winIdx].tier}) prevails!</div>
         <div style="margin-top: 8px; color: #aaa;">${c.verdict}</div>
       `;
 

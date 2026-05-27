@@ -85,7 +85,7 @@ marker path{transition:fill 0.4s}
 </head>
 <body>
 <header>
-  <h1>🎭 DAG THEATER</h1>
+  <h1>DAG THEATER</h1>
   <div class="controls">
     <button class="btn" id="btn-demo" onclick="loadDemo()">Demo DAG</button>
     <button class="btn" id="btn-complex" onclick="loadComplex()">Complex Pipeline</button>
@@ -292,7 +292,7 @@ function renderDAG(dag) {
     icon.setAttribute('x', w/2);
     icon.setAttribute('y', 18);
     icon.setAttribute('class', 'node-icon');
-    icon.textContent = node.type === 'gate' ? '⚡' : node.type === 'merge' ? '🔀' : node.tier === 'fast' ? '⚡' : node.tier === 'specialist' ? '🧠' : node.tier === 'reasoning' ? '🤔' : node.tier === 'groq' ? '☁️' : '📋';
+    icon.textContent = node.type === 'gate' ? '▸' : node.type === 'merge' ? '⊕' : node.tier === 'fast' ? '►' : node.tier === 'specialist' ? '◆' : node.tier === 'reasoning' ? '▲' : node.tier === 'groq' ? '☁' : '·';
     g.appendChild(icon);
 
     // Label (multiline)

@@ -418,7 +418,7 @@ body {
 <body>
 
 <div class="header">
-  <h1>⚔️ Command Center</h1>
+  <h1>Command Center</h1>
   <div class="breaker-pills" id="breakerPills"></div>
   <div class="nav-links">
     <a href="/metrics-hud">Metrics</a>
@@ -429,19 +429,18 @@ body {
 
 <div class="convo-bar" style="position:relative;">
   <button onclick="newConversation()">+ New</button>
-  <button onclick="toggleConvoList()">📂 History</button>
-  <button onclick="reindexWorkspace()" id="reindexBtn" title="Re-index workspace for RAG">🔄 Index</button>
+  <button onclick="toggleConvoList()">History</button>
+  <button onclick="reindexWorkspace()" id="reindexBtn" title="Re-index workspace for RAG">Re-index</button>
   <div class="convo-title" id="convoTitle"><span>New Conversation</span></div>
   <div class="convo-list" id="convoList"></div>
 </div>
 
 <div class="main">
   <div class="chat-panel" id="chatPanel">
-    <div class="drop-overlay" id="dropOverlay"><span class="drop-overlay-text">📂 Drop files for context</span></div>
+    <div class="drop-overlay" id="dropOverlay"><span class="drop-overlay-text">Drop files for context</span></div>
     <div class="chat-messages" id="chatMessages">
       <div class="msg system">
-        War Council Command Center — Type a message. The council routes to the best model.<br>
-        Toggle Tournament for multi-model debate. Drag files into chat for RAG context.
+        Messages are auto-routed to the best available model. Enable Tournament mode for multi-model comparison. Drop files for retrieval context.
       </div>
     </div>
     <div class="input-area">
@@ -452,18 +451,18 @@ body {
       </div>
       <div class="controls">
         <select id="modeSelect">
-          <option value="auto">⚡ Auto-Route</option>
-          <option value="fast">🏃 Fast (7B)</option>
-          <option value="specialist">🎯 Specialist (14B)</option>
-          <option value="reasoning">🧠 Reasoning (14B)</option>
+          <option value="auto">Auto-Route</option>
+          <option value="fast">Fast (7B)</option>
+          <option value="specialist">Specialist (14B)</option>
+          <option value="reasoning">Reasoning (14B)</option>
         </select>
         <select id="infraMode" onchange="switchInfraMode(this.value)">
-          <option value="cloud">☁️ Cloud</option>
-          <option value="local">💻 Local</option>
-          <option value="hybrid">🔀 Hybrid</option>
+          <option value="cloud">Cloud</option>
+          <option value="local">Local</option>
+          <option value="hybrid">Hybrid</option>
         </select>
-        <label><input type="checkbox" id="tournamentToggle"> 🏟️ Tournament</label>
-        <label><input type="checkbox" id="showReason" checked> 📋 Routing</label>
+        <label><input type="checkbox" id="tournamentToggle"> Tournament</label>
+        <label><input type="checkbox" id="showReason" checked> Routing</label>
         <span class="status-indicator" id="statusIndicator">● Connecting...</span>
       </div>
     </div>
@@ -473,7 +472,7 @@ body {
 
   <div class="theatre-panel" id="theatrePanel">
     <div class="theatre-header">
-      <h2>🎭 Dialogue Theatre</h2>
+      <h2>Dialogue</h2>
       <div class="panel-tabs">
         <button class="active" id="tabDialogue" onclick="switchTab('dialogue')">Dialogue</button>
         <button id="tabEvents" onclick="switchTab('events')">Events</button>
@@ -629,11 +628,11 @@ async function sendChat(message, mode) {
         if (!line.startsWith('data: ')) continue;
         try {
           const data = JSON.parse(line.slice(6));
-          if (data.rag) { const badge = document.createElement('div'); badge.className = 'rag-badge'; badge.textContent = `🧠 ${data.chunks} chunks auto-retrieved`; msgEl.prepend(badge); }
-          if (data.fallback) { const badge = document.createElement('div'); badge.className = 'rag-badge'; badge.style.color = '#ffa94d'; badge.style.background = 'rgba(255,169,77,0.1)'; badge.textContent = `⚡ ${data.reason}`; msgEl.prepend(badge); }
+          if (data.rag) { const badge = document.createElement('div'); badge.className = 'rag-badge'; badge.textContent = `${data.chunks} chunks retrieved`; msgEl.prepend(badge); }
+          if (data.fallback) { const badge = document.createElement('div'); badge.className = 'rag-badge'; badge.style.color = '#ffa94d'; badge.style.background = 'rgba(255,169,77,0.1)'; badge.textContent = data.reason; msgEl.prepend(badge); }
           if (data.token) { fullText += data.token; msgEl.querySelector('.msg-text').textContent = fullText; scrollToBottom(); }
           if (data.done) meta = data;
-          if (data.error) { fullText = '⚠️ ' + data.error; msgEl.querySelector('.msg-text').textContent = fullText; }
+          if (data.error) { fullText = 'Error: ' + data.error; msgEl.querySelector('.msg-text').textContent = fullText; }
         } catch {}
       }
     }
@@ -651,13 +650,13 @@ async function sendChat(message, mode) {
       recordMessage('assistant', fullText, meta);
       messageCount++; totalTokens += meta.tokensOut || 0; totalMs += meta.elapsedMs || 0; updateStats();
     }
-  } catch (e) { msgEl.classList.remove('streaming'); msgEl.querySelector('.msg-text').textContent = '⚠️ ' + e.message; }
+  } catch (e) { msgEl.classList.remove('streaming'); msgEl.querySelector('.msg-text').textContent = 'Error: ' + e.message; }
   isStreaming = false; document.getElementById('sendBtn').disabled = false; document.getElementById('chatInput').focus();
 }
 
 async function sendTournament(message) {
   isStreaming = true; document.getElementById('sendBtn').disabled = true;
-  addMessage('system', '🏟️ Tournament — All models respond.');
+  addMessage('system', 'Tournament mode — all models respond.');
 
   const modes = [
     { mode: 'fast', role: 'challenger', label: 'CHALLENGER' },
@@ -676,7 +675,7 @@ async function sendTournament(message) {
         const { done, value } = await reader.read(); if (done) break;
         buf += decoder.decode(value, { stream: true });
         const lines = buf.split('\n'); buf = lines.pop();
-        for (const line of lines) { if (!line.startsWith('data: ')) continue; try { const d = JSON.parse(line.slice(6)); if (d.rag) { const badge = document.createElement('div'); badge.className = 'rag-badge'; badge.textContent = `🧠 ${d.chunks} chunks`; msgEl.prepend(badge); } if (d.token) { fullText += d.token; msgEl.querySelector('.msg-text').textContent = fullText; scrollToBottom(); } if (d.done) meta = d; } catch {} }
+        for (const line of lines) { if (!line.startsWith('data: ')) continue; try { const d = JSON.parse(line.slice(6)); if (d.rag) { const badge = document.createElement('div'); badge.className = 'rag-badge'; badge.textContent = `${d.chunks} chunks`; msgEl.prepend(badge); } if (d.token) { fullText += d.token; msgEl.querySelector('.msg-text').textContent = fullText; scrollToBottom(); } if (d.done) meta = d; } catch {} }
       }
       msgEl.classList.remove('streaming');
       const metaEl = document.createElement('div'); metaEl.className = 'meta';
@@ -685,7 +684,7 @@ async function sendTournament(message) {
       addDialogueFrame(meta.tool || `consult_${mode}`, fullText, meta, role, label);
       recordMessage('assistant', fullText, { ...meta, role, label });
       responses.push({ model: meta.model, text: fullText });
-    } catch (e) { msgEl.classList.remove('streaming'); msgEl.querySelector('.msg-text').textContent = '⚠️ ' + e.message; }
+    } catch (e) { msgEl.classList.remove('streaming'); msgEl.querySelector('.msg-text').textContent = 'Error: ' + e.message; }
   }
   if (responses.length >= 2) {
     fetch('/emit', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ type: 'debate_round', agent1: 'consult_specialist', agent2: 'consult_reasoning', text1: (responses[1]?.text||'').slice(0,300), text2: (responses[2]?.text||'').slice(0,300), prompt: message, verdict: 'Tournament complete.', winner: 'consult_reasoning' }) }).catch(()=>{});
@@ -797,16 +796,16 @@ function recordMessage(role, text, meta) {
 
 async function reindexWorkspace() {
   const btn = document.getElementById('reindexBtn');
-  btn.disabled = true; btn.textContent = '⏳ Indexing...';
+  btn.disabled = true; btn.textContent = 'Indexing...';
   try {
     const res = await fetch('/reindex', { method: 'POST' });
     const data = await res.json();
     if (data.error) throw new Error(data.error);
-    btn.textContent = `✅ ${data.chunksCreated} chunks`;
-    setTimeout(() => { btn.textContent = '🔄 Index'; btn.disabled = false; }, 3000);
+    btn.textContent = `Done — ${data.chunksCreated} chunks`;
+    setTimeout(() => { btn.textContent = 'Re-index'; btn.disabled = false; }, 3000);
   } catch (e) {
-    btn.textContent = '❌ Failed'; btn.disabled = false;
-    setTimeout(() => { btn.textContent = '🔄 Index'; }, 3000);
+    btn.textContent = 'Failed'; btn.disabled = false;
+    setTimeout(() => { btn.textContent = 'Re-index'; }, 3000);
   }
 }
 
@@ -818,7 +817,7 @@ async function switchInfraMode(mode) {
     if (data.error) throw new Error(data.error);
     addMessage('system', `Mode switched: ${data.previous} → ${data.mode}`);
   } catch (e) {
-    addMessage('system', `⚠️ Mode switch failed: ${e.message}`);
+    addMessage('system', `Mode switch failed: ${e.message}`);
     // Revert UI selection
     fetchCurrentMode();
   }
@@ -918,11 +917,11 @@ chatPanel.addEventListener('drop', (e) => {
 function processDroppedFile(file) {
   const ext = '.' + file.name.split('.').pop().toLowerCase();
   if (!ALLOWED_EXTENSIONS.includes(ext)) {
-    addMessage('system', `⚠️ Unsupported file type: ${ext}. Text files only.`);
+    addMessage('system', `Unsupported file type: ${ext}. Text files only.`);
     return;
   }
   if (file.size > MAX_FILE_SIZE) {
-    addMessage('system', `⚠️ File too large: ${file.name} (${(file.size/1024).toFixed(0)}KB > 100KB limit)`);
+    addMessage('system', `File too large: ${file.name} (${(file.size/1024).toFixed(0)}KB > 100KB limit)`);
     return;
   }
   const reader = new FileReader();
@@ -937,7 +936,7 @@ function renderFileChips() {
   const container = document.getElementById('fileChips');
   container.innerHTML = attachedFiles.map((f, i) => `
     <div class="file-chip">
-      <span class="chip-name" title="${f.name}">📄 ${f.name}</span>
+      <span class="chip-name" title="${f.name}">${f.name}</span>
       <span class="chip-size">(${(f.size/1024).toFixed(1)}KB)</span>
       <button class="chip-remove" onclick="removeFile(${i})">✕</button>
     </div>

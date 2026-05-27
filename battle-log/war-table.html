@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>⚔️ War Table — Council Chamber</title>
+<title>War Council — War Table</title>
 <style>
   @import url('https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap');
 
@@ -120,7 +120,7 @@
   }
 
   .war-table::after {
-    content: '⚔️ WAR COUNCIL';
+    content: 'WAR COUNCIL';
     position: absolute;
     top: 50%;
     left: 50%;
@@ -486,7 +486,7 @@
   }
 
   .mode-demon .war-table::after {
-    content: '💀 DEMON LORD\\'S WAR COUNCIL';
+    content: 'DEMON LORD\'S WAR COUNCIL';
     color: #cc44ff;
   }
 
@@ -663,29 +663,29 @@
 <body>
 
 <div class="nav">
-  <a href="/">📜 LOG</a>
-  <a href="/war-table" class="active">⚔️ WAR TABLE</a>
+  <a href="/">LOG</a>
+  <a href="/war-table" class="active">WAR TABLE</a>
   <div class="mode-toggle">
-    <button class="mode-btn active" data-mode="pixel" title="SVG Pixel Art">🎮 PIXEL</button>
-    <button class="mode-btn" data-mode="demon" title="Demon Lord Castle (AI Generated)">🏰 DEMON</button>
+    <button class="mode-btn active" data-mode="pixel" title="SVG Pixel Art">PIXEL</button>
+    <button class="mode-btn" data-mode="demon" title="Demon Lord Castle">CASTLE</button>
   </div>
   <div class="voice-toggle">
-    <label for="voiceToggle">🔊 VOICES</label>
+    <label for="voiceToggle">VOICES</label>
     <input type="checkbox" id="voiceToggle" title="Toggle Edge Neural TTS voices for dialogue">
   </div>
   <div class="voice-toggle">
-    <label for="allVoicesToggle">⭐ VIP</label>
+    <label for="allVoicesToggle">VIP</label>
     <input type="checkbox" id="allVoicesToggle" title="VIP mode: only Judge & Hypeman speak (mutes regular agents)">
   </div>
   <div class="voice-toggle">
-    <label for="sfxToggle">🎵 SFX</label>
+    <label for="sfxToggle">SFX</label>
     <input type="checkbox" id="sfxToggle" checked title="Toggle sound effects">
   </div>
   <div class="voice-toggle">
-    <label for="focusToggle">🎯 FOCUS</label>
+    <label for="focusToggle">FOCUS</label>
     <input type="checkbox" id="focusToggle" title="Focus mode: sequential dialogue, no overlapping speech">
   </div>
-  <span style="margin-left: auto; color: var(--text-dim);">⚔️ WAR COUNCIL</span>
+  <span style="margin-left: auto; color: var(--text-dim);">WAR COUNCIL</span>
 </div>
 
 <div class="scene" id="scene">
@@ -705,7 +705,7 @@
 
 <!-- Ace Attorney Overlay -->
 <div class="objection-overlay" id="objectionOverlay">
-  <div class="objection-banner" id="objectionBanner">⚡ OBJECTION! ⚡</div>
+  <div class="objection-banner" id="objectionBanner">OBJECTION!</div>
   <div class="court-scene" id="courtScene"></div>
 </div>
 
@@ -1033,22 +1033,22 @@ document.addEventListener('DOMContentLoaded', () => setVisualMode(currentMode));
 
 // === Agent Registry ===
 const AGENTS = {
-  consult_fast:       { name: 'Scout',       sprite: 'sprite-scout',      seat: 0,  emoji: '🏃' },
-  consult_specialist: { name: 'Specialist',  sprite: 'sprite-specialist', seat: 1,  emoji: '⚔️' },
-  consult_reasoning:  { name: 'Sage',        sprite: 'sprite-sage',       seat: 2,  emoji: '🧠' },
-  strategic_plan:     { name: 'Strategist',  sprite: 'sprite-cloud',      seat: 3,  emoji: '📋' },
-  rapid_fan_out:      { name: 'Swarm',       sprite: 'sprite-swarm',      seat: 4,  emoji: '🐝' },
-  self_eval:          { name: 'Judge',       sprite: 'sprite-judge',      seat: 5,  emoji: '⚖️' },
-  memory_query:       { name: 'Archivist',   sprite: 'sprite-memory',     seat: 6,  emoji: '📚' },
-  smart_route:        { name: 'Navigator',   sprite: 'sprite-router',     seat: 7,  emoji: '🧭' },
-  run_chain:          { name: 'Chain',       sprite: 'sprite-chain',      seat: 8,  emoji: '🔗' },
-  council_deliberate: { name: 'Council',     sprite: 'sprite-judge',      seat: 9,  emoji: '👥' },
-  council_debate:     { name: 'Arena',       sprite: 'sprite-eye',        seat: 10, emoji: '⚡' },
-  run_tests:          { name: 'Tester',      sprite: 'sprite-test',       seat: 11, emoji: '🧪' },
-  visual_consult:     { name: 'Eye',         sprite: 'sprite-eye',        seat: 12, emoji: '👁️' },
-  hypeman:            { name: 'Hypeman',     sprite: 'sprite-hypeman',    seat: 13, emoji: '🎤' },
-  consult_cloud:      { name: 'Cloud',       sprite: 'sprite-cloud',      seat: 14, emoji: '☁️' },
-  tournament_vote:    { name: 'Ballot',      sprite: 'sprite-judge',      seat: 15, emoji: '🗳️' },
+  consult_fast:       { name: 'Scout',       sprite: 'sprite-scout',      seat: 0,  emoji: '●' },
+  consult_specialist: { name: 'Specialist',  sprite: 'sprite-specialist', seat: 1,  emoji: '●' },
+  consult_reasoning:  { name: 'Sage',        sprite: 'sprite-sage',       seat: 2,  emoji: '●' },
+  strategic_plan:     { name: 'Strategist',  sprite: 'sprite-cloud',      seat: 3,  emoji: '●' },
+  rapid_fan_out:      { name: 'Swarm',       sprite: 'sprite-swarm',      seat: 4,  emoji: '●' },
+  self_eval:          { name: 'Judge',       sprite: 'sprite-judge',      seat: 5,  emoji: '●' },
+  memory_query:       { name: 'Archivist',   sprite: 'sprite-memory',     seat: 6,  emoji: '●' },
+  smart_route:        { name: 'Navigator',   sprite: 'sprite-router',     seat: 7,  emoji: '●' },
+  run_chain:          { name: 'Chain',       sprite: 'sprite-chain',      seat: 8,  emoji: '●' },
+  council_deliberate: { name: 'Council',     sprite: 'sprite-judge',      seat: 9,  emoji: '●' },
+  council_debate:     { name: 'Arena',       sprite: 'sprite-eye',        seat: 10, emoji: '●' },
+  run_tests:          { name: 'Tester',      sprite: 'sprite-test',       seat: 11, emoji: '●' },
+  visual_consult:     { name: 'Eye',         sprite: 'sprite-eye',        seat: 12, emoji: '●' },
+  hypeman:            { name: 'Hypeman',     sprite: 'sprite-hypeman',    seat: 13, emoji: '●' },
+  consult_cloud:      { name: 'Cloud',       sprite: 'sprite-cloud',      seat: 14, emoji: '●' },
+  tournament_vote:    { name: 'Ballot',      sprite: 'sprite-judge',      seat: 15, emoji: '●' },
 };
 
 // Seat positions around the table (angle-based, 12 seats)
@@ -1514,7 +1514,7 @@ function getOrCreateSeat(toolName) {
   if (seatedAgents[toolName]) return seatedAgents[toolName];
 
   const prettyName = toolName.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
-  const agent = AGENTS[toolName] || { name: prettyName, sprite: 'sprite-scout', seat: Object.keys(seatedAgents).length % 12, emoji: '🔧' };
+  const agent = AGENTS[toolName] || { name: prettyName, sprite: 'sprite-scout', seat: Object.keys(seatedAgents).length % 12, emoji: '●' };
   const pos = SEAT_POSITIONS[agent.seat % TOTAL_SEATS];
 
   const seat = document.createElement('div');
@@ -1530,7 +1530,7 @@ function getOrCreateSeat(toolName) {
   const rec = agentRecords[toolName] || { wins: 0, losses: 0 };
 
   seat.innerHTML = `
-    <div class="crown" id="crown-${toolName}">👑</div>
+    <div class="crown" id="crown-${toolName}">★</div>
     <div class="sprite ${agent.sprite}"><img src="${spriteURI}" alt="${agent.name}"></div>
     <div class="seat-name">${agent.name}</div>
     <div class="seat-record" id="record-${toolName}">
@@ -1697,7 +1697,7 @@ function showObjection(agent1, text1, agent2, text2, opts = {}) {
   const a1 = AGENTS[agent1] || { name: agent1, sprite: 'sprite-scout' };
   const a2 = AGENTS[agent2] || { name: agent2, sprite: 'sprite-specialist' };
 
-  banner.textContent = opts.bannerText || '⚡ OBJECTION! ⚡';
+  banner.textContent = opts.bannerText || 'OBJECTION!';
   banner.style.animation = 'none';
   void banner.offsetWidth;
   banner.style.animation = 'objectionSlam 0.5s ease';
@@ -1706,10 +1706,10 @@ function showObjection(agent1, text1, agent2, text2, opts = {}) {
   const s2key = a2.sprite.replace('sprite-', '');
 
   // Build prompt section if provided
-  const promptHtml = opts.prompt ? `<div class="court-prompt" style="opacity: 0; transition: opacity 0.5s;">📋 ${opts.prompt}</div>` : '';
+  const promptHtml = opts.prompt ? `<div class="court-prompt" style="opacity: 0; transition: opacity 0.5s;">${opts.prompt}</div>` : '';
 
   // Build verdict section if provided
-  const verdictHtml = opts.verdict ? `<div class="court-verdict" style="opacity: 0; transition: opacity 0.5s;"><div class="verdict-label">⚖️ JUDGE VERDICT</div><span class="verdict-text"></span></div>` : '';
+  const verdictHtml = opts.verdict ? `<div class="court-verdict" style="opacity: 0; transition: opacity 0.5s;"><div class="verdict-label">JUDGE VERDICT</div><span class="verdict-text"></span></div>` : '';
 
   // Winner/loser styling
   const a1class = opts.winner === agent1 ? 'court-winner' : (opts.winner ? 'court-loser' : '');
@@ -1720,13 +1720,13 @@ function showObjection(agent1, text1, agent2, text2, opts = {}) {
     <div style="display: flex; gap: 40px; align-items: flex-start;">
       <div class="court-agent" style="opacity: 0; transition: opacity 0.5s;">
         <div class="sprite ${a1.sprite}" style="width:72px;height:72px;"><img src="${getSpriteForAgent(s1key)}" alt="${a1.name}"></div>
-        <div class="court-name">${opts.winner === agent1 ? '🏆 ' : ''}${a1.name}</div>
+        <div class="court-name">${opts.winner === agent1 ? '★ ' : ''}${a1.name}</div>
         <div class="court-argument ${a1class}" style="opacity: 0; transform: translateY(10px); transition: all 0.5s;"></div>
       </div>
       <div class="vs-text" style="opacity: 0; transition: opacity 0.3s;">VS</div>
       <div class="court-agent" style="opacity: 0; transition: opacity 0.5s;">
         <div class="sprite ${a2.sprite}" style="width:72px;height:72px;"><img src="${getSpriteForAgent(s2key)}" alt="${a2.name}"></div>
-        <div class="court-name">${opts.winner === agent2 ? '🏆 ' : ''}${a2.name}</div>
+        <div class="court-name">${opts.winner === agent2 ? '★ ' : ''}${a2.name}</div>
         <div class="court-argument ${a2class}" style="opacity: 0; transform: translateY(10px); transition: all 0.5s;"></div>
       </div>
     </div>
@@ -1812,7 +1812,7 @@ document.getElementById('objectionOverlay').addEventListener('click', () => {
       .delib-verdict { margin-top:20px; color:#0ff; font-size:13px; border:1px solid #0ff; padding:10px 20px; border-radius:6px; background:#0a1a2a; opacity:0; transition:opacity 0.5s; text-align:center; max-width:500px; }
       .delib-verdict.visible { opacity:1; }
     </style>
-    <div class="delib-title">⚔️ COUNCIL DELIBERATION ⚔️</div>
+    <div class="delib-title">COUNCIL DELIBERATION</div>
     <div class="delib-prompt" id="delib-prompt"></div>
     <div class="delib-ring" id="delib-ring"></div>
     <div class="delib-verdict" id="delib-verdict"></div>
@@ -1857,7 +1857,7 @@ document.getElementById('objectionOverlay').addEventListener('click', () => {
       el.style.left = x + 'px';
       el.style.top = y + 'px';
       el.innerHTML = `
-        <div class="delib-avatar">${agent.emoji || '🤖'}</div>
+        <div class="delib-avatar">${agent.emoji || '●'}</div>
         <div class="delib-name">${agent.name || 'Agent'}</div>
       `;
 
@@ -1902,7 +1902,7 @@ document.getElementById('objectionOverlay').addEventListener('click', () => {
     // Show verdict with voice
     if (opts.verdict) {
       await delay(600);
-      verdictEl.textContent = '⚖️ ' + opts.verdict;
+      verdictEl.textContent = opts.verdict;
       verdictEl.classList.add('visible');
       if (voicesEnabled) queueTts(opts.verdict, voiceMap['self_eval'] || 'en-US-AriaNeural', true, 'self_eval');
       await waitForTtsIdle();
@@ -2156,7 +2156,7 @@ function handleReoptimize(event) {
 
   // Show dramatic banner
   const banner = document.getElementById('reoptBanner');
-  banner.innerHTML = `☠️ ${agentName.toUpperCase()} ☠️<br><span style="font-size: 10px; color: var(--cyan);">RE-OPTIMIZING...</span>`;
+  banner.innerHTML = `${agentName.toUpperCase()}<br><span style="font-size: 10px; color: var(--cyan);">RE-OPTIMIZING...</span>`;
   banner.classList.add('visible');
 
   // Death animation
@@ -2166,7 +2166,7 @@ function handleReoptimize(event) {
     // After death animation, rebuild
     setTimeout(() => {
       seat.classList.remove('reoptimizing');
-      banner.innerHTML = `⚡ ${agentName.toUpperCase()} ⚡<br><span style="font-size: 10px; color: var(--green);">REBORN v${((event.record||{}).reoptimized||1)+1}.0</span>`;
+      banner.innerHTML = `${agentName.toUpperCase()}<br><span style="font-size: 10px; color: var(--green);">REBORN v${((event.record||{}).reoptimized||1)+1}.0</span>`;
       seat.classList.add('reoptimized');
 
       // Reset record badge
@@ -2192,7 +2192,7 @@ function updateRecordBadge(agentKey) {
   const rec = agentRecords[agentKey] || { wins: 0, losses: 0, streak: 0, elo: DEFAULT_ELO };
   const elo = rec.elo ?? DEFAULT_ELO;
   let streakText = '';
-  if (rec.streak >= 3) streakText = ` <span class="streak">🔥${rec.streak}</span>`;
+  if (rec.streak >= 3) streakText = ` <span class="streak">${rec.streak}×</span>`;
   el.innerHTML = `<span class="wins">W:${rec.wins}</span> / <span class="losses">L:${rec.losses}</span> <span style="color:#0ff;font-size:0.8em;">[${elo}]</span>${streakText}`;
 }
 
@@ -2331,31 +2331,31 @@ fetch('/voices')
       #token-hud.collapsed .hud-body { display:none; }
       #token-hud.collapsed { min-width:auto; }
     </style>
-    <div class="hud-title">⚡ TOKEN ECONOMY</div>
+    <div class="hud-title">TOKEN ECONOMY</div>
     <span class="hud-toggle" onclick="this.parentElement.classList.toggle('collapsed')">◀</span>
     <div class="hud-body">
       <div class="hud-section" id="hud-vram">
-        <div class="hud-label">🎮 VRAM Usage</div>
+        <div class="hud-label">VRAM Usage</div>
         <div id="hud-vram-content">—</div>
       </div>
       <div class="hud-section" id="hud-throughput">
-        <div class="hud-label">⚡ Throughput (60s)</div>
+        <div class="hud-label">Throughput (60s)</div>
         <div id="hud-throughput-content">—</div>
       </div>
       <div class="hud-section" id="hud-ratelimits">
-        <div class="hud-label">🚦 Rate Limits</div>
+        <div class="hud-label">Rate Limits</div>
         <div id="hud-ratelimits-content">—</div>
       </div>
       <div class="hud-section" id="hud-elo">
-        <div class="hud-label">🏆 ELO Rankings</div>
+        <div class="hud-label">ELO Rankings</div>
         <div id="hud-elo-content">—</div>
       </div>
       <div class="hud-section" id="hud-memory">
-        <div class="hud-label">🧠 Memory Store</div>
+        <div class="hud-label">Memory Store</div>
         <div id="hud-memory-content">—</div>
       </div>
       <div class="hud-section" id="hud-benchmark">
-        <div class="hud-label">🏟️ Benchmark Arena</div>
+        <div class="hud-label">Benchmark Arena</div>
         <div id="hud-benchmark-content">—</div>
       </div>
     </div>
@@ -2416,7 +2416,7 @@ fetch('/voices')
         .filter(([_, r]) => r.elo)
         .sort((a, b) => (b[1].elo || 1200) - (a[1].elo || 1200))
         .slice(0, 5)
-        .map(([k, r], i) => `${['🥇','🥈','🥉','4️⃣','5️⃣'][i]} ${(AGENTS[k]||{}).name||k}: <b>${r.elo}</b>`);
+        .map(([k, r], i) => `${['1.','2.','3.','4.','5.'][i]} ${(AGENTS[k]||{}).name||k}: <b>${r.elo}</b>`);
       document.getElementById('hud-elo-content').innerHTML = eloRanks.length ? eloRanks.join('<br>') : '<span style="color:#666">No battles yet</span>';
 
       // Memory
@@ -2445,7 +2445,7 @@ fetch('/voices')
         .sort((a, b) => b.rate - a.rate)
         .slice(0, 5);
       el.innerHTML = rows.map((r, i) =>
-        `<div class="gauge-row"><span class="gauge-name">${['🥇','🥈','🥉','4️⃣','5️⃣'][i]} ${r.name}</span>${gaugeBar(r.rate, '#f0f')}<span class="gauge-val">${r.rate}% (${r.passed}/${r.runs})</span></div>`
+        `<div class="gauge-row"><span class="gauge-name">${['1.','2.','3.','4.','5.'][i]} ${r.name}</span>${gaugeBar(r.rate, '#f0f')}<span class="gauge-val">${r.rate}% (${r.passed}/${r.runs})</span></div>`
       ).join('');
     }).catch(() => {
       document.getElementById('hud-benchmark-content').innerHTML = '<span style="color:#666">—</span>';
@@ -2460,7 +2460,7 @@ fetch('/voices')
   // Floating toggle button
   const btn = document.createElement('div');
   btn.id = 'mem-graph-btn';
-  btn.innerHTML = '🧠';
+  btn.innerHTML = '●';
   btn.title = 'Memory Constellation';
   btn.style.cssText = 'position:fixed;top:10px;right:10px;width:36px;height:36px;background:#0d0d1a;border:1px solid #333;border-radius:50%;display:flex;align-items:center;justify-content:center;cursor:pointer;z-index:10001;font-size:18px;box-shadow:0 0 10px rgba(0,255,255,0.2);';
   document.body.appendChild(btn);
@@ -2470,7 +2470,7 @@ fetch('/voices')
   panel.id = 'mem-graph-panel';
   panel.style.cssText = 'display:none;position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(5,5,15,0.95);z-index:10000;flex-direction:column;align-items:center;justify-content:center;';
   panel.innerHTML = `
-    <div style="color:#0ff;font-size:14px;font-family:monospace;margin-bottom:10px;letter-spacing:2px;">🧠 MEMORY CONSTELLATION</div>
+    <div style="color:#0ff;font-size:14px;font-family:monospace;margin-bottom:10px;letter-spacing:2px;">MEMORY CONSTELLATION</div>
     <canvas id="mem-canvas" width="800" height="600" style="border:1px solid #333;border-radius:8px;background:#08080f;"></canvas>
     <div id="mem-graph-info" style="color:#888;font-size:11px;margin-top:8px;font-family:monospace;">Loading...</div>
     <div id="mem-graph-tooltip" style="display:none;position:absolute;background:#1a1a2a;border:1px solid #0ff;border-radius:4px;padding:6px 10px;color:#ccc;font-size:10px;font-family:monospace;max-width:300px;pointer-events:none;z-index:10002;"></div>
@@ -2628,7 +2628,7 @@ fetch('/voices')
       .tl-tier-tournament { background:#6b2a2a; border:1px solid #f44; }
       .tl-tier-agent { background:#3a3a1a; border:1px solid #fa0; }
     </style>
-    <span class="tl-label">📡 Activity</span>
+    <span class="tl-label">Activity</span>
     <div class="tl-track" id="tl-track"></div>
   `;
   document.body.appendChild(timeline);
@@ -2650,7 +2650,7 @@ fetch('/voices')
   }
 
   function getIcon(tier) {
-    return { fast:'⚡', specialist:'🎯', reasoning:'🧠', cloud:'☁️', tournament:'⚔️', agent:'🤖' }[tier] || '•';
+    return { fast:'►', specialist:'◆', reasoning:'▲', cloud:'☁', tournament:'⚔', agent:'■' }[tier] || '•';
   }
 
   // Hook into SSE event processing
