@@ -35,6 +35,7 @@ import { recordOutcome, getThresholds, adaptiveLevel, getTierAccuracy, resetAdap
 import { extractGraph, getGraph, getGraphStats, queryGraph, loadGraph, saveGraph } from "../memory-engine/knowledge-graph.js";
 import { recordQuery, checkPrefetchCache, getPredictions, getPrefetchStats, getTransitionMatrix, resetPrefetch } from "../mcp-server/shared/speculative-prefetch.js";
 import { classifyError, startDebugSession, recordAttempt, getNextFixPrompt, getDebugStats, getDebugHistory, resetDebugLoop } from "../mcp-server/shared/debug-loop.js";
+import { indexFull as repoIndexFull, lookupSymbol, searchSymbols, analyzeImpact, getIndexStats as getRepoIndexStats, getDepGraphData } from "../memory-engine/repo-indexer.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -474,6 +475,47 @@ const server = createServer(async (req, res) => {
         res.end(JSON.stringify({ error: e.message }));
       }
     });
+    return;
+  }
+
+  // === Repo Index ===
+  if (url.pathname === "/repo-index/stats" && req.method === "GET") {
+    res.writeHead(200, { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" });
+    res.end(JSON.stringify(getRepoIndexStats()));
+    return;
+  }
+  if (url.pathname === "/repo-index/search" && req.method === "GET") {
+    const q = url.searchParams.get("q") || "";
+    res.writeHead(200, { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" });
+    res.end(JSON.stringify(searchSymbols(q)));
+    return;
+  }
+  if (url.pathname === "/repo-index/lookup" && req.method === "GET") {
+    const name = url.searchParams.get("name") || "";
+    res.writeHead(200, { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" });
+    res.end(JSON.stringify(lookupSymbol(name)));
+    return;
+  }
+  if (url.pathname === "/repo-index/impact" && req.method === "GET") {
+    const file = url.searchParams.get("file") || "";
+    res.writeHead(200, { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" });
+    res.end(JSON.stringify(analyzeImpact(file)));
+    return;
+  }
+  if (url.pathname === "/repo-index/graph" && req.method === "GET") {
+    res.writeHead(200, { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" });
+    res.end(JSON.stringify(getDepGraphData()));
+    return;
+  }
+  if (url.pathname === "/repo-index/run" && req.method === "POST") {
+    try {
+      await repoIndexFull(REPO_ROOT, { extensions: [".js"], ignore: ["node_modules", ".git", ".cline-context", "dist", "build"] });
+      res.writeHead(200, { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" });
+      res.end(JSON.stringify({ ok: true, stats: getRepoIndexStats() }));
+    } catch (e) {
+      res.writeHead(500, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ error: e.message }));
+    }
     return;
   }
 
