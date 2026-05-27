@@ -31,6 +31,7 @@ import { initRegistry, registerWorkspace, switchWorkspace, getActiveWorkspace, l
 import { scoreConfidence } from "../mcp-server/shared/confidence.js";
 import { validateDAG, executeDAG, getExecution, listExecutions } from "../mcp-server/shared/dag-engine.js";
 import { runPipeline } from "../mcp-server/shared/verification-pipeline.js";
+import { recordOutcome, getThresholds, adaptiveLevel, getTierAccuracy, resetAdaptive } from "../mcp-server/shared/adaptive-thresholds.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -273,6 +274,12 @@ const server = createServer(async (req, res) => {
     res.end(html);
     return;
   }
+  if (url.pathname === "/adaptive-thresholds" || url.pathname === "/adaptive-thresholds/") {
+    const html = await readFile(resolve(__dirname, "adaptive-thresholds.html"), "utf-8");
+    res.writeHead(200, { "Content-Type": "text/html" });
+    res.end(html);
+    return;
+  }
   if (url.pathname === "/memory/vectors" && req.method === "GET") {
     try {
       const raw = JSON.parse(await readFile(VECTOR_STORE_PATH, "utf-8"));
@@ -333,6 +340,40 @@ const server = createServer(async (req, res) => {
       res.writeHead(200, { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" });
       res.end(JSON.stringify({}));
     }
+    return;
+  }
+
+  // === Adaptive Thresholds ===
+  if (url.pathname === "/thresholds" && req.method === "GET") {
+    res.writeHead(200, { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" });
+    res.end(JSON.stringify({ thresholds: getThresholds(), tierAccuracy: getTierAccuracy() }));
+    return;
+  }
+  if (url.pathname === "/thresholds/record" && req.method === "POST") {
+    let body = "";
+    req.on("data", c => body += c);
+    req.on("end", () => {
+      try {
+        const { score, accepted, tier } = JSON.parse(body);
+        if (typeof score !== "number" || typeof accepted !== "boolean") {
+          res.writeHead(400, { "Content-Type": "application/json" });
+          res.end(JSON.stringify({ error: "Need { score: number, accepted: boolean, tier?: string }" }));
+          return;
+        }
+        recordOutcome(score, accepted, tier || "unknown");
+        res.writeHead(200, { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" });
+        res.end(JSON.stringify({ ok: true, thresholds: getThresholds() }));
+      } catch (e) {
+        res.writeHead(400, { "Content-Type": "application/json" });
+        res.end(JSON.stringify({ error: e.message }));
+      }
+    });
+    return;
+  }
+  if (url.pathname === "/thresholds/level" && req.method === "GET") {
+    const score = parseFloat(url.searchParams.get("score") || "0");
+    res.writeHead(200, { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" });
+    res.end(JSON.stringify({ score, level: adaptiveLevel(score) }));
     return;
   }
 

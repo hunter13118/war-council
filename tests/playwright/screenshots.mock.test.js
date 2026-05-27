@@ -334,3 +334,30 @@ test('Memory Archive — vector space visualization', async ({ page }) => {
   await page.waitForTimeout(500);
   await page.screenshot({ path: resolve(SCREENSHOTS, '24-memory-archive-search.png') });
 });
+
+test('Adaptive Thresholds — self-calibrating confidence', async ({ page }) => {
+  // Mock the thresholds endpoint with rich demo data
+  await page.route('**/thresholds', async (route) => {
+    await route.fulfill({ status: 200, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({
+      thresholds: { high: 0.76, medium: 0.54, low: 0.35, adapted: true, samples: 60, adaptationCount: 12 },
+      tierAccuracy: {
+        fast: { total: 15, accepted: 8, rate: 0.53 },
+        specialist: { total: 18, accepted: 14, rate: 0.78 },
+        reasoning: { total: 10, accepted: 9, rate: 0.9 },
+        groq: { total: 9, accepted: 6, rate: 0.67 },
+        gemini: { total: 8, accepted: 6, rate: 0.75 }
+      }
+    }) });
+  });
+
+  await page.goto('http://localhost:3737/adaptive-thresholds', { waitUntil: 'domcontentloaded' });
+  await page.waitForTimeout(1500);
+
+  // Screenshot 25: Full adaptive thresholds dashboard
+  await page.screenshot({ path: resolve(SCREENSHOTS, '25-adaptive-thresholds-overview.png') });
+
+  // Screenshot 26: Scroll to see threshold evolution chart
+  await page.evaluate(() => window.scrollTo(0, 400));
+  await page.waitForTimeout(500);
+  await page.screenshot({ path: resolve(SCREENSHOTS, '26-adaptive-thresholds-chart.png') });
+});

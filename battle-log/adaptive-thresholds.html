@@ -1,0 +1,405 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>War Council — Adaptive Thresholds</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      background: #0a0e1a;
+      color: #e0e0e0;
+      font-family: 'JetBrains Mono', 'Fira Code', monospace;
+      min-height: 100vh;
+      padding: 20px;
+    }
+    h1 {
+      text-align: center;
+      font-size: 1.8rem;
+      margin-bottom: 8px;
+      background: linear-gradient(90deg, #ff6b6b, #ffd93d, #6bcf7f);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+    .subtitle {
+      text-align: center;
+      color: #666;
+      font-size: 0.85rem;
+      margin-bottom: 24px;
+    }
+    .grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 20px;
+      max-width: 1200px;
+      margin: 0 auto;
+    }
+    .panel {
+      background: #12182b;
+      border: 1px solid #1e2a4a;
+      border-radius: 12px;
+      padding: 20px;
+    }
+    .panel h2 {
+      font-size: 1rem;
+      color: #7aa2f7;
+      margin-bottom: 16px;
+    }
+    .full-width { grid-column: 1 / -1; }
+
+    /* Threshold gauge */
+    .gauge-container {
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+    }
+    .gauge {
+      position: relative;
+      height: 48px;
+      border-radius: 6px;
+      overflow: hidden;
+    }
+    .gauge-bg {
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(90deg,
+        #ff4757 0%,
+        #ff6b6b 25%,
+        #ffd93d 50%,
+        #6bcf7f 75%,
+        #2ed573 100%
+      );
+      opacity: 0.15;
+      border-radius: 6px;
+    }
+    .gauge-marker {
+      position: absolute;
+      top: 0;
+      bottom: 0;
+      width: 3px;
+      background: #fff;
+      border-radius: 2px;
+      transition: left 0.6s ease;
+      box-shadow: 0 0 8px rgba(255,255,255,0.5);
+    }
+    .gauge-label {
+      position: absolute;
+      top: -18px;
+      font-size: 0.7rem;
+      color: #888;
+      transform: translateX(-50%);
+    }
+    .gauge-value {
+      position: absolute;
+      bottom: -20px;
+      font-size: 0.75rem;
+      color: #fff;
+      transform: translateX(-50%);
+      font-weight: bold;
+    }
+    .gauge-zone {
+      position: absolute;
+      top: 4px;
+      bottom: 4px;
+      border-radius: 4px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 0.65rem;
+      font-weight: bold;
+      text-transform: uppercase;
+    }
+    .zone-uncertain { background: rgba(255,71,87,0.3); color: #ff4757; }
+    .zone-low { background: rgba(255,165,2,0.3); color: #ffa502; }
+    .zone-medium { background: rgba(255,217,61,0.3); color: #ffd93d; }
+    .zone-high { background: rgba(46,213,115,0.3); color: #2ed573; }
+
+    /* Tier accuracy table */
+    .tier-table {
+      width: 100%;
+      border-collapse: collapse;
+    }
+    .tier-table th, .tier-table td {
+      padding: 8px 12px;
+      text-align: left;
+      border-bottom: 1px solid #1e2a4a;
+    }
+    .tier-table th {
+      color: #7aa2f7;
+      font-size: 0.75rem;
+      text-transform: uppercase;
+    }
+    .tier-table td { font-size: 0.85rem; }
+    .accuracy-bar {
+      height: 6px;
+      border-radius: 3px;
+      background: #1e2a4a;
+      overflow: hidden;
+    }
+    .accuracy-bar-fill {
+      height: 100%;
+      border-radius: 3px;
+      transition: width 0.5s ease;
+    }
+
+    /* Stats grid */
+    .stats {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 12px;
+    }
+    .stat-card {
+      background: #0a0e1a;
+      border: 1px solid #1e2a4a;
+      border-radius: 8px;
+      padding: 14px;
+      text-align: center;
+    }
+    .stat-card .value {
+      font-size: 1.6rem;
+      font-weight: bold;
+      color: #7aa2f7;
+    }
+    .stat-card .label {
+      font-size: 0.7rem;
+      color: #666;
+      margin-top: 4px;
+      text-transform: uppercase;
+    }
+
+    /* History chart (canvas) */
+    canvas#history-chart {
+      width: 100%;
+      height: 200px;
+      border-radius: 8px;
+      background: #0a0e1a;
+    }
+
+    /* Adaptation log */
+    .log {
+      max-height: 150px;
+      overflow-y: auto;
+      font-size: 0.75rem;
+      line-height: 1.6;
+      color: #888;
+    }
+    .log .entry {
+      padding: 2px 0;
+      border-bottom: 1px solid #0a0e1a;
+    }
+    .log .accepted { color: #2ed573; }
+    .log .rejected { color: #ff4757; }
+  </style>
+</head>
+<body>
+  <h1>🎛️ Adaptive Threshold Tuning</h1>
+  <p class="subtitle">Self-calibrating confidence boundaries — learns from every interaction</p>
+
+  <div class="grid">
+    <!-- Threshold Visualizer -->
+    <div class="panel full-width">
+      <h2>📊 Confidence Spectrum</h2>
+      <div id="spectrum" style="position: relative; height: 80px; margin: 30px 0;"></div>
+    </div>
+
+    <!-- Stats -->
+    <div class="panel">
+      <h2>⚙️ Current Thresholds</h2>
+      <div class="stats" id="stats"></div>
+    </div>
+
+    <!-- Tier Accuracy -->
+    <div class="panel">
+      <h2>🎯 Tier Accuracy</h2>
+      <table class="tier-table" id="tier-table">
+        <thead><tr><th>Tier</th><th>Total</th><th>Accepted</th><th>Rate</th><th></th></tr></thead>
+        <tbody></tbody>
+      </table>
+    </div>
+
+    <!-- History Chart -->
+    <div class="panel full-width">
+      <h2>📈 Threshold Evolution</h2>
+      <canvas id="history-chart"></canvas>
+    </div>
+
+    <!-- Action Log -->
+    <div class="panel full-width">
+      <h2>📝 Recent Outcomes</h2>
+      <div class="log" id="log"></div>
+    </div>
+  </div>
+
+  <script>
+    let thresholdHistory = [];
+    let outcomes = [];
+
+    async function fetchData() {
+      try {
+        const res = await fetch('/thresholds');
+        return await res.json();
+      } catch {
+        return getDemoData();
+      }
+    }
+
+    function getDemoData() {
+      // Generate realistic demo data
+      const tiers = ['fast', 'specialist', 'reasoning', 'groq', 'gemini'];
+      const demoOutcomes = [];
+      for (let i = 0; i < 60; i++) {
+        const tier = tiers[Math.floor(Math.random() * tiers.length)];
+        const score = 0.3 + Math.random() * 0.6;
+        const accepted = score > 0.55 ? Math.random() > 0.2 : Math.random() > 0.7;
+        demoOutcomes.push({ score, accepted, tier, timestamp: Date.now() - (60 - i) * 60000 });
+      }
+      outcomes = demoOutcomes;
+
+      // Simulate adapted thresholds
+      return {
+        thresholds: { high: 0.76, medium: 0.54, low: 0.35, adapted: true, samples: 60, adaptationCount: 12 },
+        tierAccuracy: {
+          fast: { total: 15, accepted: 8, rate: 0.53 },
+          specialist: { total: 18, accepted: 14, rate: 0.78 },
+          reasoning: { total: 10, accepted: 9, rate: 0.9 },
+          groq: { total: 9, accepted: 6, rate: 0.67 },
+          gemini: { total: 8, accepted: 6, rate: 0.75 }
+        }
+      };
+    }
+
+    function renderSpectrum(thresholds) {
+      const container = document.getElementById('spectrum');
+      const { high, medium, low } = thresholds;
+
+      // Create zone bars
+      container.innerHTML = `
+        <div style="position: relative; height: 50px; margin: 0 20px; border-radius: 8px; overflow: visible;">
+          <div style="position: absolute; inset: 0; border-radius: 8px; background: linear-gradient(90deg, #1a0a0a, #1a1a0a, #0a1a0a); border: 1px solid #1e2a4a;"></div>
+          <div class="gauge-zone zone-uncertain" style="left: 0; width: ${low * 100}%;">uncertain</div>
+          <div class="gauge-zone zone-low" style="left: ${low * 100}%; width: ${(medium - low) * 100}%;">low</div>
+          <div class="gauge-zone zone-medium" style="left: ${medium * 100}%; width: ${(high - medium) * 100}%;">medium</div>
+          <div class="gauge-zone zone-high" style="left: ${high * 100}%; width: ${(1 - high) * 100}%;">high</div>
+          <div class="gauge-marker" style="left: ${low * 100}%;"><span class="gauge-value" style="left:0">${low}</span></div>
+          <div class="gauge-marker" style="left: ${medium * 100}%;"><span class="gauge-value" style="left:0">${medium}</span></div>
+          <div class="gauge-marker" style="left: ${high * 100}%;"><span class="gauge-value" style="left:0">${high}</span></div>
+        </div>
+        <div style="display: flex; justify-content: space-between; margin: 8px 20px 0; font-size: 0.7rem; color: #555;">
+          <span>0.0</span><span>0.25</span><span>0.5</span><span>0.75</span><span>1.0</span>
+        </div>
+      `;
+    }
+
+    function renderStats(thresholds) {
+      document.getElementById('stats').innerHTML = `
+        <div class="stat-card"><div class="value">${thresholds.high}</div><div class="label">High Threshold</div></div>
+        <div class="stat-card"><div class="value">${thresholds.medium}</div><div class="label">Medium Threshold</div></div>
+        <div class="stat-card"><div class="value">${thresholds.low}</div><div class="label">Low Threshold</div></div>
+        <div class="stat-card"><div class="value">${thresholds.samples}</div><div class="label">Samples</div></div>
+        <div class="stat-card"><div class="value">${thresholds.adaptationCount}</div><div class="label">Adaptations</div></div>
+        <div class="stat-card"><div class="value">${thresholds.adapted ? '✅' : '⏳'}</div><div class="label">Status</div></div>
+      `;
+    }
+
+    function renderTierTable(tierAccuracy) {
+      const tbody = document.querySelector('#tier-table tbody');
+      const colors = { fast: '#ff6b6b', specialist: '#7aa2f7', reasoning: '#bb9af7', groq: '#ffd93d', gemini: '#6bcf7f' };
+      tbody.innerHTML = Object.entries(tierAccuracy).map(([tier, data]) => `
+        <tr>
+          <td style="color: ${colors[tier] || '#e0e0e0'}">${tier}</td>
+          <td>${data.total}</td>
+          <td>${data.accepted}</td>
+          <td>${(data.rate * 100).toFixed(0)}%</td>
+          <td style="width: 80px;">
+            <div class="accuracy-bar">
+              <div class="accuracy-bar-fill" style="width: ${data.rate * 100}%; background: ${colors[tier] || '#7aa2f7'}"></div>
+            </div>
+          </td>
+        </tr>
+      `).join('');
+    }
+
+    function renderChart(thresholds) {
+      const canvas = document.getElementById('history-chart');
+      const ctx = canvas.getContext('2d');
+      canvas.width = canvas.offsetWidth * 2;
+      canvas.height = 400;
+      ctx.scale(2, 2);
+      const W = canvas.offsetWidth;
+      const H = 200;
+
+      ctx.clearRect(0, 0, W, H);
+
+      // Generate threshold history (simulated evolution)
+      const steps = 20;
+      const histH = [], histM = [], histL = [];
+      let h = 0.8, m = 0.6, l = 0.4;
+      for (let i = 0; i < steps; i++) {
+        h += (thresholds.high - h) * 0.2 + (Math.random() - 0.5) * 0.02;
+        m += (thresholds.medium - m) * 0.2 + (Math.random() - 0.5) * 0.02;
+        l += (thresholds.low - l) * 0.2 + (Math.random() - 0.5) * 0.02;
+        histH.push(Math.min(0.95, Math.max(0.5, h)));
+        histM.push(Math.min(h - 0.05, Math.max(0.3, m)));
+        histL.push(Math.min(m - 0.05, Math.max(0.15, l)));
+      }
+
+      // Draw grid
+      ctx.strokeStyle = '#1e2a4a';
+      ctx.lineWidth = 0.5;
+      for (let y = 0; y <= 1; y += 0.25) {
+        const py = H - y * H * 0.85 - 15;
+        ctx.beginPath(); ctx.moveTo(40, py); ctx.lineTo(W - 10, py); ctx.stroke();
+        ctx.fillStyle = '#555'; ctx.font = '10px monospace';
+        ctx.fillText(y.toFixed(2), 5, py + 4);
+      }
+
+      function drawLine(data, color) {
+        ctx.strokeStyle = color;
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        const xStep = (W - 50) / (steps - 1);
+        data.forEach((val, i) => {
+          const x = 40 + i * xStep;
+          const y = H - val * H * 0.85 - 15;
+          i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
+        });
+        ctx.stroke();
+      }
+
+      drawLine(histH, '#2ed573');
+      drawLine(histM, '#ffd93d');
+      drawLine(histL, '#ff4757');
+
+      // Legend
+      ctx.font = '11px monospace';
+      ctx.fillStyle = '#2ed573'; ctx.fillText('● High', W - 160, 15);
+      ctx.fillStyle = '#ffd93d'; ctx.fillText('● Medium', W - 110, 15);
+      ctx.fillStyle = '#ff4757'; ctx.fillText('● Low', W - 55, 15);
+    }
+
+    function renderLog() {
+      const log = document.getElementById('log');
+      const recent = outcomes.slice(-30).reverse();
+      log.innerHTML = recent.map(o => `
+        <div class="entry">
+          <span class="${o.accepted ? 'accepted' : 'rejected'}">${o.accepted ? '✓' : '✗'}</span>
+          score=${o.score.toFixed(3)} tier=${o.tier}
+          <span style="color:#444">${new Date(o.timestamp).toLocaleTimeString()}</span>
+        </div>
+      `).join('');
+    }
+
+    async function refresh() {
+      const data = await fetchData();
+      renderSpectrum(data.thresholds);
+      renderStats(data.thresholds);
+      renderTierTable(data.tierAccuracy);
+      renderChart(data.thresholds);
+      renderLog();
+      thresholdHistory.push({ ...data.thresholds, t: Date.now() });
+    }
+
+    refresh();
+    setInterval(refresh, 5000);
+  </script>
+</body>
+</html>
