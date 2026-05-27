@@ -258,6 +258,14 @@ const server = createServer(async (req, res) => {
     return;
   }
 
+  // === DAG Theater ===
+  if (url.pathname === "/dag-theater" || url.pathname === "/dag-theater/") {
+    const html = await readFile(resolve(__dirname, "dag-theater.html"), "utf-8");
+    res.writeHead(200, { "Content-Type": "text/html" });
+    res.end(html);
+    return;
+  }
+
   // === Health check — reports system readiness ===
   if (url.pathname === "/health" && req.method === "GET") {
     const ollamaBase = process.env.OLLAMA_BASE || "http://127.0.0.1:11434";

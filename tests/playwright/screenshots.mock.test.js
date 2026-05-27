@@ -294,3 +294,25 @@ test('Metrics HUD dashboard', async ({ page }) => {
   await page.waitForTimeout(500);
   await page.screenshot({ path: resolve(SCREENSHOTS, '18-metrics-hud-events.png') });
 });
+
+test('DAG Theater — visual pipeline renderer', async ({ page }) => {
+  await page.goto('http://localhost:3737/dag-theater', { waitUntil: 'domcontentloaded' });
+  await page.waitForTimeout(800);
+
+  // Screenshot 19: Demo DAG (Code Refactor) in pending state
+  await page.screenshot({ path: resolve(SCREENSHOTS, '19-dag-theater-refactor.png') });
+
+  // Load Complex Pipeline (Multi-Model Tournament)
+  await page.click('#btn-complex');
+  await page.waitForTimeout(500);
+  await page.screenshot({ path: resolve(SCREENSHOTS, '20-dag-theater-tournament.png') });
+
+  // Run animation and capture mid-execution
+  await page.click('#btn-run');
+  await page.waitForTimeout(4000); // ~6 nodes through animation
+  await page.screenshot({ path: resolve(SCREENSHOTS, '21-dag-theater-running.png') });
+
+  // Wait for completion
+  await page.waitForTimeout(8000);
+  await page.screenshot({ path: resolve(SCREENSHOTS, '22-dag-theater-completed.png') });
+});

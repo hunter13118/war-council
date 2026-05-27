@@ -1,0 +1,482 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>War Council — DAG Theater</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{
+  --bg:#0a0a0f;--surface:#12121a;--border:#1e1e2e;
+  --text:#e0e0e0;--dim:#8888aa;--accent:#a855f7;
+  --green:#10b981;--yellow:#f59e0b;--red:#ef4444;--blue:#3b82f6;
+  --cyan:#06b6d4;--pink:#ec4899;
+}
+body{background:var(--bg);color:var(--text);font-family:'JetBrains Mono','Fira Code',monospace;min-height:100vh;overflow:hidden}
+header{padding:1rem 2rem;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:1rem;background:rgba(10,10,15,0.95);position:relative;z-index:10}
+header h1{font-size:1.1rem;background:linear-gradient(135deg,var(--accent),var(--cyan));-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+header .controls{margin-left:auto;display:flex;gap:0.75rem;align-items:center}
+.btn{padding:6px 14px;border-radius:6px;border:1px solid var(--border);background:var(--surface);color:var(--text);font-size:0.75rem;cursor:pointer;transition:all 0.2s}
+.btn:hover{border-color:var(--accent);box-shadow:0 0 10px rgba(168,85,247,0.2)}
+.btn.active{border-color:var(--accent);background:rgba(168,85,247,0.1)}
+
+/* Canvas area */
+.theater{flex:1;position:relative;overflow:hidden;height:calc(100vh - 56px);display:flex}
+.dag-canvas{flex:1;display:flex;align-items:center;justify-content:center}
+svg{width:100%;height:100%}
+
+/* Node styles */
+.dag-node{cursor:pointer;transition:transform 0.3s}
+.dag-node:hover{transform:scale(1.05)}
+.node-body{rx:8;ry:8;stroke-width:2;transition:all 0.4s}
+.node-body.pending{fill:#1a1a2e;stroke:var(--border)}
+.node-body.running{fill:#1a1a3e;stroke:var(--blue);filter:drop-shadow(0 0 8px rgba(59,130,246,0.5));animation:pulse-node 1.5s infinite}
+.node-body.completed{fill:#0a2a1a;stroke:var(--green);filter:drop-shadow(0 0 6px rgba(16,185,129,0.4))}
+.node-body.failed{fill:#2a0a0a;stroke:var(--red);filter:drop-shadow(0 0 6px rgba(239,68,68,0.4))}
+.node-body.skipped{fill:#1a1a1a;stroke:var(--dim);opacity:0.5}
+.node-label{fill:var(--text);font-size:12px;text-anchor:middle;dominant-baseline:middle;font-family:inherit}
+.node-type-badge{font-size:9px;fill:var(--dim);text-anchor:middle}
+.node-icon{font-size:14px;text-anchor:middle}
+
+/* Edge styles */
+.dag-edge{fill:none;stroke-width:2;transition:stroke 0.4s,opacity 0.4s}
+.dag-edge.pending{stroke:var(--border);opacity:0.4}
+.dag-edge.active{stroke:var(--blue);opacity:1;stroke-dasharray:8 4;animation:flow 1s linear infinite}
+.dag-edge.completed{stroke:var(--green);opacity:0.7}
+.dag-edge.failed{stroke:var(--red);opacity:0.5}
+.dag-edge.skipped{stroke:var(--dim);opacity:0.2;stroke-dasharray:4 8}
+
+/* Edge arrow markers */
+marker path{transition:fill 0.4s}
+
+@keyframes pulse-node{0%,100%{opacity:1}50%{opacity:0.7}}
+@keyframes flow{0%{stroke-dashoffset:0}100%{stroke-dashoffset:-12}}
+
+/* Side panel */
+.side-panel{width:300px;background:var(--surface);border-left:1px solid var(--border);padding:1.25rem;overflow-y:auto;display:flex;flex-direction:column;gap:1rem}
+.panel-section h3{font-size:0.8rem;text-transform:uppercase;letter-spacing:0.06em;color:var(--dim);margin-bottom:0.5rem}
+.panel-row{display:flex;justify-content:space-between;padding:0.3rem 0;font-size:0.78rem}
+.panel-row .label{color:var(--dim)}
+.panel-row .value{font-weight:600}
+
+/* Status badges */
+.status-badge{display:inline-block;padding:2px 8px;border-radius:4px;font-size:0.7rem;font-weight:700;text-transform:uppercase}
+.status-badge.completed{background:rgba(16,185,129,0.15);color:var(--green)}
+.status-badge.running{background:rgba(59,130,246,0.15);color:var(--blue)}
+.status-badge.failed{background:rgba(239,68,68,0.15);color:var(--red)}
+.status-badge.pending{background:rgba(136,136,170,0.15);color:var(--dim)}
+
+/* Legend */
+.legend{display:flex;gap:1rem;flex-wrap:wrap;padding:0.5rem 0}
+.legend-item{display:flex;align-items:center;gap:0.4rem;font-size:0.7rem;color:var(--dim)}
+.legend-dot{width:10px;height:10px;border-radius:50%}
+
+/* Timeline */
+.timeline{display:flex;flex-direction:column;gap:0.25rem}
+.timeline-event{font-size:0.72rem;padding:0.25rem 0.5rem;border-left:2px solid var(--border);padding-left:0.75rem}
+.timeline-event.active{border-color:var(--blue)}
+.timeline-event.done{border-color:var(--green)}
+.timeline-event.error{border-color:var(--red)}
+.timeline-time{color:var(--dim);margin-right:0.5rem}
+
+/* Responsive */
+@media(max-width:900px){.side-panel{display:none}}
+</style>
+</head>
+<body>
+<header>
+  <h1>🎭 DAG THEATER</h1>
+  <div class="controls">
+    <button class="btn" id="btn-demo" onclick="loadDemo()">Demo DAG</button>
+    <button class="btn" id="btn-complex" onclick="loadComplex()">Complex Pipeline</button>
+    <button class="btn" id="btn-run" onclick="runAnimation()">▶ Animate</button>
+    <button class="btn" id="btn-reset" onclick="resetDAG()">↺ Reset</button>
+  </div>
+</header>
+
+<div class="theater">
+  <div class="dag-canvas">
+    <svg id="dag-svg" xmlns="http://www.w3.org/2000/svg">
+      <defs>
+        <marker id="arrow-pending" viewBox="0 0 10 10" refX="10" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+          <path d="M 0 0 L 10 5 L 0 10 z" fill="#1e1e2e"/>
+        </marker>
+        <marker id="arrow-active" viewBox="0 0 10 10" refX="10" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+          <path d="M 0 0 L 10 5 L 0 10 z" fill="#3b82f6"/>
+        </marker>
+        <marker id="arrow-completed" viewBox="0 0 10 10" refX="10" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+          <path d="M 0 0 L 10 5 L 0 10 z" fill="#10b981"/>
+        </marker>
+        <marker id="arrow-failed" viewBox="0 0 10 10" refX="10" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+          <path d="M 0 0 L 10 5 L 0 10 z" fill="#ef4444"/>
+        </marker>
+      </defs>
+      <g id="edges-layer"></g>
+      <g id="nodes-layer"></g>
+    </svg>
+  </div>
+
+  <div class="side-panel">
+    <div class="panel-section">
+      <h3>Execution Status</h3>
+      <div class="panel-row"><span class="label">DAG</span><span class="value" id="p-name">—</span></div>
+      <div class="panel-row"><span class="label">Status</span><span id="p-status"><span class="status-badge pending">idle</span></span></div>
+      <div class="panel-row"><span class="label">Nodes</span><span class="value" id="p-nodes">—</span></div>
+      <div class="panel-row"><span class="label">Elapsed</span><span class="value" id="p-elapsed">—</span></div>
+    </div>
+
+    <div class="panel-section">
+      <h3>Legend</h3>
+      <div class="legend">
+        <div class="legend-item"><div class="legend-dot" style="background:var(--dim)"></div>Pending</div>
+        <div class="legend-item"><div class="legend-dot" style="background:var(--blue)"></div>Running</div>
+        <div class="legend-item"><div class="legend-dot" style="background:var(--green)"></div>Completed</div>
+        <div class="legend-item"><div class="legend-dot" style="background:var(--red)"></div>Failed</div>
+        <div class="legend-item"><div class="legend-dot" style="background:var(--yellow)"></div>Gate</div>
+        <div class="legend-item"><div class="legend-dot" style="background:var(--cyan)"></div>Merge</div>
+      </div>
+    </div>
+
+    <div class="panel-section">
+      <h3>Timeline</h3>
+      <div class="timeline" id="timeline"></div>
+    </div>
+
+    <div class="panel-section">
+      <h3>Selected Node</h3>
+      <div id="node-detail">
+        <div class="panel-row"><span class="label">Click a node to inspect</span></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+const SVG_NS = "http://www.w3.org/2000/svg";
+const $ = id => document.getElementById(id);
+const edgesLayer = $('edges-layer');
+const nodesLayer = $('nodes-layer');
+
+let currentDAG = null;
+let nodeStates = {};
+let animationTimer = null;
+let startTime = null;
+
+// --- DAG Definitions ---
+const DEMO_DAG = {
+  name: "Code Refactor Pipeline",
+  nodes: [
+    { id: "analyze", label: "Analyze\nComplexity", type: "task", tier: "fast", x: 150, y: 200 },
+    { id: "gate", label: "Complexity\nGate", type: "gate", tier: null, x: 350, y: 200 },
+    { id: "simple-fix", label: "Quick Fix\n(7B)", type: "task", tier: "fast", x: 550, y: 100 },
+    { id: "deep-refactor", label: "Deep Refactor\n(14B)", type: "task", tier: "specialist", x: 550, y: 300 },
+    { id: "gen-tests", label: "Generate\nTests", type: "task", tier: "specialist", x: 750, y: 200 },
+    { id: "verify", label: "Verify &\nCommit", type: "task", tier: "fast", x: 950, y: 200 },
+  ],
+  edges: [
+    { from: "analyze", to: "gate" },
+    { from: "gate", to: "simple-fix", label: "low" },
+    { from: "gate", to: "deep-refactor", label: "high" },
+    { from: "simple-fix", to: "gen-tests" },
+    { from: "deep-refactor", to: "gen-tests" },
+    { from: "gen-tests", to: "verify" },
+  ]
+};
+
+const COMPLEX_DAG = {
+  name: "Multi-Model Tournament",
+  nodes: [
+    { id: "input", label: "Parse\nRequest", type: "task", tier: "fast", x: 100, y: 250 },
+    { id: "context", label: "RAG\nRetrieval", type: "task", tier: "fast", x: 280, y: 150 },
+    { id: "history", label: "Load\nHistory", type: "task", tier: "fast", x: 280, y: 350 },
+    { id: "merge-ctx", label: "Merge\nContext", type: "merge", tier: null, x: 460, y: 250 },
+    { id: "fast-gen", label: "Fast Gen\n(7B)", type: "task", tier: "fast", x: 660, y: 100 },
+    { id: "spec-gen", label: "Specialist\n(14B)", type: "task", tier: "specialist", x: 660, y: 250 },
+    { id: "cloud-gen", label: "Cloud Gen\n(Groq)", type: "task", tier: "groq", x: 660, y: 400 },
+    { id: "judge", label: "Judge\n(Reasoning)", type: "task", tier: "reasoning", x: 880, y: 250 },
+    { id: "confidence", label: "Score\nConfidence", type: "task", tier: "fast", x: 1060, y: 250 },
+    { id: "gate-quality", label: "Quality\nGate", type: "gate", tier: null, x: 1220, y: 250 },
+    { id: "deliver", label: "Deliver\nResponse", type: "task", tier: "fast", x: 1400, y: 150 },
+    { id: "escalate", label: "Escalate\nto Human", type: "task", tier: null, x: 1400, y: 350 },
+  ],
+  edges: [
+    { from: "input", to: "context" },
+    { from: "input", to: "history" },
+    { from: "context", to: "merge-ctx" },
+    { from: "history", to: "merge-ctx" },
+    { from: "merge-ctx", to: "fast-gen" },
+    { from: "merge-ctx", to: "spec-gen" },
+    { from: "merge-ctx", to: "cloud-gen" },
+    { from: "fast-gen", to: "judge" },
+    { from: "spec-gen", to: "judge" },
+    { from: "cloud-gen", to: "judge" },
+    { from: "judge", to: "confidence" },
+    { from: "confidence", to: "gate-quality" },
+    { from: "gate-quality", to: "deliver", label: "pass" },
+    { from: "gate-quality", to: "escalate", label: "fail" },
+  ]
+};
+
+// --- Rendering ---
+function renderDAG(dag) {
+  currentDAG = dag;
+  nodeStates = {};
+  dag.nodes.forEach(n => nodeStates[n.id] = 'pending');
+  edgesLayer.innerHTML = '';
+  nodesLayer.innerHTML = '';
+
+  // Set viewBox based on node positions
+  const maxX = Math.max(...dag.nodes.map(n => n.x)) + 200;
+  const maxY = Math.max(...dag.nodes.map(n => n.y)) + 100;
+  $('dag-svg').setAttribute('viewBox', `0 0 ${maxX} ${Math.max(maxY, 500)}`);
+
+  // Render edges
+  dag.edges.forEach(edge => {
+    const fromNode = dag.nodes.find(n => n.id === edge.from);
+    const toNode = dag.nodes.find(n => n.id === edge.to);
+    if (!fromNode || !toNode) return;
+
+    const path = document.createElementNS(SVG_NS, 'path');
+    const d = calcEdgePath(fromNode, toNode);
+    path.setAttribute('d', d);
+    path.setAttribute('class', 'dag-edge pending');
+    path.setAttribute('data-from', edge.from);
+    path.setAttribute('data-to', edge.to);
+    path.setAttribute('marker-end', 'url(#arrow-pending)');
+    edgesLayer.appendChild(path);
+
+    // Edge label
+    if (edge.label) {
+      const midX = (fromNode.x + toNode.x) / 2;
+      const midY = (fromNode.y + toNode.y) / 2 - 12;
+      const text = document.createElementNS(SVG_NS, 'text');
+      text.setAttribute('x', midX);
+      text.setAttribute('y', midY);
+      text.setAttribute('text-anchor', 'middle');
+      text.setAttribute('fill', '#8888aa');
+      text.setAttribute('font-size', '10');
+      text.setAttribute('font-family', 'inherit');
+      text.textContent = edge.label;
+      edgesLayer.appendChild(text);
+    }
+  });
+
+  // Render nodes
+  dag.nodes.forEach(node => {
+    const g = document.createElementNS(SVG_NS, 'g');
+    g.setAttribute('class', 'dag-node');
+    g.setAttribute('data-id', node.id);
+    g.setAttribute('transform', `translate(${node.x - 60}, ${node.y - 30})`);
+    g.onclick = () => selectNode(node);
+
+    const w = 120, h = 60;
+    const rect = document.createElementNS(SVG_NS, 'rect');
+    rect.setAttribute('width', w);
+    rect.setAttribute('height', h);
+    rect.setAttribute('class', 'node-body pending');
+    rect.setAttribute('data-id', node.id);
+
+    // Different shapes for different types
+    if (node.type === 'gate') {
+      rect.setAttribute('rx', '30');
+      rect.setAttribute('ry', '30');
+    } else if (node.type === 'merge') {
+      rect.setAttribute('rx', '4');
+      rect.setAttribute('ry', '4');
+    }
+
+    g.appendChild(rect);
+
+    // Icon
+    const icon = document.createElementNS(SVG_NS, 'text');
+    icon.setAttribute('x', w/2);
+    icon.setAttribute('y', 18);
+    icon.setAttribute('class', 'node-icon');
+    icon.textContent = node.type === 'gate' ? '⚡' : node.type === 'merge' ? '🔀' : node.tier === 'fast' ? '⚡' : node.tier === 'specialist' ? '🧠' : node.tier === 'reasoning' ? '🤔' : node.tier === 'groq' ? '☁️' : '📋';
+    g.appendChild(icon);
+
+    // Label (multiline)
+    const lines = node.label.split('\n');
+    lines.forEach((line, i) => {
+      const text = document.createElementNS(SVG_NS, 'text');
+      text.setAttribute('x', w/2);
+      text.setAttribute('y', 32 + i * 14);
+      text.setAttribute('class', 'node-label');
+      text.setAttribute('font-size', '11');
+      text.textContent = line;
+      g.appendChild(text);
+    });
+
+    // Type badge
+    const badge = document.createElementNS(SVG_NS, 'text');
+    badge.setAttribute('x', w/2);
+    badge.setAttribute('y', h + 12);
+    badge.setAttribute('class', 'node-type-badge');
+    badge.textContent = node.tier || node.type;
+    g.appendChild(badge);
+
+    nodesLayer.appendChild(g);
+  });
+
+  updatePanel();
+}
+
+function calcEdgePath(from, to) {
+  const dx = to.x - from.x;
+  const dy = to.y - from.y;
+  // Bezier curve
+  const cx1 = from.x + dx * 0.4;
+  const cy1 = from.y;
+  const cx2 = to.x - dx * 0.4;
+  const cy2 = to.y;
+  return `M ${from.x + 60} ${from.y} C ${cx1} ${cy1}, ${cx2} ${cy2}, ${to.x - 60} ${to.y}`;
+}
+
+// --- State Management ---
+function setNodeState(nodeId, state) {
+  nodeStates[nodeId] = state;
+  const rect = document.querySelector(`.node-body[data-id="${nodeId}"]`);
+  if (rect) {
+    rect.className.baseVal = `node-body ${state}`;
+  }
+
+  // Update connected edges
+  document.querySelectorAll(`.dag-edge[data-to="${nodeId}"]`).forEach(edge => {
+    edge.className.baseVal = `dag-edge ${state === 'running' ? 'active' : state}`;
+    edge.setAttribute('marker-end', `url(#arrow-${state === 'running' ? 'active' : state === 'completed' ? 'completed' : state === 'failed' ? 'failed' : 'pending'})`);
+  });
+
+  addTimelineEvent(nodeId, state);
+  updatePanel();
+}
+
+function addTimelineEvent(nodeId, state) {
+  const timeline = $('timeline');
+  const event = document.createElement('div');
+  const stateClass = state === 'running' ? 'active' : state === 'completed' ? 'done' : state === 'failed' ? 'error' : '';
+  event.className = `timeline-event ${stateClass}`;
+  const now = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+  event.innerHTML = `<span class="timeline-time">${now}</span>${nodeId} → ${state}`;
+  timeline.prepend(event);
+  // Keep max 20
+  while (timeline.children.length > 20) timeline.lastChild.remove();
+}
+
+function updatePanel() {
+  if (!currentDAG) return;
+  $('p-name').textContent = currentDAG.name;
+  $('p-nodes').textContent = `${Object.values(nodeStates).filter(s => s === 'completed').length}/${currentDAG.nodes.length}`;
+
+  const hasRunning = Object.values(nodeStates).some(s => s === 'running');
+  const hasFailed = Object.values(nodeStates).some(s => s === 'failed');
+  const allDone = Object.values(nodeStates).every(s => s !== 'pending' && s !== 'running');
+
+  let status, cls;
+  if (hasRunning) { status = 'running'; cls = 'running'; }
+  else if (hasFailed && allDone) { status = 'failed'; cls = 'failed'; }
+  else if (allDone) { status = 'completed'; cls = 'completed'; }
+  else { status = 'pending'; cls = 'pending'; }
+  $('p-status').innerHTML = `<span class="status-badge ${cls}">${status}</span>`;
+
+  if (startTime) {
+    $('p-elapsed').textContent = ((Date.now() - startTime) / 1000).toFixed(1) + 's';
+  }
+}
+
+function selectNode(node) {
+  const detail = $('node-detail');
+  detail.innerHTML = `
+    <div class="panel-row"><span class="label">ID</span><span class="value">${node.id}</span></div>
+    <div class="panel-row"><span class="label">Type</span><span class="value">${node.type}</span></div>
+    <div class="panel-row"><span class="label">Tier</span><span class="value">${node.tier || '—'}</span></div>
+    <div class="panel-row"><span class="label">State</span><span class="value">${nodeStates[node.id]}</span></div>
+  `;
+}
+
+// --- Animation ---
+function runAnimation() {
+  if (!currentDAG || animationTimer) return;
+  resetDAG();
+  startTime = Date.now();
+  $('timeline').innerHTML = '';
+
+  const dag = currentDAG;
+  const order = topologicalOrder(dag);
+  let step = 0;
+
+  animationTimer = setInterval(() => {
+    if (step >= order.length * 2) {
+      clearInterval(animationTimer);
+      animationTimer = null;
+      updatePanel();
+      return;
+    }
+
+    const nodeIndex = Math.floor(step / 2);
+    const phase = step % 2; // 0 = start running, 1 = complete
+
+    const nodeId = order[nodeIndex];
+    const node = dag.nodes.find(n => n.id === nodeId);
+
+    if (phase === 0) {
+      // Check if this is the "escalate" path on complex DAG — skip it
+      if (nodeId === 'escalate') { step += 2; return; }
+      setNodeState(nodeId, 'running');
+    } else {
+      // Complete (or fail one node for drama)
+      if (nodeId === 'cloud-gen' && dag.name === 'Multi-Model Tournament') {
+        setNodeState(nodeId, 'failed');
+      } else {
+        setNodeState(nodeId, 'completed');
+      }
+    }
+
+    step++;
+    updatePanel();
+  }, 600);
+}
+
+function resetDAG() {
+  if (animationTimer) { clearInterval(animationTimer); animationTimer = null; }
+  startTime = null;
+  if (currentDAG) {
+    currentDAG.nodes.forEach(n => nodeStates[n.id] = 'pending');
+    document.querySelectorAll('.node-body').forEach(el => el.className.baseVal = 'node-body pending');
+    document.querySelectorAll('.dag-edge').forEach(el => {
+      el.className.baseVal = 'dag-edge pending';
+      el.setAttribute('marker-end', 'url(#arrow-pending)');
+    });
+  }
+  $('timeline').innerHTML = '';
+  updatePanel();
+}
+
+function topologicalOrder(dag) {
+  // Simple BFS-based ordering
+  const inDegree = {};
+  dag.nodes.forEach(n => inDegree[n.id] = 0);
+  dag.edges.forEach(e => inDegree[e.to]++);
+
+  const queue = dag.nodes.filter(n => inDegree[n.id] === 0).map(n => n.id);
+  const result = [];
+
+  while (queue.length > 0) {
+    const current = queue.shift();
+    result.push(current);
+    dag.edges.filter(e => e.from === current).forEach(e => {
+      inDegree[e.to]--;
+      if (inDegree[e.to] === 0) queue.push(e.to);
+    });
+  }
+  return result;
+}
+
+// --- Controls ---
+function loadDemo() { renderDAG(DEMO_DAG); }
+function loadComplex() { renderDAG(COMPLEX_DAG); }
+
+// Auto-load demo
+loadDemo();
+</script>
+</body>
+</html>
