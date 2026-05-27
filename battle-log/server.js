@@ -280,6 +280,12 @@ const server = createServer(async (req, res) => {
     res.end(html);
     return;
   }
+  if (url.pathname === "/arbitration-court" || url.pathname === "/arbitration-court/") {
+    const html = await readFile(resolve(__dirname, "arbitration-court.html"), "utf-8");
+    res.writeHead(200, { "Content-Type": "text/html" });
+    res.end(html);
+    return;
+  }
   if (url.pathname === "/memory/vectors" && req.method === "GET") {
     try {
       const raw = JSON.parse(await readFile(VECTOR_STORE_PATH, "utf-8"));

@@ -1,0 +1,556 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>War Council — Arbitration Court</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      background: #0a0e1a;
+      color: #e0e0e0;
+      font-family: 'JetBrains Mono', 'Fira Code', monospace;
+      min-height: 100vh;
+      overflow-x: hidden;
+    }
+    h1 {
+      text-align: center;
+      font-size: 2rem;
+      padding: 20px 0 4px;
+      background: linear-gradient(90deg, #ffd700, #ff6b6b, #bb9af7);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+    .subtitle {
+      text-align: center;
+      color: #555;
+      font-size: 0.8rem;
+      margin-bottom: 20px;
+    }
+
+    /* Courtroom Layout */
+    .courtroom {
+      max-width: 1300px;
+      margin: 0 auto;
+      padding: 0 20px 40px;
+      display: grid;
+      grid-template-rows: auto auto auto;
+      gap: 20px;
+    }
+
+    /* Judge bench */
+    .judge-bench {
+      background: linear-gradient(135deg, #1a1035, #12182b);
+      border: 2px solid #bb9af7;
+      border-radius: 16px;
+      padding: 24px;
+      text-align: center;
+      position: relative;
+      overflow: hidden;
+    }
+    .judge-bench::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: radial-gradient(ellipse at center top, rgba(187,154,247,0.1) 0%, transparent 70%);
+    }
+    .judge-title {
+      font-size: 0.75rem;
+      text-transform: uppercase;
+      letter-spacing: 3px;
+      color: #bb9af7;
+      margin-bottom: 8px;
+    }
+    .judge-model {
+      font-size: 1.1rem;
+      color: #e0e0e0;
+      margin-bottom: 12px;
+    }
+    .gavel {
+      font-size: 2.5rem;
+      animation: gavelBounce 2s ease-in-out infinite;
+    }
+    @keyframes gavelBounce {
+      0%, 100% { transform: rotate(0deg); }
+      25% { transform: rotate(-15deg); }
+      50% { transform: rotate(0deg); }
+      75% { transform: rotate(10deg); }
+    }
+    .verdict-box {
+      margin-top: 16px;
+      padding: 16px;
+      background: rgba(0,0,0,0.3);
+      border-radius: 8px;
+      font-size: 0.85rem;
+      color: #ccc;
+      line-height: 1.5;
+      min-height: 50px;
+    }
+    .verdict-winner {
+      color: #2ed573;
+      font-weight: bold;
+      font-size: 1rem;
+    }
+
+    /* Contestants row */
+    .contestants {
+      display: grid;
+      grid-template-columns: 1fr 80px 1fr;
+      gap: 0;
+      align-items: stretch;
+    }
+    .contestant {
+      background: #12182b;
+      border: 2px solid #1e2a4a;
+      border-radius: 12px;
+      padding: 20px;
+      position: relative;
+      transition: border-color 0.5s, box-shadow 0.5s;
+    }
+    .contestant.winner {
+      border-color: #2ed573;
+      box-shadow: 0 0 20px rgba(46,213,115,0.2);
+    }
+    .contestant.loser {
+      border-color: #ff4757;
+      opacity: 0.7;
+    }
+    .contestant-header {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 12px;
+    }
+    .contestant-avatar {
+      width: 40px;
+      height: 40px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1.4rem;
+    }
+    .contestant-name {
+      font-size: 0.9rem;
+      font-weight: bold;
+    }
+    .contestant-tier {
+      font-size: 0.7rem;
+      color: #666;
+      text-transform: uppercase;
+    }
+    .contestant-response {
+      background: rgba(0,0,0,0.3);
+      border-radius: 8px;
+      padding: 14px;
+      font-size: 0.8rem;
+      line-height: 1.6;
+      max-height: 200px;
+      overflow-y: auto;
+      color: #bbb;
+    }
+    .contestant-stats {
+      display: flex;
+      gap: 16px;
+      margin-top: 12px;
+      font-size: 0.7rem;
+      color: #666;
+    }
+    .contestant-stats span {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+    }
+    .badge {
+      position: absolute;
+      top: -10px;
+      right: 16px;
+      padding: 4px 12px;
+      border-radius: 12px;
+      font-size: 0.65rem;
+      font-weight: bold;
+      text-transform: uppercase;
+    }
+    .badge-winner { background: #2ed573; color: #000; }
+    .badge-loser { background: #ff4757; color: #fff; }
+
+    /* VS separator */
+    .vs-separator {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1.5rem;
+      font-weight: bold;
+      color: #ffd700;
+      text-shadow: 0 0 10px rgba(255,215,0,0.5);
+    }
+
+    /* Score bars */
+    .score-section {
+      background: #12182b;
+      border: 1px solid #1e2a4a;
+      border-radius: 12px;
+      padding: 20px;
+    }
+    .score-section h3 {
+      font-size: 0.85rem;
+      color: #7aa2f7;
+      margin-bottom: 16px;
+    }
+    .score-row {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 10px;
+    }
+    .score-label {
+      width: 100px;
+      font-size: 0.75rem;
+      color: #888;
+    }
+    .score-bar-container {
+      flex: 1;
+      display: flex;
+      height: 24px;
+      border-radius: 4px;
+      overflow: hidden;
+      background: #0a0e1a;
+    }
+    .score-bar-left {
+      height: 100%;
+      transition: width 1s ease;
+      display: flex;
+      align-items: center;
+      justify-content: flex-end;
+      padding-right: 6px;
+      font-size: 0.65rem;
+      font-weight: bold;
+    }
+    .score-bar-right {
+      height: 100%;
+      transition: width 1s ease;
+      display: flex;
+      align-items: center;
+      padding-left: 6px;
+      font-size: 0.65rem;
+      font-weight: bold;
+    }
+
+    /* History panel */
+    .history-panel {
+      background: #12182b;
+      border: 1px solid #1e2a4a;
+      border-radius: 12px;
+      padding: 20px;
+    }
+    .history-panel h3 {
+      font-size: 0.85rem;
+      color: #7aa2f7;
+      margin-bottom: 12px;
+    }
+    .history-list {
+      max-height: 200px;
+      overflow-y: auto;
+    }
+    .history-item {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 8px;
+      border-bottom: 1px solid #0a0e1a;
+      font-size: 0.75rem;
+    }
+    .history-item:hover { background: rgba(122,162,247,0.05); }
+    .history-winner-badge {
+      padding: 2px 8px;
+      border-radius: 8px;
+      font-size: 0.65rem;
+      font-weight: bold;
+    }
+    .history-prompt {
+      flex: 1;
+      color: #888;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .history-time { color: #444; font-size: 0.65rem; }
+
+    /* Animations */
+    @keyframes slideInLeft {
+      from { transform: translateX(-30px); opacity: 0; }
+      to { transform: translateX(0); opacity: 1; }
+    }
+    @keyframes slideInRight {
+      from { transform: translateX(30px); opacity: 0; }
+      to { transform: translateX(0); opacity: 1; }
+    }
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(-10px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+    .animate-left { animation: slideInLeft 0.6s ease; }
+    .animate-right { animation: slideInRight 0.6s ease; }
+    .animate-fade { animation: fadeIn 0.8s ease; }
+  </style>
+</head>
+<body>
+  <h1>⚖️ Arbitration Court</h1>
+  <p class="subtitle">When models disagree, the Court decides — tournament verdicts visualized in real-time</p>
+
+  <div class="courtroom">
+    <!-- Judge's Bench -->
+    <div class="judge-bench animate-fade" id="judge-bench">
+      <div class="judge-title">Presiding Judge</div>
+      <div class="gavel">🔨</div>
+      <div class="judge-model" id="judge-model">deepseek-r1:14b (reasoning)</div>
+      <div class="verdict-box" id="verdict-box">
+        <em style="color:#555">Awaiting case submission...</em>
+      </div>
+    </div>
+
+    <!-- Contestants -->
+    <div class="contestants" id="contestants">
+      <div class="contestant animate-left" id="contestant-1">
+        <div class="contestant-header">
+          <div class="contestant-avatar" style="background: rgba(122,162,247,0.2);">🧠</div>
+          <div>
+            <div class="contestant-name" id="c1-name">Contestant 1</div>
+            <div class="contestant-tier" id="c1-tier">specialist</div>
+          </div>
+        </div>
+        <div class="contestant-response" id="c1-response">
+          <em style="color:#555">No case loaded</em>
+        </div>
+        <div class="contestant-stats" id="c1-stats"></div>
+      </div>
+      <div class="vs-separator">⚔️<br>VS</div>
+      <div class="contestant animate-right" id="contestant-2">
+        <div class="contestant-header">
+          <div class="contestant-avatar" style="background: rgba(187,154,247,0.2);">💭</div>
+          <div>
+            <div class="contestant-name" id="c2-name">Contestant 2</div>
+            <div class="contestant-tier" id="c2-tier">reasoning</div>
+          </div>
+        </div>
+        <div class="contestant-response" id="c2-response">
+          <em style="color:#555">No case loaded</em>
+        </div>
+        <div class="contestant-stats" id="c2-stats"></div>
+      </div>
+    </div>
+
+    <!-- Score Comparison -->
+    <div class="score-section" id="scores">
+      <h3>📊 Dimension Breakdown</h3>
+      <div id="score-bars"></div>
+    </div>
+
+    <!-- Case History -->
+    <div class="history-panel">
+      <h3>📜 Case History</h3>
+      <div class="history-list" id="history-list"></div>
+    </div>
+  </div>
+
+  <script>
+    const DEMO_CASES = [
+      {
+        prompt: "Explain the difference between composition and inheritance in OOP",
+        contestants: [
+          {
+            name: "qwen2.5-coder:14b",
+            tier: "specialist",
+            response: "Inheritance creates an IS-A relationship where a child class extends a parent class, inheriting all its methods and properties. Composition creates a HAS-A relationship where a class contains instances of other classes as fields. Composition is generally preferred because it's more flexible — you can swap implementations at runtime, avoid the fragile base class problem, and keep your class hierarchy flat. The Gang of Four famously said: 'Favor object composition over class inheritance.'",
+            elapsedMs: 3200,
+            tokensOut: 89,
+            confidence: { relevance: 0.92, completeness: 0.85, certainty: 0.88, consistency: 0.80 }
+          },
+          {
+            name: "deepseek-r1:14b",
+            tier: "reasoning",
+            response: "The key distinction lies in coupling. Inheritance tightly couples the subclass to the superclass's implementation — any change to the parent can break children (fragile base class problem). Composition achieves the same code reuse through delegation: you hold a reference to another object and forward calls to it. This allows: (1) runtime polymorphism via interface swapping, (2) multiple 'inheritance' without diamond problems, (3) better encapsulation since internal state isn't exposed through protected members. Use inheritance only for true IS-A taxonomies that are unlikely to change.",
+            elapsedMs: 8400,
+            tokensOut: 134,
+            confidence: { relevance: 0.95, completeness: 0.92, certainty: 0.91, consistency: 0.85 }
+          }
+        ],
+        winner: 1,
+        verdict: "Contestant 2 wins — provides deeper technical analysis covering coupling, the fragile base class problem, and concrete advantages (runtime polymorphism, diamond problem avoidance). Contestant 1 is correct but more surface-level."
+      },
+      {
+        prompt: "Best approach for handling rate limiting in a distributed system?",
+        contestants: [
+          {
+            name: "qwen2.5-coder:7b",
+            tier: "fast",
+            response: "Use a token bucket algorithm with Redis as the shared state store. Each request checks if tokens are available, decrements the counter, and returns 429 if the bucket is empty. You can use a sliding window for more accuracy.",
+            elapsedMs: 1100,
+            tokensOut: 52,
+            confidence: { relevance: 0.80, completeness: 0.60, certainty: 0.85, consistency: 0.65 }
+          },
+          {
+            name: "qwen2.5-coder:14b",
+            tier: "specialist",
+            response: "For distributed rate limiting, consider a layered approach: (1) Local rate limiting with in-memory counters per instance — catches burst traffic without network calls. (2) Global coordination via Redis using either sliding window counters or token buckets with atomic Lua scripts. (3) Graceful degradation — if Redis is down, fall back to local-only limits with a safety margin. Key decisions: fixed vs sliding window (sliding is fairer but uses more memory), synchronous vs async checks (async with eventual consistency is faster but allows brief overages), and whether to use client-side rate limiting to prevent thundering herds.",
+            elapsedMs: 4800,
+            tokensOut: 118,
+            confidence: { relevance: 0.93, completeness: 0.90, certainty: 0.87, consistency: 0.82 }
+          }
+        ],
+        winner: 1,
+        verdict: "Contestant 2 wins decisively — comprehensive layered strategy covering local+global coordination, fallback patterns, and key architectural tradeoffs. Contestant 1's answer is technically correct but too brief for a distributed system question."
+      },
+      {
+        prompt: "How should we structure error handling in an async Node.js pipeline?",
+        contestants: [
+          {
+            name: "qwen2.5-coder:14b",
+            tier: "specialist",
+            response: "Wrap each stage in try/catch, propagate typed errors with context (which stage failed, original error, partial results). Use AbortController for cancellation. For pipelines: either fail-fast (first error stops everything) or collect-errors (run all stages, aggregate failures). Consider a Result<T,E> pattern: each stage returns { ok: data } or { err: error } instead of throwing, making the error path explicit and composable.",
+            elapsedMs: 3900,
+            tokensOut: 95,
+            confidence: { relevance: 0.90, completeness: 0.88, certainty: 0.82, consistency: 0.78 }
+          },
+          {
+            name: "deepseek-r1:14b",
+            tier: "reasoning",
+            response: "The fundamental question is: should errors be values or exceptions? In async pipelines, exceptions create invisible control flow — a throw in step 3 skips steps 4-5 and lands in whatever catch is above. This makes partial recovery nearly impossible. Better pattern: make errors first-class values. Each pipeline stage returns Either<Error, Result>. The orchestrator can then decide: retry step 3, skip to step 5, or abort with full context of what succeeded. Combine with structured error types (TransientError vs FatalError) so retry logic is mechanical, not heuristic.",
+            elapsedMs: 9100,
+            tokensOut: 142,
+            confidence: { relevance: 0.93, completeness: 0.91, certainty: 0.89, consistency: 0.88 }
+          }
+        ],
+        winner: 1,
+        verdict: "Contestant 2 wins — fundamentally reframes the question around errors-as-values vs exceptions, explains WHY the pattern matters (invisible control flow, partial recovery), and introduces structured error types for mechanical retry. More architectural depth."
+      }
+    ];
+
+    let currentCase = 0;
+    let caseHistory = [];
+
+    function loadCase(idx) {
+      const c = DEMO_CASES[idx % DEMO_CASES.length];
+      const [c1, c2] = c.contestants;
+      const winIdx = c.winner;
+
+      // Update contestants
+      document.getElementById('c1-name').textContent = c1.name;
+      document.getElementById('c1-tier').textContent = c1.tier;
+      document.getElementById('c1-response').textContent = c1.response;
+      document.getElementById('c1-stats').innerHTML = `
+        <span>⏱️ ${c1.elapsedMs}ms</span>
+        <span>📝 ${c1.tokensOut} tokens</span>
+        <span>🎯 ${((c1.confidence.relevance + c1.confidence.completeness + c1.confidence.certainty + c1.confidence.consistency) / 4).toFixed(2)}</span>
+      `;
+
+      document.getElementById('c2-name').textContent = c2.name;
+      document.getElementById('c2-tier').textContent = c2.tier;
+      document.getElementById('c2-response').textContent = c2.response;
+      document.getElementById('c2-stats').innerHTML = `
+        <span>⏱️ ${c2.elapsedMs}ms</span>
+        <span>📝 ${c2.tokensOut} tokens</span>
+        <span>🎯 ${((c2.confidence.relevance + c2.confidence.completeness + c2.confidence.certainty + c2.confidence.consistency) / 4).toFixed(2)}</span>
+      `;
+
+      // Winner/loser badges
+      const el1 = document.getElementById('contestant-1');
+      const el2 = document.getElementById('contestant-2');
+      el1.className = `contestant animate-left ${winIdx === 0 ? 'winner' : 'loser'}`;
+      el2.className = `contestant animate-right ${winIdx === 1 ? 'winner' : 'loser'}`;
+
+      // Remove existing badges
+      el1.querySelectorAll('.badge').forEach(b => b.remove());
+      el2.querySelectorAll('.badge').forEach(b => b.remove());
+
+      const badge1 = document.createElement('div');
+      badge1.className = `badge ${winIdx === 0 ? 'badge-winner' : 'badge-loser'}`;
+      badge1.textContent = winIdx === 0 ? '👑 WINNER' : '❌ DEFEATED';
+      el1.appendChild(badge1);
+
+      const badge2 = document.createElement('div');
+      badge2.className = `badge ${winIdx === 1 ? 'badge-winner' : 'badge-loser'}`;
+      badge2.textContent = winIdx === 1 ? '👑 WINNER' : '❌ DEFEATED';
+      el2.appendChild(badge2);
+
+      // Verdict
+      document.getElementById('verdict-box').innerHTML = `
+        <div class="verdict-winner">🏆 ${c.contestants[winIdx].name} (${c.contestants[winIdx].tier}) prevails!</div>
+        <div style="margin-top: 8px; color: #aaa;">${c.verdict}</div>
+      `;
+
+      // Score bars
+      renderScoreBars(c1.confidence, c2.confidence);
+
+      // Add to history
+      caseHistory.unshift({
+        prompt: c.prompt,
+        winner: c.contestants[winIdx].name,
+        winnerTier: c.contestants[winIdx].tier,
+        time: new Date().toLocaleTimeString()
+      });
+      renderHistory();
+    }
+
+    function renderScoreBars(conf1, conf2) {
+      const dims = ['relevance', 'completeness', 'certainty', 'consistency'];
+      const colors1 = '#7aa2f7';
+      const colors2 = '#bb9af7';
+
+      document.getElementById('score-bars').innerHTML = dims.map(dim => {
+        const v1 = conf1[dim];
+        const v2 = conf2[dim];
+        const total = v1 + v2;
+        const pct1 = (v1 / total * 100).toFixed(0);
+        const pct2 = (v2 / total * 100).toFixed(0);
+        return `
+          <div class="score-row">
+            <div class="score-label">${dim}</div>
+            <div class="score-bar-container">
+              <div class="score-bar-left" style="width: ${pct1}%; background: ${colors1};">${v1.toFixed(2)}</div>
+              <div class="score-bar-right" style="width: ${pct2}%; background: ${colors2};">${v2.toFixed(2)}</div>
+            </div>
+          </div>
+        `;
+      }).join('');
+    }
+
+    function renderHistory() {
+      const tierColors = { fast: '#ff6b6b', specialist: '#7aa2f7', reasoning: '#bb9af7', groq: '#ffd93d', gemini: '#6bcf7f' };
+      document.getElementById('history-list').innerHTML = caseHistory.map(h => `
+        <div class="history-item">
+          <span class="history-winner-badge" style="background: ${tierColors[h.winnerTier] || '#7aa2f7'}20; color: ${tierColors[h.winnerTier] || '#7aa2f7'};">${h.winnerTier}</span>
+          <span class="history-prompt">${h.prompt}</span>
+          <span class="history-time">${h.time}</span>
+        </div>
+      `).join('');
+    }
+
+    // Load first case immediately, rotate every 8 seconds
+    loadCase(0);
+    setInterval(() => {
+      currentCase++;
+      loadCase(currentCase);
+    }, 8000);
+
+    // Also try to listen for live tournament results via SSE
+    try {
+      const es = new EventSource('/events');
+      es.onmessage = (e) => {
+        try {
+          const data = JSON.parse(e.data);
+          if (data.type === 'tournament_result') {
+            // Live tournament result — could inject into the UI
+            caseHistory.unshift({
+              prompt: data.prompt || '(live tournament)',
+              winner: data.winner,
+              winnerTier: data.winner_tier || 'unknown',
+              time: new Date().toLocaleTimeString()
+            });
+            renderHistory();
+          }
+        } catch {}
+      };
+    } catch {}
+  </script>
+</body>
+</html>

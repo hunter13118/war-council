@@ -361,3 +361,16 @@ test('Adaptive Thresholds — self-calibrating confidence', async ({ page }) => 
   await page.waitForTimeout(500);
   await page.screenshot({ path: resolve(SCREENSHOTS, '26-adaptive-thresholds-chart.png') });
 });
+
+test('Arbitration Court — tournament verdict visualization', async ({ page }) => {
+  await page.goto('http://localhost:3737/arbitration-court', { waitUntil: 'domcontentloaded' });
+  await page.waitForTimeout(1500); // let first case load + animations finish
+
+  // Screenshot 27: Full arbitration court with first case (composition vs inheritance)
+  await page.screenshot({ path: resolve(SCREENSHOTS, '27-arbitration-court-verdict.png') });
+
+  // Screenshot 28: Scroll to score bars + case history
+  await page.evaluate(() => window.scrollTo(0, 500));
+  await page.waitForTimeout(500);
+  await page.screenshot({ path: resolve(SCREENSHOTS, '28-arbitration-court-scores.png') });
+});
