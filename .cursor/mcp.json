@@ -1,0 +1,13 @@
+{
+  "mcpServers": {
+    "war-council": {
+      "command": "node",
+      "args": ["mcp-server/server.js"],
+      "cwd": "d:\\war-council",
+      "env": {
+        "OLLAMA_BASE": "http://127.0.0.1:11434",
+        "NODE_OPTIONS": "--env-file=.env"
+      }
+    }
+  }
+}
