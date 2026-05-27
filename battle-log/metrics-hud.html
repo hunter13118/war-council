@@ -82,7 +82,7 @@ header .status{margin-left:auto;display:flex;gap:0.75rem;align-items:center}
 </head>
 <body>
 <header>
-  <h1>⚔️ WAR COUNCIL — METRICS HUD</h1>
+  <h1>METRICS HUD</h1>
   <div class="status">
     <span class="mode-badge" id="mode-badge">—</span>
     <span class="dot green" id="status-dot"></span>
@@ -265,7 +265,7 @@ async function refreshEvents() {
   const html = d.map(e => {
     const time = new Date(e.timestamp).toLocaleTimeString();
     const tier = e.tier || 'unknown';
-    const detail = e.error ? `❌ ${e.error}` : `${(e.latencyMs/1000).toFixed(1)}s • ${e.tokens || '?'} tok`;
+    const detail = e.error ? `ERR: ${e.error}` : `${(e.latencyMs/1000).toFixed(1)}s • ${e.tokens || '?'} tok`;
     return `
       <div class="event-item">
         <span class="event-time">${time}</span>

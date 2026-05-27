@@ -494,8 +494,8 @@
         <div class="type-badge" style="background:${color}20; color:${color}">${n.type}</div>
         <div class="name">${n.name}</div>
         <div class="path">${n.path || n.file || ''}</div>
-        ${n.exported ? '<div style="margin-top:4px;font-size:0.7rem;color:#ffd93d">⬆️ exported</div>' : ''}
-        ${n.async ? '<div style="font-size:0.7rem;color:#6bcf7f">⚡ async</div>' : ''}
+        ${n.exported ? '<div style="margin-top:4px;font-size:0.7rem;color:#ffd93d">exported</div>' : ''}
+        ${n.async ? '<div style="font-size:0.7rem;color:#6bcf7f">async</div>' : ''}
         <div style="margin-top:8px;font-size:0.7rem;color:#666">
           ${connections.length} connection${connections.length !== 1 ? 's' : ''}
         </div>

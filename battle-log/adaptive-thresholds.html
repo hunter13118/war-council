@@ -203,7 +203,7 @@
 
     <!-- Stats -->
     <div class="panel">
-      <h2>⚙️ Current Thresholds</h2>
+      <h2>Current Thresholds</h2>
       <div class="stats" id="stats"></div>
     </div>
 
@@ -296,7 +296,7 @@
         <div class="stat-card"><div class="value">${thresholds.low}</div><div class="label">Low Threshold</div></div>
         <div class="stat-card"><div class="value">${thresholds.samples}</div><div class="label">Samples</div></div>
         <div class="stat-card"><div class="value">${thresholds.adaptationCount}</div><div class="label">Adaptations</div></div>
-        <div class="stat-card"><div class="value">${thresholds.adapted ? '✅' : '⏳'}</div><div class="label">Status</div></div>
+        <div class="stat-card"><div class="value">${thresholds.adapted ? 'Active' : 'Waiting'}</div><div class="label">Status</div></div>
       `;
     }
 
