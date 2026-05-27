@@ -36,6 +36,7 @@ import { extractGraph, getGraph, getGraphStats, queryGraph, loadGraph, saveGraph
 import { recordQuery, checkPrefetchCache, getPredictions, getPrefetchStats, getTransitionMatrix, resetPrefetch } from "../mcp-server/shared/speculative-prefetch.js";
 import { classifyError, startDebugSession, recordAttempt, getNextFixPrompt, getDebugStats, getDebugHistory, resetDebugLoop } from "../mcp-server/shared/debug-loop.js";
 import { indexFull as repoIndexFull, lookupSymbol, searchSymbols, analyzeImpact, getIndexStats as getRepoIndexStats, getDepGraphData } from "../memory-engine/repo-indexer.js";
+import { registerDefaults, discoverProviders, getAvailableProviders, getAllProviders, generateWithFallback, resetRegistry } from "../mcp-server/shared/provider-registry.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -498,6 +499,41 @@ const server = createServer(async (req, res) => {
       res.writeHead(500, { "Content-Type": "application/json" });
       res.end(JSON.stringify({ error: e.message }));
     }
+    return;
+  }
+
+  // === Provider Registry ===
+  if (url.pathname === "/providers" && req.method === "GET") {
+    res.writeHead(200, { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" });
+    res.end(JSON.stringify({ providers: getAllProviders(), available: getAvailableProviders().map(p => p.id) }));
+    return;
+  }
+  if (url.pathname === "/providers/discover" && req.method === "POST") {
+    try {
+      const results = await discoverProviders({ timeout: 5000 });
+      res.writeHead(200, { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" });
+      res.end(JSON.stringify({ results, available: getAvailableProviders().map(p => p.id) }));
+    } catch (e) {
+      res.writeHead(500, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ error: e.message }));
+    }
+    return;
+  }
+  if (url.pathname === "/providers/generate" && req.method === "POST") {
+    let body = "";
+    req.on("data", c => body += c);
+    req.on("end", async () => {
+      try {
+        const { prompt, type, maxCost, preferredId, maxTokens, temperature } = JSON.parse(body);
+        if (!prompt) throw new Error("prompt is required");
+        const result = await generateWithFallback(prompt, { type, maxCost, preferredId, maxTokens, temperature });
+        res.writeHead(200, { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" });
+        res.end(JSON.stringify(result));
+      } catch (e) {
+        res.writeHead(500, { "Content-Type": "application/json" });
+        res.end(JSON.stringify({ error: e.message }));
+      }
+    });
     return;
   }
 
@@ -1622,6 +1658,20 @@ server.listen(PORT, async () => {
     console.log(`⏭️  Skipping auto-index (Ollama not available). Run POST /reindex when ready.`);
   } else {
     console.log(`✅ Vector store loaded (${VECTOR_STORE_PATH})`);
+  }
+
+  // 6. Initialize provider registry + discover available providers
+  try {
+    registerDefaults();
+    const providerResults = await discoverProviders({ timeout: 5000 });
+    const available = providerResults.filter(r => r.available).map(r => r.id);
+    if (available.length > 0) {
+      console.log(`✅ Provider registry: ${available.length} available [${available.join(", ")}]`);
+    } else {
+      console.log(`⚠️  Provider registry: no providers available (check Ollama / API keys)`);
+    }
+  } catch (e) {
+    console.log(`⚠️  Provider registry init failed: ${e.message}`);
   }
 
   console.log(`\n🏁 War Council ready. Open http://localhost:${PORT}/command-center\n`);
