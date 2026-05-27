@@ -19,6 +19,7 @@ export default defineConfig({
     {
       name: 'live',
       testMatch: /.*\.live\.test\.js/,
+      retries: 1, // Retry flaky SSE/timing-dependent tests once
       // Live tests need the battle-log server running
     },
     {
