@@ -1340,6 +1340,14 @@ const server = createServer(async (req, res) => {
     return;
   }
 
+  // Serve nav.js (shared navigation component)
+  if (url.pathname === "/nav.js") {
+    const html = await readFile(resolve(__dirname, "nav.js"), "utf-8");
+    res.writeHead(200, { "Content-Type": "application/javascript", "Cache-Control": "public, max-age=60" });
+    res.end(html);
+    return;
+  }
+
   // Static asset serving for generated images (assets/ directory)
   if (url.pathname.startsWith("/assets/")) {
     const safePath = url.pathname.replace(/\.\./g, ""); // prevent path traversal
