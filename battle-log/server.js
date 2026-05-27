@@ -34,6 +34,7 @@ import { runPipeline } from "../mcp-server/shared/verification-pipeline.js";
 import { recordOutcome, getThresholds, adaptiveLevel, getTierAccuracy, resetAdaptive } from "../mcp-server/shared/adaptive-thresholds.js";
 import { extractGraph, getGraph, getGraphStats, queryGraph, loadGraph, saveGraph } from "../memory-engine/knowledge-graph.js";
 import { recordQuery, checkPrefetchCache, getPredictions, getPrefetchStats, getTransitionMatrix, resetPrefetch } from "../mcp-server/shared/speculative-prefetch.js";
+import { classifyError, startDebugSession, recordAttempt, getNextFixPrompt, getDebugStats, getDebugHistory, resetDebugLoop } from "../mcp-server/shared/debug-loop.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -433,6 +434,46 @@ const server = createServer(async (req, res) => {
     const q = url.searchParams.get("q") || "";
     res.writeHead(200, { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" });
     res.end(JSON.stringify(checkPrefetchCache(q)));
+    return;
+  }
+
+  // === Debug Loop ===
+  if (url.pathname === "/debug/stats" && req.method === "GET") {
+    res.writeHead(200, { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" });
+    res.end(JSON.stringify({ stats: getDebugStats(), history: getDebugHistory() }));
+    return;
+  }
+  if (url.pathname === "/debug/classify" && req.method === "POST") {
+    let body = "";
+    req.on("data", c => body += c);
+    req.on("end", () => {
+      try {
+        const { message, stack, file, line } = JSON.parse(body);
+        const classification = classifyError({ message, stack, file, line });
+        res.writeHead(200, { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" });
+        res.end(JSON.stringify(classification));
+      } catch (e) {
+        res.writeHead(400, { "Content-Type": "application/json" });
+        res.end(JSON.stringify({ error: e.message }));
+      }
+    });
+    return;
+  }
+  if (url.pathname === "/debug/start" && req.method === "POST") {
+    let body = "";
+    req.on("data", c => body += c);
+    req.on("end", () => {
+      try {
+        const { error, opts } = JSON.parse(body);
+        const session = startDebugSession(error, opts || {});
+        const prompt = getNextFixPrompt();
+        res.writeHead(200, { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" });
+        res.end(JSON.stringify({ session: { id: session.id, classification: session.classification, status: session.status }, prompt }));
+      } catch (e) {
+        res.writeHead(400, { "Content-Type": "application/json" });
+        res.end(JSON.stringify({ error: e.message }));
+      }
+    });
     return;
   }
 
