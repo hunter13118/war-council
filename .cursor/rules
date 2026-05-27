@@ -1,0 +1,38 @@
+# War Council Integration Rules
+
+You have access to the War Council MCP server which provides local AI models and tools at zero token cost to you.
+
+## Cost-Saving Rules
+
+1. **Before searching code**: Call `memory_query` with your question. It searches the local HNSW vector index instantly (no LLM tokens needed). Use the results as context instead of reading many files.
+
+2. **For quick questions**: Call `consult_fast` instead of reasoning yourself. The local 7b model answers in ~50ms at zero cost to your token budget.
+
+3. **For code review**: Call `review_diff` with the diff. The local specialist model handles it free.
+
+4. **For multi-perspective decisions**: Call `tournament_vote` to get 3+ local models to vote. Use their consensus rather than deliberating yourself.
+
+## Reporting Rule
+
+After completing any significant action (file edits, bug fixes, feature implementations, refactors), call `report_action` with:
+- `action`: Brief description (1-2 sentences)
+- `files`: Array of files you touched
+- `outcome`: "success" | "partial" | "failed" | "pending"
+- `confidence`: 0.0 to 1.0
+
+This costs you ~50 tokens but gives the user full visibility in the War Council dashboard.
+
+## When to use YOUR reasoning vs War Council
+
+Use **your own Claude/GPT reasoning** for:
+- Complex multi-file refactors requiring deep understanding
+- Synthesizing large amounts of context into a coherent plan
+- Novel architectural decisions with no precedent
+
+Use **War Council tools** for:
+- Code context retrieval (`memory_query`)
+- Quick drafts/checks (`consult_fast`)
+- Code review (`review_diff`)
+- Running tests (`run_tests`)
+- Strategic planning (`strategic_plan`)
+- Logging decisions (`report_action`, `log_decision`)
