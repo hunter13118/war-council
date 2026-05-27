@@ -33,6 +33,7 @@ import { validateDAG, executeDAG, getExecution, listExecutions } from "../mcp-se
 import { runPipeline } from "../mcp-server/shared/verification-pipeline.js";
 import { recordOutcome, getThresholds, adaptiveLevel, getTierAccuracy, resetAdaptive } from "../mcp-server/shared/adaptive-thresholds.js";
 import { extractGraph, getGraph, getGraphStats, queryGraph, loadGraph, saveGraph } from "../memory-engine/knowledge-graph.js";
+import { recordQuery, checkPrefetchCache, getPredictions, getPrefetchStats, getTransitionMatrix, resetPrefetch } from "../mcp-server/shared/speculative-prefetch.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -422,6 +423,19 @@ const server = createServer(async (req, res) => {
     return;
   }
 
+  // === Speculative Pre-fetch ===
+  if (url.pathname === "/prefetch/stats" && req.method === "GET") {
+    res.writeHead(200, { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" });
+    res.end(JSON.stringify({ stats: getPrefetchStats(), predictions: getPredictions(), transitions: getTransitionMatrix() }));
+    return;
+  }
+  if (url.pathname === "/prefetch/check" && req.method === "GET") {
+    const q = url.searchParams.get("q") || "";
+    res.writeHead(200, { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" });
+    res.end(JSON.stringify(checkPrefetchCache(q)));
+    return;
+  }
+
   // === Telemetry Metrics ===
   if (url.pathname === "/metrics" && req.method === "GET") {
     const window = parseInt(url.searchParams.get("window") || "300000", 10);
@@ -744,8 +758,9 @@ const server = createServer(async (req, res) => {
           broadcast({ type: "tool_call", tool: route.tool, text: fullResponse.slice(0, 100) + "...", model: usedModel, elapsedMs, tokensOut, confidence: confidence.composite, id: eventId + "-done", timestamp: new Date().toISOString() });
           recordSuccess(routeTier);
           telemetryRecord({ category: 'model', event: 'model.inference.complete', tier: routeTier, model: usedModel, latencyMs: elapsedMs, tokensOut, success: true, reason: route.reason, meta: { confidence: confidence.composite } });
-          // Save to conversation memory
+          // Save to conversation memory + speculative prefetch
           appendToConversation(conversationId, CONVOS_DIR, message, fullResponse).catch(() => {});
+          recordQuery(message, []);
           res.end();
           return;
         } catch (cloudErr) {
