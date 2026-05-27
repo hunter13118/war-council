@@ -5,15 +5,15 @@
  */
 (function () {
   const NAV_PAGES = [
-    { href: '/command-center', icon: '🎮', label: 'Command Center', desc: 'Chat + Dialogue Theatre' },
-    { href: '/', icon: '📜', label: 'Battle Log', desc: 'SSE Event Timeline' },
-    { href: '/war-table', icon: '⚔️', label: 'War Table', desc: 'Pixel Art Council' },
-    { href: '/metrics-hud', icon: '📊', label: 'Metrics HUD', desc: 'System Health + Stats' },
-    { href: '/dag-theater', icon: '🎭', label: 'DAG Theater', desc: 'Execution Pipeline Viz' },
-    { href: '/knowledge-graph-viz', icon: '🕸️', label: 'Knowledge Graph', desc: 'Entity Relationship Map' },
-    { href: '/memory-archive', icon: '🧠', label: 'Memory Archive', desc: 'Vector Space Explorer' },
-    { href: '/adaptive-thresholds', icon: '📈', label: 'Adaptive Thresholds', desc: 'Confidence Gauges' },
-    { href: '/arbitration-court', icon: '⚖️', label: 'Arbitration Court', desc: 'Model Debate Arena' },
+    { href: '/command-center', color: '#00f0ff', label: 'Command Center', desc: 'Chat interface' },
+    { href: '/', color: '#44ff88', label: 'Battle Log', desc: 'Event timeline' },
+    { href: '/war-table', color: '#ffd700', label: 'War Table', desc: 'Council visualization' },
+    { href: '/metrics-hud', color: '#a855f7', label: 'Metrics HUD', desc: 'System health' },
+    { href: '/dag-theater', color: '#06b6d4', label: 'DAG Theater', desc: 'Pipeline execution' },
+    { href: '/knowledge-graph-viz', color: '#10b981', label: 'Knowledge Graph', desc: 'Entity map' },
+    { href: '/memory-archive', color: '#ec4899', label: 'Memory Archive', desc: 'Vector space' },
+    { href: '/adaptive-thresholds', color: '#f59e0b', label: 'Adaptive Thresholds', desc: 'Confidence tuning' },
+    { href: '/arbitration-court', color: '#ef4444', label: 'Arbitration Court', desc: 'Model debates' },
   ];
 
   function currentPath() {
@@ -94,17 +94,11 @@
       }
       .wc-nav-drawer-header h2 {
         font-family: 'JetBrains Mono', 'Fira Code', 'Courier New', monospace;
-        font-size: 0.85rem;
-        color: #ffd700;
+        font-size: 0.75rem;
+        color: #e0e0f0;
         text-transform: uppercase;
-        letter-spacing: 2px;
+        letter-spacing: 3px;
         margin: 0;
-      }
-      .wc-nav-drawer-header p {
-        font-family: 'JetBrains Mono', 'Fira Code', 'Courier New', monospace;
-        font-size: 0.65rem;
-        color: #555;
-        margin-top: 4px;
       }
 
       .wc-nav-links {
@@ -142,9 +136,9 @@
       }
 
       .wc-nav-link-icon {
-        font-size: 1.1rem;
-        width: 28px;
-        text-align: center;
+        width: 10px;
+        height: 10px;
+        border-radius: 50%;
         flex-shrink: 0;
       }
       .wc-nav-link-text {
@@ -162,15 +156,6 @@
       }
       .wc-nav-link.active .wc-nav-link-desc {
         color: rgba(0, 240, 255, 0.5);
-      }
-
-      .wc-nav-footer {
-        padding: 12px 16px;
-        border-top: 1px solid #1e1e2e;
-        font-family: 'JetBrains Mono', 'Fira Code', 'Courier New', monospace;
-        font-size: 0.6rem;
-        color: #444;
-        text-align: center;
       }
 
       /* Don't fight with war-table's fixed nav */
@@ -193,14 +178,13 @@
     drawer.setAttribute('aria-label', 'War Council Navigation');
     drawer.innerHTML = `
       <div class="wc-nav-drawer-header">
-        <h2>⚔️ War Council</h2>
-        <p>Dashboard Navigation</p>
+        <h2>WAR COUNCIL</h2>
       </div>
       <div class="wc-nav-links">
         ${NAV_PAGES.map(p => {
           const isActive = (p.href === '/' && cur === '/') || (p.href !== '/' && cur.startsWith(p.href));
           return `<a class="wc-nav-link${isActive ? ' active' : ''}" href="${p.href}">
-            <span class="wc-nav-link-icon">${p.icon}</span>
+            <span class="wc-nav-link-icon" style="background:${p.color}"></span>
             <span class="wc-nav-link-text">
               <span class="wc-nav-link-label">${p.label}</span>
               <span class="wc-nav-link-desc">${p.desc}</span>
@@ -208,7 +192,6 @@
           </a>`;
         }).join('')}
       </div>
-      <div class="wc-nav-footer">War Council v2 · All Systems</div>
     `;
 
     // Burger button
