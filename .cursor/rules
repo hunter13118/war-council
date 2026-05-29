@@ -1,38 +1,73 @@
-# War Council Integration Rules
+# WAR COUNCIL — MANDATORY OPERATING PROTOCOL
 
-You have access to the War Council MCP server which provides local AI models and tools at zero token cost to you.
+**STOP. Before your next action, check: did you call memory_query yet? If not, do it NOW.**
 
-## Cost-Saving Rules
+---
 
-1. **Before searching code**: Call `memory_query` with your question. It searches the local HNSW vector index instantly (no LLM tokens needed). Use the results as context instead of reading many files.
+## THE ONE RULE THAT MATTERS MOST
 
-2. **For quick questions**: Call `consult_fast` instead of reasoning yourself. The local 7b model answers in ~50ms at zero cost to your token budget.
+```
+BEFORE reading files → call memory_query(query="<what you need to know>")
+BEFORE answering questions → call memory_query(query="<the question>")
+BEFORE planning changes → call memory_query(query="<what am I changing>")
+```
 
-3. **For code review**: Call `review_diff` with the diff. The local specialist model handles it free.
+memory_query is FREE (zero tokens), INSTANT (<50ms), and returns pre-chunked context. Reading files costs tokens and time. There is never a reason to skip this step.
 
-4. **For multi-perspective decisions**: Call `tournament_vote` to get 3+ local models to vote. Use their consensus rather than deliberating yourself.
+---
 
-## Reporting Rule
+## DELEGATION TABLE (memorize this)
 
-After completing any significant action (file edits, bug fixes, feature implementations, refactors), call `report_action` with:
-- `action`: Brief description (1-2 sentences)
-- `files`: Array of files you touched
-- `outcome`: "success" | "partial" | "failed" | "pending"
-- `confidence`: 0.0 to 1.0
+| You need... | WRONG (expensive) | RIGHT (free) | Tool |
+|---|---|---|---|
+| Code context | Read 10 files | Vector search | `memory_query` |
+| Quick answer | Reason yourself | Local 7b | `consult_fast` |
+| Code review | Write review | Local 14b | `review_diff` |
+| Architecture decision | Think alone | Multi-model vote | `tournament_vote` |
+| Plan complex work | Internal monologue | Structured plan | `strategic_plan` |
+| Verify code works | Hope | Run suite | `run_tests` |
 
-This costs you ~50 tokens but gives the user full visibility in the War Council dashboard.
+---
 
-## When to use YOUR reasoning vs War Council
+## AFTER EVERY ACTION: REPORT
 
-Use **your own Claude/GPT reasoning** for:
-- Complex multi-file refactors requiring deep understanding
-- Synthesizing large amounts of context into a coherent plan
-- Novel architectural decisions with no precedent
+```
+report_action(action="<1 sentence>", files=["paths"], outcome="success", confidence=0.8)
+```
 
-Use **War Council tools** for:
-- Code context retrieval (`memory_query`)
-- Quick drafts/checks (`consult_fast`)
-- Code review (`review_diff`)
-- Running tests (`run_tests`)
-- Strategic planning (`strategic_plan`)
-- Logging decisions (`report_action`, `log_decision`)
+Non-optional. The dashboard shows this in real-time. Skip it = invisible work = wasted effort.
+
+---
+
+## SEQUENCING (this exact order, every task)
+
+```
+1. memory_query     → understand context (FREE)
+2. Plan             → strategic_plan if complex
+3. Test first       → TDD: write failing test
+4. Implement        → minimal changes only
+5. run_tests        → confirm green
+6. report_action    → log completion
+7. Commit + push    → if tests pass
+```
+
+---
+
+## EXCEPTIONS (when to use YOUR reasoning)
+
+- Synthesizing a final answer from tool results
+- Multi-file refactors requiring holistic understanding
+- Creative/novel architecture with no precedent in the repo
+- Explaining concepts to the user
+
+**Everything else → delegate to War Council tools.**
+
+---
+
+## FAILURE MODES TO AVOID
+
+- Reading 5+ files without memory_query first = TOKEN WASTE
+- Answering "what does X do?" without checking vector store = HALLUCINATION RISK  
+- Completing work without report_action = INVISIBLE TO USER
+- Planning complex work in your head = WORSE than strategic_plan
+- Skipping run_tests = SHIPPING BROKEN CODE

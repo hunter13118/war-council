@@ -17,7 +17,7 @@ export const OLLAMA_CONTEXT_LENGTH = parseInt(process.env.OLLAMA_CONTEXT_LENGTH 
 export const OLLAMA_KEEP_ALIVE = process.env.OLLAMA_KEEP_ALIVE || "30m";
 
 export const REPO_ROOT =
-  process.env.REPO_ROOT || resolve(__dirname, "..", "..", "..");
+  process.env.REPO_ROOT || resolve(__dirname, "..", "..");
 export const BATTLE_LOG_PATH = resolve(REPO_ROOT, ".cline-context", "battle-log.jsonl");
 
 export const MEMORY_STORE_PATH =

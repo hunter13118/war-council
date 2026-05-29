@@ -97,6 +97,20 @@ The MCP server exposes these tools for model delegation:
 | `consult_reasoning` | Deep reasoning from deepseek-r1 |
 | `tournament_vote` | Multi-model vote on a decision |
 | `list_arsenal` | Show available models and their roles |
+| `memory_query` | HNSW vector search — instant, zero LLM cost |
+| `report_action` | Log actions to the live dashboard |
+
+---
+
+## 🧠 MEMORY-FIRST PROTOCOL (enforced)
+
+**Before reading multiple files or answering codebase questions:**
+
+1. Check if the MCP server is available → call `memory_query` with your question
+2. Use returned chunks as context (cheaper than bulk file reads)
+3. Only read additional files if vector results are insufficient
+
+This applies to ALL agents spawned via sub-agent. Include this instruction when delegating.
 
 ---
 
@@ -108,3 +122,6 @@ The MCP server exposes these tools for model delegation:
 - ❌ Question prompts with `options` arrays (free text only)
 - ❌ Running multiple Ollama models when VRAM budget is tight
 - ❌ Hardcoding model names instead of reading from arsenal config
+- ❌ Reading 10+ files without calling `memory_query` first
+- ❌ Answering code questions from memory instead of vector store
+- ❌ Skipping `report_action` after completing significant work
