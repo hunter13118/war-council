@@ -12,6 +12,7 @@ import { isAvailable, recordSuccess, recordFailure, findFallback } from './circu
 import { record as telemetryRecord } from './telemetry.js';
 import { scoreConfidence } from './confidence.js';
 import { checkGateway, getResponseFooter } from './protocol-gateway.js';
+import { autoInjectContext } from './auto-inject.js';
 
 /**
  * Maps tool names to their circuit breaker tier.
@@ -56,6 +57,17 @@ export function withInstrumentation(toolName, originalHandler) {
         content: [{ type: 'text', text: gate.message }],
         isError: true,
       };
+    }
+
+    // Auto-inject: silently run memory_query when agent skipped it
+    if (gate?.autoInject && (args?.prompt || args?.task || args?.query)) {
+      const query = args.prompt || args.task || args.query;
+      const injected = await autoInjectContext(query);
+      if (injected && args.prompt) {
+        args.prompt = injected + '\n\n' + args.prompt;
+      } else if (injected && args.task) {
+        args.task = injected + '\n\n' + args.task;
+      }
     }
 
     // Circuit breaker check
