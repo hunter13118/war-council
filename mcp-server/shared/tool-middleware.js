@@ -1,14 +1,17 @@
 /**
  * Tool Middleware — Wraps MCP tool handlers with:
- * 1. Circuit breaker check (fail-fast if breaker open)
- * 2. Telemetry recording (latency, tokens, success/fail)
- * 3. Confidence scoring (on successful responses)
+ * 1. Protocol gateway check (enforce memory-first flow)
+ * 2. Circuit breaker check (fail-fast if breaker open)
+ * 3. Telemetry recording (latency, tokens, success/fail)
+ * 4. Confidence scoring (on successful responses)
+ * 5. Response footer injection (next-step reminders)
  *
  * Usage: wrap your handler with `withInstrumentation(tier, handler)`
  */
 import { isAvailable, recordSuccess, recordFailure, findFallback } from './circuit-breaker.js';
 import { record as telemetryRecord } from './telemetry.js';
 import { scoreConfidence } from './confidence.js';
+import { checkGateway, getResponseFooter } from './protocol-gateway.js';
 
 /**
  * Maps tool names to their circuit breaker tier.
@@ -45,6 +48,15 @@ export function withInstrumentation(toolName, originalHandler) {
   return async function instrumentedHandler(args, ctx) {
     const tier = resolveTier(toolName, args);
     const t0 = Date.now();
+
+    // Protocol gateway check
+    const gate = checkGateway(toolName, args);
+    if (gate?.blocked) {
+      return {
+        content: [{ type: 'text', text: gate.message }],
+        isError: true,
+      };
+    }
 
     // Circuit breaker check
     if (tier && !isAvailable(tier)) {
@@ -103,6 +115,19 @@ export function withInstrumentation(toolName, originalHandler) {
         result._meta.confidence = confidence;
       } else {
         result._meta = { confidence };
+      }
+
+      // Protocol gateway: inject warning + footer into response text
+      if (result?.content?.[0]?.type === 'text') {
+        let text = result.content[0].text;
+        if (gate?.warning) {
+          text = gate.warning + "\n\n" + text;
+        }
+        const footer = getResponseFooter(toolName);
+        if (footer) {
+          text += footer;
+        }
+        result.content[0].text = text;
       }
 
       return result;
