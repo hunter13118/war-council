@@ -15,7 +15,9 @@
  * Default: SOFT — maximizes compliance without breaking agent loops.
  */
 
-const ENFORCEMENT_LEVEL = process.env.GATEWAY_ENFORCEMENT || "soft";
+function getEnforcementLevel() {
+  return process.env.GATEWAY_ENFORCEMENT || "soft";
+}
 
 // Session state
 let sessionState = {
@@ -81,7 +83,7 @@ export function checkGateway(toolName, args) {
 
   // === GATE 1: workspace not registered ===
   if (!sessionState.workspaceRegistered && toolName !== "list_arsenal") {
-    if (ENFORCEMENT_LEVEL === "hard") {
+    if (getEnforcementLevel() === "hard") {
       return { blocked: true, message: "BLOCKED: Call register_workspace first to initialize this repo's context." };
     }
     return {
@@ -95,7 +97,7 @@ export function checkGateway(toolName, args) {
     const stale = (Date.now() - sessionState.lastMemoryQueryAt) > MEMORY_FRESHNESS_MS;
     if (!sessionState.memoryQueried || stale) {
       sessionState.actionsWithoutReport++;
-      if (ENFORCEMENT_LEVEL === "hard") {
+      if (getEnforcementLevel() === "hard") {
         return { blocked: true, message: `BLOCKED: Call memory_query before ${toolName}. RAG context is free and prevents hallucination.` };
       }
       return {
