@@ -42,13 +42,14 @@ Non-optional. The dashboard shows this in real-time. Skip it = invisible work = 
 ## SEQUENCING (this exact order, every task)
 
 ```
-1. memory_query     → understand context (FREE)
-2. Plan             → strategic_plan if complex
-3. Test first       → TDD: write failing test
-4. Implement        → minimal changes only
-5. run_tests        → confirm green
-6. report_action    → log completion
-7. Commit + push    → if tests pass
+0. register_workspace   → ensure this repo is indexed (first time only, idempotent)
+1. memory_query         → understand context (FREE)
+2. Plan                 → strategic_plan if complex
+3. Test first           → TDD: write failing test
+4. Implement            → minimal changes only
+5. run_tests            → confirm green
+6. report_action        → log completion
+7. Commit + push        → if tests pass
 ```
 
 ---

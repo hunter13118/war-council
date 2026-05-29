@@ -1,8 +1,10 @@
 /**
  * memory_query — Retrieve relevant chunks from Sovereign Memory vector store.
  */
-import { MEMORY_STORE_PATH, MEMORY_EMBED_MODEL } from "../shared/config.js";
+import { MEMORY_STORE_PATH, MEMORY_EMBED_MODEL, REPO_ROOT } from "../shared/config.js";
 import { retrieve } from "../../memory-engine/retriever.js";
+import { initRegistry, getActiveWorkspace } from "../shared/workspace-registry.js";
+import { existsSync } from "node:fs";
 
 export const schema = {
   name: "memory_query",
@@ -27,8 +29,19 @@ export const schema = {
 
 export async function handler(args, ctx) {
   const t0 = Date.now();
+
+  // Resolve which vector store to search — active workspace takes priority
+  let storePath = MEMORY_STORE_PATH;
+  try {
+    await initRegistry(REPO_ROOT);
+    const active = getActiveWorkspace();
+    if (active?.vectorStorePath && existsSync(active.vectorStorePath)) {
+      storePath = active.vectorStorePath;
+    }
+  } catch { /* fall through to default store */ }
+
   const result = await retrieve(args.query, {
-    storePath: MEMORY_STORE_PATH,
+    storePath,
     k: args.k ?? 5,
     embedModel: MEMORY_EMBED_MODEL,
     minRelevance: args.min_relevance ?? 0.30,
