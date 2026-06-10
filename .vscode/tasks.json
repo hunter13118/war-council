@@ -1,0 +1,41 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "War Council: Enable Adherence Hooks",
+      "type": "shell",
+      "command": "git config core.hooksPath .githooks && echo Hooks enabled",
+      "problemMatcher": [],
+      "runOptions": { "runOn": "folderOpen" },
+      "presentation": { "reveal": "silent", "panel": "shared" }
+    },
+    {
+      "label": "War Council: Start War Table Dashboard",
+      "type": "shell",
+      "command": "node D:/war-council/battle-log/server.js",
+      "isBackground": true,
+      "problemMatcher": [],
+      "detail": "http://localhost:3737 — war-table, command-center, metrics-hud"
+    },
+    {
+      "label": "War Council: Start MCP Server",
+      "type": "shell",
+      "command": "node D:/war-council/mcp-server/server.js",
+      "isBackground": true,
+      "problemMatcher": [],
+      "detail": "stdio MCP transport for Copilot agent tools"
+    },
+    {
+      "label": "War Council: Adherence Report",
+      "type": "shell",
+      "command": "node D:/war-council/scripts/adherence-gate.js --report",
+      "problemMatcher": []
+    },
+    {
+      "label": "War Council: Run All Tests",
+      "type": "shell",
+      "command": "cd D:/war-council && npm test",
+      "problemMatcher": []
+    }
+  ]
+}

@@ -1,0 +1,34 @@
+{
+  "folders": [
+    {
+      "name": "war-council (MCP)",
+      "path": "."
+    },
+    {
+      "name": "voxnovel-portfolio",
+      "path": "D:/personal webapp portfolio"
+    }
+  ],
+  "settings": {
+    "github.copilot.chat.codeGeneration.useInstructionFiles": true,
+    "chat.promptFiles": true,
+    "files.exclude": {
+      "**/.cline-context": true,
+      "**/node_modules": true
+    },
+    "search.exclude": {
+      "**/.cline-context": true,
+      "**/node_modules": true,
+      "**/.ml_cache": true
+    },
+    "task.allowAutomaticTasks": "on"
+  },
+  "extensions": {
+    "recommendations": [
+      "github.copilot",
+      "github.copilot-chat",
+      "rooveterinaryinc.roo-cline",
+      "saoudrizwan.claude-dev"
+    ]
+  }
+}

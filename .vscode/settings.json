@@ -1,0 +1,12 @@
+{
+  "github.copilot.chat.codeGeneration.useInstructionFiles": true,
+  "chat.promptFiles": true,
+  "files.exclude": {
+    "**/.cline-context": true
+  },
+  "search.exclude": {
+    "**/.cline-context": true,
+    "**/node_modules": true
+  },
+  "task.allowAutomaticTasks": "on"
+}
