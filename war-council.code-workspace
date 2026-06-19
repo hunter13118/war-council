@@ -5,36 +5,44 @@
       "path": "."
     },
     {
-      "name": "milkman-audiobook-maker",
-      "path": "D:/personal webapp portfolio"
+      "name": "context-fabric",
+      "path": "repos/context-fabric"
+    },
+    {
+      "name": "ebookavplayer",
+      "path": "repos/ebookavplayer"
+    },
+    {
+      "name": "cloudpilot",
+      "path": "repos/cloudpilot"
+    },
+    {
+      "name": "grade-the-grader",
+      "path": "repos/grade-the-grader"
+    },
+    {
+      "name": "specterboard",
+      "path": "repos/specterboard"
+    },
+    {
+      "name": "gyokan",
+      "path": "repos/gyokan"
+    },
+    {
+      "name": "milkman-webapp-portfolio",
+      "path": "repos/milkman-webapp-portfolio"
     },
     {
       "name": "copilot-sonar",
       "path": "D:/copilot-tts"
     },
     {
-      "name": "grade-the-grader",
-      "path": "D:/grade-the-grader"
-    },
-    {
       "name": "portfolio-template",
       "path": "D:/sara portfolio"
     },
     {
-      "name": "specterboard",
-      "path": "D:/specterboard"
-    },
-    {
-      "name": "milkman-webapp-portfolio",
-      "path": "D:/milkman-portfolio"
-    },
-    {
-      "name": "CloudPilot",
-      "path": "D:/CloudPilot"
-    },
-    {
-      "name": "gyokan",
-      "path": "D:/claude cowork files/Projects/Gyōkan"
+      "name": "milkman-audiobook-maker",
+      "path": "D:/personal webapp portfolio"
     }
   ],
   "settings": {
