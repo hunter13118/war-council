@@ -12,3 +12,4 @@ tests/test-results/
 tests/playwright-report/
 tests/blob-report/
 .cline-context/
+repos/
