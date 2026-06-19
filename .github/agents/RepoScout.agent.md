@@ -17,12 +17,12 @@ Three-tier: React (Windows) → Node.js proxy (Windows) → Flask API (WSL Ubunt
 
 | Layer    | Entry                          | Key Files                                         |
 | -------- | ------------------------------ | ------------------------------------------------- |
-| Frontend | `milkman-portfolio/src/App.js` | War CouncilUI_v2.js, SelfGeneratingNovelPreviewer.js |
-| Proxy    | `scripts/server.js`            | Single file, serves React + proxies API           |
-| Backend  | `backend/War Council_api.py`      | Main API, imports audio_worker, voice_registry    |
-| TTS      | `backend/audio_worker.py`      | Persistent AudioWorker class                      |
-| Voices   | `backend/voice_registry.py`    | VoiceRegistry, VoiceMetadata                      |
-| Quality  | `backend/clip_evaluator.py`    | ClipEvaluator, quality scores                     |
+| MCP      | `mcp-server/server.js`         | tool-registry.js, tools/*, shared/*               |
+| Dashboard| `battle-log/server.js`         | war-table.html, command-center.html, nav.js       |
+| Memory   | `memory-engine/`               | store.js, retriever.js, indexer.js, repo-indexer.js |
+| Config   | `arsenal.json`, `.env`         | Model arsenal + env overrides                     |
+
+(When scouting an external workspace, build this table fresh from that repo — never assume this layout.)
 
 ### Data Flow Traces
 

@@ -2256,7 +2256,8 @@ function connect() {
 
   source.onerror = () => {
     document.getElementById('connDot').style.background = 'var(--fire)';
-    document.getElementById('connStatus').textContent = 'Disconnected...';
+    document.getElementById('connStatus').textContent = 'Disconnected — retrying...';
+    source.close(); // prevent duplicate connections stacking up on reconnect
     setTimeout(connect, 3000);
   };
 }

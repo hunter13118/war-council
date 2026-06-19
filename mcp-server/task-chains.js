@@ -7,6 +7,7 @@
  *
  * Each chain step can reference outputs from previous steps via {{step_N}}.
  */
+import { buildCursorBriefPrompt } from "./shared/apple-plan-prompts.js";
 
 /**
  * @typedef {Object} ChainStep
@@ -25,8 +26,243 @@
  * @property {ChainStep[]} steps
  */
 
+function isComplexTask(ctx) {
+  const t = (ctx.task || "").toLowerCase();
+  return t.length > 120 || /architect|migration|refactor|multi-file|security/.test(t);
+}
+
 /** @type {Record<string, ChainDef>} */
 export const CHAINS = {
+  coding_plan: {
+    name: "coding_plan",
+    description: "Plan: RAG → cloud+local parallel → merge → brief",
+    requiredInputs: ["task"],
+    contextBudget: 5000,
+    steps: [
+      {
+        label: "1. RAG — codebase context",
+        tool: "memory_query",
+        args: (ctx) => ({ query: ctx.task, k: 10 }),
+      },
+      {
+        label: "2. Cloud + local planning (parallel)",
+        parallel: [
+          {
+            tool: "consult_cloud",
+            args: (ctx) => ({
+              provider: "gemini",
+              prompt: `Implementation plan for:\n${ctx.task}\n\nContext:\n${ctx.results[0]?.text || "(none)"}`,
+              maxTokens: 4096,
+            }),
+          },
+          {
+            tool: "consult_specialist",
+            args: (ctx) => ({
+              prompt: `Local plan (patterns + files) for:\n${ctx.task}\n\nRAG:\n${ctx.results[0]?.text || "(none)"}`,
+              maxTokens: 4096,
+            }),
+          },
+        ],
+      },
+      {
+        label: "3. Merge cloud + local",
+        tool: "consult_fast",
+        args: (ctx) => ({
+          prompt: `Merge into one implementation plan:\n${ctx.results[1]?.text || ""}\n\nTASK: ${ctx.task}`,
+          maxTokens: 2048,
+        }),
+      },
+      {
+        label: "4. Tournament (complex tasks)",
+        tool: "tournament_vote",
+        args: (ctx) => ({
+          prompt: `Stress-test this plan. List risks and missing steps:\n${ctx.results[2]?.text || ""}`,
+          voters: ["specialist", "reasoning"],
+          rounds: 1,
+        }),
+        condition: isComplexTask,
+        optional: true,
+      },
+      {
+        label: "5. TDD — failing test spec",
+        tool: "consult_specialist",
+        args: (ctx) => ({
+          prompt: `Write a FAILING test spec (file paths + test code stub) before implementation.\nTASK: ${ctx.task}\nPlan: ${ctx.results[2]?.text || ""}`,
+          maxTokens: 2048,
+        }),
+        condition: (ctx) => Boolean(ctx.tdd_first),
+        optional: true,
+      },
+      {
+        label: "6. Implementation brief for Cursor",
+        tool: "consult_specialist",
+        args: (ctx) => ({
+          prompt: [
+            "Produce CURSOR_RECONCILE brief with FILES, EDITS_ORDERED, TESTS, and optional JSON patches block.",
+            `TASK: ${ctx.task}`,
+            `PLAN:\n${ctx.results[2]?.text || ""}`,
+            ctx.results[4]?.text ? `TDD:\n${ctx.results[4].text}` : "",
+          ].join("\n"),
+          maxTokens: 4096,
+        }),
+      },
+    ],
+  },
+
+  apple_plan: {
+    name: "apple_plan",
+    description: "Apple Plan: RAG → Gemini plan → tournaments → CURSOR_RECONCILE brief",
+    requiredInputs: ["task"],
+    contextBudget: 8000,
+    steps: [
+      {
+        label: "1. RAG — codebase context",
+        tool: "memory_query",
+        args: (ctx) => ({ query: ctx.task, k: 12, minRelevance: 0.28 }),
+      },
+      {
+        label: "2. Apple Plan (cloud high context)",
+        tool: "apple_strategic_plan",
+        args: (ctx) => ({
+          task: ctx.task,
+          code_context: ctx.results[0]?.text || "",
+          maxTokens: 8192,
+        }),
+      },
+      {
+        label: "3. Cloud refine gaps",
+        tool: "consult_cloud",
+        args: (ctx) => ({
+          provider: "gemini",
+          prompt: `Refine gaps/risks in this plan:\n${ctx.results[1]?.text || ""}\n\nTASK: ${ctx.task}`,
+          maxTokens: 2048,
+        }),
+        optional: true,
+      },
+      {
+        label: "4. Tournament — stress-test plan",
+        tool: "tournament_vote",
+        args: (ctx) => ({
+          prompt: `Stress-test plan. MUST-FIX gaps?\n${ctx.results[1]?.text || ""}`,
+          voters: ["specialist", "reasoning"],
+          rounds: 1,
+        }),
+        optional: true,
+      },
+      {
+        label: "5. TDD — failing test spec",
+        tool: "consult_specialist",
+        args: (ctx) => ({
+          prompt: `Emit failing test spec before implementation.\nTASK: ${ctx.task}\nPlan: ${ctx.results[1]?.text || ""}`,
+          maxTokens: 2048,
+        }),
+        condition: (ctx) => Boolean(ctx.tdd_first),
+        optional: true,
+      },
+      {
+        label: "6. Cursor reconcile brief",
+        tool: "consult_fast",
+        args: (ctx) => ({
+          prompt: buildCursorBriefPrompt(ctx),
+          maxTokens: 4096,
+        }),
+      },
+      {
+        label: "7. Tournament — brief completeness",
+        tool: "tournament_vote",
+        args: (ctx) => ({
+          prompt: `Is this brief complete enough for Cursor to apply?\n${ctx.results[5]?.text || ctx.results[6]?.text || ""}`,
+          voters: ["fast", "reasoning"],
+          rounds: 1,
+        }),
+        optional: true,
+      },
+    ],
+  },
+
+  coding_verify: {
+    name: "coding_verify",
+    description: "Verify: tests → diff review → optional visual → Hypeman",
+    requiredInputs: ["task"],
+    contextBudget: 4000,
+    steps: [
+      {
+        label: "1. Run test suite",
+        tool: "run_tests",
+        args: (ctx) => ({
+          suite: ctx.test_suite || "all",
+          timeout_ms: ctx.test_timeout_ms ?? 300_000,
+        }),
+      },
+      {
+        label: "2. Review git diff (fast reconcile)",
+        tool: "review_diff",
+        args: (ctx) => ({ tier: "fast", repo_root: ctx.repo_root }),
+      },
+      {
+        label: "2b. Applied diff tournament",
+        tool: "tournament_vote",
+        args: (ctx) => ({
+          prompt: [
+            "Judge APPLIED diff completeness for task.",
+            `TASK: ${ctx.task}`,
+            `DIFF REVIEW:\n${ctx.results[1]?.text || ""}`,
+          ].join("\n"),
+          voters: ["specialist", "reasoning"],
+          rounds: 1,
+        }),
+        optional: true,
+      },
+      {
+        label: "3. Test failure analysis",
+        tool: "rapid_fan_out",
+        args: (ctx) => ({
+          prompts: [
+            `Root cause of test failure:\n${ctx.results[0]?.text || ""}`,
+            `Minimal fix suggestion:\n${ctx.results[0]?.text || ""}`,
+          ],
+          maxTokens: 1024,
+        }),
+        condition: (ctx) => !(ctx.results[0]?.text || "").includes("PASSED"),
+        optional: true,
+      },
+      {
+        label: "4. Visual audit",
+        tool: "capture_visual_audit",
+        args: (ctx) => ({
+          url: ctx.visual_url,
+          output_path: ctx.visual_output_path,
+          question: ctx.visual_question,
+          wait_ms: ctx.visual_wait_ms ?? 2000,
+        }),
+        condition: (ctx) => Boolean(ctx.visual_url),
+        optional: true,
+      },
+      {
+        label: "5. Hypeman user report",
+        tool: "invoke_agent",
+        args: (ctx) => ({
+          agent_name: "Hypeman",
+          prompt: [
+            "Summarize verify results for the user in 3-5 sentences. Mention test pass/fail.",
+            `TASK: ${ctx.task}`,
+            `TESTS:\n${ctx.results[0]?.text || ""}`,
+            `DIFF:\n${ctx.results[1]?.text || ""}`,
+          ].join("\n"),
+          maxTokens: 512,
+        }),
+      },
+      {
+        label: "6. Log to Battle Log",
+        tool: "report_action",
+        args: (ctx) => ({
+          action: `coding_delivery verify: ${ctx.task.slice(0, 120)}`,
+          outcome: (ctx.results[0]?.text || "").includes("PASSED") ? "success" : "partial",
+        }),
+      },
+    ],
+  },
+
   fix_bug: {
     name: "fix_bug",
     description:
@@ -304,6 +540,32 @@ export async function executeChain(chainName, inputs, executeTool) {
       stepResults.push({ label: step.label, tool: step.tool, skipped: true, reason: "condition false" });
       context.results.push(null);
       continue;
+    }
+
+    // Parallel fan-out step
+    if (step.parallel && Array.isArray(step.parallel)) {
+      try {
+        const parts = await Promise.all(
+          step.parallel.map(async (p) => {
+            const pArgs = typeof p.args === "function" ? p.args(context) : p.args;
+            const text = await executeTool(p.tool, pArgs);
+            return `--- ${p.tool} ---\n${text}`;
+          }),
+        );
+        const result = parts.join("\n\n");
+        context.results.push({ text: truncateResult(result, budget) });
+        stepResults.push({ label: step.label, tool: "parallel", result, skipped: false });
+        continue;
+      } catch (err) {
+        if (step.optional) {
+          stepResults.push({ label: step.label, tool: "parallel", skipped: true, reason: err.message });
+          context.results.push(null);
+          continue;
+        }
+        stepResults.push({ label: step.label, tool: "parallel", error: err.message });
+        context.results.push(null);
+        return { chain: chainName, steps: stepResults, success: false, failedAt: i };
+      }
     }
 
     // Resolve args

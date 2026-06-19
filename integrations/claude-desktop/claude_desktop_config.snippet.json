@@ -1,0 +1,15 @@
+{
+  "_instructions": "Merge the mcpServers entry below into your Claude Desktop config: Windows %APPDATA%/Claude/claude_desktop_config.json · macOS ~/Library/Application Support/Claude/claude_desktop_config.json. Restart Claude Desktop afterwards.",
+  "mcpServers": {
+    "war-council": {
+      "command": "node",
+      "args": ["{{WAR_COUNCIL_ROOT}}/mcp-server/server.js"],
+      "env": {
+        "OLLAMA_BASE": "http://127.0.0.1:11434",
+        "REPO_ROOT": "{{WORKSPACE_ROOT}}",
+        "WC_CALLER_CLIENT": "claude",
+        "WC_CALLER_TIER": "premium"
+      }
+    }
+  }
+}

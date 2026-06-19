@@ -4,6 +4,7 @@
 import { ARSENAL, REPO_ROOT } from "../shared/config.js";
 import { ollamaGenerate, formatConsultResult } from "../shared/ollama.js";
 import { runCommand } from "../shared/commands.js";
+import { resolveActiveRepoRoot } from "../shared/resolve-repo-root.js";
 
 export const schema = {
   name: "review_diff",
@@ -16,16 +17,18 @@ export const schema = {
       staged: { type: "boolean", description: "If true, review staged changes. Default false." },
       tier: {
         type: "string",
-        enum: ["specialist", "reasoning", "heavy"],
-        description: "Reviewer model tier. Default 'reasoning'.",
+        enum: ["fast", "specialist", "reasoning", "heavy"],
+        description: "Reviewer model tier. Default 'reasoning'. Use 'fast' for reconcile passes.",
       },
+      repo_root: { type: "string", description: "Git repo for diff. Default active workspace." },
     },
   },
 };
 
 export async function handler(args, ctx) {
+  const repoRoot = resolveActiveRepoRoot(args.repo_root);
   const diffArgs = args.staged ? ["diff", "--cached"] : ["diff"];
-  const cmdRes = await runCommand("git", diffArgs, REPO_ROOT, 60_000);
+  const cmdRes = await runCommand("git", diffArgs, repoRoot, 60_000);
   if (cmdRes.exitCode !== 0) {
     return {
       content: [{ type: "text", text: `git diff failed (exit ${cmdRes.exitCode}):\n${cmdRes.stderr}` }],

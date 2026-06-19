@@ -26,6 +26,20 @@
       font-size: 0.8rem;
       margin-bottom: 20px;
     }
+    .demo-badge {
+      width: max-content;
+      max-width: 90%;
+      margin: -8px auto 16px;
+      padding: 4px 14px;
+      border: 1px solid #ffd700;
+      border-radius: 12px;
+      color: #ffd700;
+      background: rgba(255,215,0,0.08);
+      font-size: 0.7rem;
+      letter-spacing: 1px;
+      text-transform: uppercase;
+      text-align: center;
+    }
 
     /* Courtroom Layout */
     .courtroom {
@@ -296,6 +310,7 @@
 <body>
   <h1>Arbitration Court</h1>
   <p class="subtitle">When models disagree, the Court decides — tournament verdicts visualized in real-time</p>
+  <div class="demo-badge" id="demo-badge" style="display:none">DEMO DATA — run a tournament in Command Center to see real cases</div>
 
   <div class="courtroom">
     <!-- Judge's Bench -->
@@ -427,9 +442,77 @@
 
     let currentCase = 0;
     let caseHistory = [];
+    let liveCases = []; // real cases adapted from /history + SSE; when non-empty, demo cases are never shown
+
+    function activeCases() {
+      return liveCases.length ? liveCases : DEMO_CASES;
+    }
+
+    function setDemoBadge(show) {
+      document.getElementById('demo-badge').style.display = show ? '' : 'none';
+    }
+
+    function guessTier(name) {
+      const n = String(name || '').toLowerCase();
+      if (n.includes('deepseek') || n.includes('r1')) return 'reasoning';
+      if (n.includes('14b') || n.includes('32b')) return 'specialist';
+      if (n.includes('7b') || n.includes('3b') || n.includes('1.5b')) return 'fast';
+      if (n.includes('groq') || n.includes('llama')) return 'groq';
+      if (n.includes('gemini')) return 'gemini';
+      return 'live';
+    }
+
+    // Adapt a battle event into the case shape loadCase consumes
+    function eventToCase(ev) {
+      if (!ev || typeof ev !== 'object') return null;
+      const time = ev.timestamp ? new Date(ev.timestamp).toLocaleTimeString() : new Date().toLocaleTimeString();
+
+      if (ev.type === 'debate_round') {
+        const a1 = ev.agent1 || 'Agent 1';
+        const a2 = ev.agent2 || 'Agent 2';
+        const winIdx = (ev.winner === a2 || ev.winner === 2 || ev.winner === '2' || ev.winner === 'agent2') ? 1 : 0;
+        return {
+          prompt: ev.prompt || '(live debate)',
+          contestants: [
+            { name: a1, tier: guessTier(a1), response: ev.text1 || '(no transcript captured)' },
+            { name: a2, tier: guessTier(a2), response: ev.text2 || '(no transcript captured)' },
+          ],
+          winner: winIdx,
+          verdict: ev.verdict || `${winIdx === 1 ? a2 : a1} prevails in live debate.`,
+          time,
+        };
+      }
+
+      if (ev.type === 'tournament_result' && ev.winner && ev.loser) {
+        return {
+          prompt: ev.prompt || '(live tournament round)',
+          contestants: [
+            { name: ev.winner, tier: ev.winner_tier || guessTier(ev.winner), response: 'Winning response — full transcript lives in the Command Center battle log.' },
+            { name: ev.loser, tier: guessTier(ev.loser), response: 'Defeated response — full transcript lives in the Command Center battle log.' },
+          ],
+          winner: 0,
+          verdict: `${ev.winner} defeated ${ev.loser} in tournament arbitration.`,
+          time,
+        };
+      }
+
+      return null;
+    }
+
+    function statsHTML(c) {
+      const parts = [];
+      if (c.elapsedMs != null) parts.push(`<span>${c.elapsedMs}ms</span>`);
+      if (c.tokensOut != null) parts.push(`<span>${c.tokensOut} tokens</span>`);
+      if (c.confidence) {
+        const avg = (c.confidence.relevance + c.confidence.completeness + c.confidence.certainty + c.confidence.consistency) / 4;
+        parts.push(`<span>conf: ${avg.toFixed(2)}</span>`);
+      }
+      return parts.join('\n');
+    }
 
     function loadCase(idx) {
-      const c = DEMO_CASES[idx % DEMO_CASES.length];
+      const cases = activeCases();
+      const c = cases[idx % cases.length];
       const [c1, c2] = c.contestants;
       const winIdx = c.winner;
 
@@ -437,20 +520,12 @@
       document.getElementById('c1-name').textContent = c1.name;
       document.getElementById('c1-tier').textContent = c1.tier;
       document.getElementById('c1-response').textContent = c1.response;
-      document.getElementById('c1-stats').innerHTML = `
-        <span>${c1.elapsedMs}ms</span>
-        <span>${c1.tokensOut} tokens</span>
-        <span>conf: ${((c1.confidence.relevance + c1.confidence.completeness + c1.confidence.certainty + c1.confidence.consistency) / 4).toFixed(2)}</span>
-      `;
+      document.getElementById('c1-stats').innerHTML = statsHTML(c1);
 
       document.getElementById('c2-name').textContent = c2.name;
       document.getElementById('c2-tier').textContent = c2.tier;
       document.getElementById('c2-response').textContent = c2.response;
-      document.getElementById('c2-stats').innerHTML = `
-        <span>${c2.elapsedMs}ms</span>
-        <span>${c2.tokensOut} tokens</span>
-        <span>conf: ${((c2.confidence.relevance + c2.confidence.completeness + c2.confidence.certainty + c2.confidence.consistency) / 4).toFixed(2)}</span>
-      `;
+      document.getElementById('c2-stats').innerHTML = statsHTML(c2);
 
       // Winner/loser badges
       const el1 = document.getElementById('contestant-1');
@@ -486,7 +561,7 @@
         prompt: c.prompt,
         winner: c.contestants[winIdx].name,
         winnerTier: c.contestants[winIdx].tier,
-        time: new Date().toLocaleTimeString()
+        time: c.time || new Date().toLocaleTimeString()
       });
       renderHistory();
     }
@@ -495,6 +570,12 @@
       const dims = ['relevance', 'completeness', 'certainty', 'consistency'];
       const colors1 = '#7aa2f7';
       const colors2 = '#bb9af7';
+
+      if (!conf1 || !conf2) {
+        document.getElementById('score-bars').innerHTML =
+          '<em style="color:#555;font-size:0.75rem">No per-dimension confidence scores captured for this live case</em>';
+        return;
+      }
 
       document.getElementById('score-bars').innerHTML = dims.map(dim => {
         const v1 = conf1[dim];
@@ -525,32 +606,67 @@
       `).join('');
     }
 
-    // Load first case immediately, rotate every 8 seconds
-    loadCase(0);
-    setInterval(() => {
-      currentCase++;
-      loadCase(currentCase);
-    }, 8000);
-
-    // Also try to listen for live tournament results via SSE
-    try {
-      const es = new EventSource('/events');
-      es.onmessage = (e) => {
-        try {
-          const data = JSON.parse(e.data);
-          if (data.type === 'tournament_result') {
-            // Live tournament result — could inject into the UI
-            caseHistory.unshift({
-              prompt: data.prompt || '(live tournament)',
-              winner: data.winner,
-              winnerTier: data.winner_tier || 'unknown',
-              time: new Date().toLocaleTimeString()
-            });
-            renderHistory();
+    // Boot: build real cases from /history; fall back to demo (with badge) if none exist yet
+    async function initCases() {
+      try {
+        const res = await fetch('/history');
+        if (res.ok) {
+          const events = await res.json();
+          if (Array.isArray(events)) {
+            const real = events.map(eventToCase).filter(Boolean);
+            real.reverse(); // /history is oldest→newest; court wants newest first
+            liveCases = real;
           }
-        } catch {}
-      };
-    } catch {}
+        }
+      } catch {}
+
+      if (liveCases.length) {
+        setDemoBadge(false);
+        // Seed the docket from real cases (loadCase will keep appending as it rotates)
+        caseHistory = liveCases.map(c => ({
+          prompt: c.prompt,
+          winner: c.contestants[c.winner].name,
+          winnerTier: c.contestants[c.winner].tier,
+          time: c.time || new Date().toLocaleTimeString()
+        }));
+        renderHistory();
+      } else {
+        setDemoBadge(true);
+      }
+
+      // Load first case immediately, rotate every 8 seconds
+      loadCase(0);
+      setInterval(() => {
+        currentCase++;
+        loadCase(currentCase);
+      }, 8000);
+    }
+    initCases();
+
+    // Listen for live debate/tournament events via SSE (with reconnect)
+    function connectLiveSSE() {
+      try {
+        const es = new EventSource('/events');
+        es.onmessage = (e) => {
+          try {
+            const data = JSON.parse(e.data);
+            const liveCase = eventToCase(data);
+            if (liveCase) {
+              const wasDemo = liveCases.length === 0;
+              liveCases.unshift(liveCase);
+              if (wasDemo) setDemoBadge(false); // switch from demo to live mode
+              currentCase = 0;
+              loadCase(0); // show the new real case immediately (also adds it to the docket)
+            }
+          } catch {}
+        };
+        es.onerror = () => {
+          es.close(); // prevent duplicate connections stacking up on reconnect
+          setTimeout(connectLiveSSE, 3000);
+        };
+      } catch {}
+    }
+    connectLiveSSE();
   </script>
   <script src="nav.js"></script>
 </body>

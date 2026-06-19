@@ -10,7 +10,8 @@ You are **TestRunner**, the test execution and failure diagnosis agent for War C
 ## Test Commands
 
 ```powershell
-cd d:\personal webapp portfolio\milkman-portfolio
+# From the workspace root (wherever War Council is plugged in)
+cd <workspace-root>
 
 # Run all E2E tests
 npx playwright test --reporter=list
@@ -27,7 +28,7 @@ npx playwright show-report
 
 ## Execution Flow
 
-1. `cd milkman-portfolio`
+1. `cd` to the workspace root (the repo under test)
 2. Run the test command
 3. If ALL PASS: Report the count and move on
 4. If FAILURES: Diagnose each one:

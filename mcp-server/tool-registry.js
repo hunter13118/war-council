@@ -52,9 +52,6 @@ export class ToolRegistry {
       const mod = await import(fileUrl);
 
       if (!mod.schema || !mod.handler) {
-        process.stderr.write(
-          `[war-council] WARN: ${file} missing schema or handler export, skipping.\n`
-        );
         continue;
       }
 
@@ -63,9 +60,11 @@ export class ToolRegistry {
       this.register(mod.schema, instrumentedHandler);
     }
 
-    process.stderr.write(
-      `[war-council] Loaded ${this.tools.size} tools from ${toolsDir}\n`
-    );
+    if (process.env.WC_VERBOSE === "1") {
+      process.stderr.write(
+        `[war-council] Loaded ${this.tools.size} tools from ${toolsDir}\n`,
+      );
+    }
   }
 
   /**

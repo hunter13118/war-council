@@ -8,13 +8,40 @@
 
 /** @typedef {{ tool: string, args?: Object, chain?: string, reason: string }} RouteResult */
 
+function isCodingTask(lower) {
+  return matches(lower, [
+    "fix ", "implement", "add ", "create ", "build ", "ship ", "refactor",
+    "bug", "feature", "playwright", "e2e", "component", "api ", "css",
+    "write code", "patch", "test suite", "npm run",
+  ]);
+}
+
 /**
  * Route a task to the best tool or chain.
  * @param {string} taskDescription
+ * @param {{ forceWarTable?: boolean }} [opts]
  * @returns {RouteResult}
  */
-export function routeTask(taskDescription) {
+export function routeTask(taskDescription, opts = {}) {
   const lower = taskDescription.toLowerCase();
+  const forceWar = process.env.FORCE_WAR_TABLE === "1" && opts.forceWarTable !== false;
+
+  if (isCodingTask(lower)) {
+    const warHint = forceWar ? " [FORCE_WAR_TABLE: run tournament_vote before execution]" : "";
+    return {
+      tool: "coding_delivery",
+      args: { task: taskDescription, phase: "plan" },
+      chain: "apple_plan",
+      tier: "coding",
+      conductorTier: "cheap",
+      requiresTournament: forceWar,
+      followUp: forceWar
+        ? ["tournament_vote", "coding_delivery", "report_action"]
+        : ["coding_delivery", "report_action"],
+      reason:
+        `Coding task → coding_delivery plan arc (RAG, cloud+local parallel, brief). After patches: phase=verify.${warHint}`,
+    };
+  }
 
   // Bug-related keywords → fix_bug chain
   if (matches(lower, ["bug", "broken", "error", "crash", "failing", "doesn't work", "not working", "regression"])) {

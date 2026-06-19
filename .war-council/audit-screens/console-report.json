@@ -1,0 +1,38 @@
+{
+  "index.desktop": [],
+  "war-table.desktop": [
+    "capture failed: page.goto: Timeout 20000ms exceeded.\nCall log:\n\u001b[2m  - navigating to \"http://localhost:3737/war-table\", waiting until \"domcontentloaded\"\u001b[22m\n"
+  ],
+  "command-center.desktop": [
+    "capture failed: page.goto: Timeout 20000ms exceeded.\nCall log:\n\u001b[2m  - navigating to \"http://localhost:3737/command-center\", waiting until \"domcontentloaded\"\u001b[22m\n"
+  ],
+  "metrics-hud.desktop": [
+    "capture failed: page.goto: Timeout 20000ms exceeded.\nCall log:\n\u001b[2m  - navigating to \"http://localhost:3737/metrics-hud\", waiting until \"domcontentloaded\"\u001b[22m\n"
+  ],
+  "dag-theater.desktop": [
+    "capture failed: page.goto: Timeout 20000ms exceeded.\nCall log:\n\u001b[2m  - navigating to \"http://localhost:3737/dag-theater\", waiting until \"domcontentloaded\"\u001b[22m\n"
+  ],
+  "knowledge-graph-viz.desktop": [],
+  "memory-archive.desktop": [],
+  "adaptive-thresholds.desktop": [],
+  "arbitration-court.desktop": [],
+  "embed.desktop": [],
+  "index.mobile": [],
+  "war-table.mobile": [
+    "capture failed: page.goto: Timeout 20000ms exceeded.\nCall log:\n\u001b[2m  - navigating to \"http://localhost:3737/war-table\", waiting until \"domcontentloaded\"\u001b[22m\n"
+  ],
+  "command-center.mobile": [
+    "capture failed: page.goto: Timeout 20000ms exceeded.\nCall log:\n\u001b[2m  - navigating to \"http://localhost:3737/command-center\", waiting until \"domcontentloaded\"\u001b[22m\n"
+  ],
+  "metrics-hud.mobile": [
+    "capture failed: page.goto: Timeout 20000ms exceeded.\nCall log:\n\u001b[2m  - navigating to \"http://localhost:3737/metrics-hud\", waiting until \"domcontentloaded\"\u001b[22m\n"
+  ],
+  "dag-theater.mobile": [
+    "capture failed: page.goto: Timeout 20000ms exceeded.\nCall log:\n\u001b[2m  - navigating to \"http://localhost:3737/dag-theater\", waiting until \"domcontentloaded\"\u001b[22m\n"
+  ],
+  "knowledge-graph-viz.mobile": [],
+  "memory-archive.mobile": [],
+  "adaptive-thresholds.mobile": [],
+  "arbitration-court.mobile": [],
+  "embed.mobile": []
+}

@@ -12,7 +12,14 @@ const DEFAULT_EMBED_MODEL = "nomic-embed-text";
 const OLLAMA_BASE = process.env.OLLAMA_BASE || "http://127.0.0.1:11434";
 
 const INDEXABLE_EXTS = new Set([".js", ".ts", ".md", ".json", ".py", ".html", ".css"]);
-const SKIP_DIRS = new Set(["node_modules", ".git", "dist", "build", ".cline-context"]);
+const SKIP_DIRS = new Set(["node_modules", ".git", "dist", "build", ".cline-context", ".war-council"]);
+// Lockfiles/minified/generated files are huge and semantically worthless for RAG —
+// indexing them once produced ~9k junk chunks (a >100MB store) and crushed dashboard perf.
+const SKIP_FILES = new Set([
+  "package-lock.json", "npm-shrinkwrap.json", "yarn.lock", "pnpm-lock.yaml",
+  "composer.lock", "Cargo.lock", "poetry.lock", "Gemfile.lock", "uv.lock",
+]);
+const SKIP_FILE_PATTERNS = [/\.min\.(js|css)$/i, /\.map$/i, /\.d\.ts$/i];
 
 async function embed(text, model = DEFAULT_EMBED_MODEL) {
   const res = await fetch(`${OLLAMA_BASE}/api/embeddings`, {
@@ -61,7 +68,11 @@ async function walkDir(dir) {
     const full = join(dir, entry.name);
     if (entry.isDirectory()) {
       files.push(...(await walkDir(full)));
-    } else if (INDEXABLE_EXTS.has(extname(entry.name))) {
+    } else if (
+      INDEXABLE_EXTS.has(extname(entry.name)) &&
+      !SKIP_FILES.has(entry.name) &&
+      !SKIP_FILE_PATTERNS.some((re) => re.test(entry.name))
+    ) {
       files.push(full);
     }
   }
@@ -83,6 +94,15 @@ export async function indexRepo(opts = {}) {
 
   const store = new VectorStore(storePath);
   await store.load();
+
+  // Re-index REPLACES by default. store.add() appends blindly, so the old
+  // load-then-add behavior duplicated the entire store on every /reindex.
+  // Pass { append: true } for incremental adds.
+  if (!opts.append && store.chunks.length > 0) {
+    onProgress({ phase: "scanning", message: `Clearing ${store.chunks.length} existing chunks (full re-index)` });
+    store.chunks = [];
+    store._indexDirty = true;
+  }
 
   onProgress({ phase: "scanning", message: "Walking directory tree..." });
   const files = await walkDir(rootDir);

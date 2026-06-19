@@ -15,9 +15,11 @@
  *   POST /emit     → Push a manual event (for testing)
  */
 import { createServer } from "node:http";
-import { readFile, readdir, stat, mkdir } from "node:fs/promises";
-import { resolve, dirname } from "node:path";
+import { readFile, readdir, stat, mkdir, writeFile, mkdtemp } from "node:fs/promises";
+import { resolve, dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
+import { tmpdir } from "node:os";
+import { spawn } from "node:child_process";
 import { retrieve } from "../memory-engine/retriever.js";
 import { indexRepo } from "../memory-engine/indexer.js";
 import { existsSync, createReadStream } from "node:fs";
@@ -206,6 +208,20 @@ async function watchLog() {
 const server = createServer(async (req, res) => {
   const url = new URL(req.url, `http://localhost:${PORT}`);
 
+  // CORS: allow embed.html / external dashboards to call POST endpoints.
+  // Preflight (OPTIONS) requests previously fell through to 404, breaking
+  // any cross-origin POST with a JSON body.
+  res.setHeader("Access-Control-Allow-Origin", "*");
+  if (req.method === "OPTIONS") {
+    res.writeHead(204, {
+      "Access-Control-Allow-Methods": "GET, POST, DELETE, OPTIONS",
+      "Access-Control-Allow-Headers": "Content-Type",
+      "Access-Control-Max-Age": "86400",
+    });
+    res.end();
+    return;
+  }
+
   if (url.pathname === "/" || url.pathname === "/index.html") {
     const html = await readFile(resolve(__dirname, "index.html"), "utf-8");
     res.writeHead(200, { "Content-Type": "text/html" });
@@ -302,7 +318,9 @@ const server = createServer(async (req, res) => {
       const raw = JSON.parse(await readFile(VECTOR_STORE_PATH, "utf-8"));
       // Return chunks without full embeddings (too large) — include metadata + truncated content
       const chunks = raw.map(c => ({
-        file: c.file || c.path || '',
+        // indexer stores the path under `source` — c.file/c.path were never set,
+        // which collapsed every chunk to one nameless file in Memory Archive.
+        file: c.file || c.path || c.source || '',
         content: (c.text || c.content || '').slice(0, 200),
         lines: c.lines || '',
         embedding: c.embedding ? c.embedding.slice(0, 3) : null, // just 3 dims for projection hint
@@ -325,8 +343,18 @@ const server = createServer(async (req, res) => {
       if (r.ok) { ollama = true; models = ((await r.json()).models || []).map(m => m.name); }
     } catch {}
     try {
-      const raw = JSON.parse(await readFile(VECTOR_STORE_PATH, "utf-8"));
-      vectorStore = true; chunks = raw.length;
+      // PERF: parsing the full vector store (all embeddings) per /health call
+      // just to count chunks crushed the event loop under 3s dashboard polling.
+      // Cache the count for 30s, keyed by file mtime so /reindex shows up fast.
+      const { mtimeMs } = await stat(VECTOR_STORE_PATH);
+      const cache = globalThis.__wcHealthCache;
+      if (cache && cache.mtimeMs === mtimeMs && Date.now() - cache.at < 30_000) {
+        ({ vectorStore, chunks } = cache);
+      } else {
+        const raw = JSON.parse(await readFile(VECTOR_STORE_PATH, "utf-8"));
+        vectorStore = true; chunks = raw.length;
+        globalThis.__wcHealthCache = { at: Date.now(), mtimeMs, vectorStore, chunks };
+      }
     } catch {}
     res.writeHead(200, { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" });
     res.end(JSON.stringify({
@@ -697,7 +725,7 @@ const server = createServer(async (req, res) => {
   if (url.pathname.startsWith("/dag/status/") && req.method === "GET") {
     const executionId = url.pathname.split("/")[3];
     const execution = getExecution(executionId);
-    if (!execution) { res.writeHead(404, { "Content-Type": "application/json" }); res.end(JSON.stringify({ error: 'Not found' })); return; }
+    if (!execution) { res.writeHead(404, { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" }); res.end(JSON.stringify({ error: 'Not found' })); return; }
     res.writeHead(200, { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" });
     res.end(JSON.stringify(execution));
     return;
@@ -1109,11 +1137,18 @@ const server = createServer(async (req, res) => {
       rateLimits = getAllRateLimitStats();
     } catch { /* MCP server not co-located */ }
     try {
-      const { VectorStore } = await import("../memory-engine/store.js");
-      const storePath = resolve(LOG_DIR, "vector-store.json");
-      const store = new VectorStore(storePath);
-      await store.load();
-      memoryStats = store.stats();
+      // PERF: dashboards poll /stats every 3-5s; reloading the entire vector
+      // store (all embeddings) from disk per request made the server crawl.
+      // Cache stats for 30s — invalidated implicitly on TTL, /reindex restarts it.
+      const now = Date.now();
+      if (!globalThis.__wcStatsCache || now - globalThis.__wcStatsCache.at > 30_000) {
+        const { VectorStore } = await import("../memory-engine/store.js");
+        const storePath = resolve(LOG_DIR, "vector-store.json");
+        const store = new VectorStore(storePath);
+        await store.load();
+        globalThis.__wcStatsCache = { at: now, stats: store.stats() };
+      }
+      memoryStats = globalThis.__wcStatsCache.stats;
     } catch { /* store not initialized */ }
     // Ollama loaded models (VRAM info)
     try {
@@ -1297,6 +1332,44 @@ const server = createServer(async (req, res) => {
       res.end(JSON.stringify({ ok: true }));
     } catch (e) {
       res.writeHead(400, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ error: e.message }));
+    }
+    return;
+  }
+
+  // Local SD image generation for EbookAVPlayer (5090 / diffusers)
+  if (url.pathname === "/images/generate" && req.method === "POST") {
+    let body = "";
+    for await (const chunk of req) body += chunk;
+    try {
+      const { prompt, width = 512, height = 768 } = JSON.parse(body);
+      if (!prompt) throw new Error("prompt required");
+      const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
+      const script = join(root, "scripts", "gen_one_image.py");
+      const tmpDir = await mkdtemp(join(tmpdir(), "wc-img-"));
+      const outPath = join(tmpDir, "out.png");
+      await new Promise((resolveP, reject) => {
+        const proc = spawn(
+          process.env.PYTHON || "python",
+          [script, prompt, outPath],
+          { cwd: root, env: { ...process.env, PYTHONUNBUFFERED: "1" } },
+        );
+        let err = "";
+        proc.stderr.on("data", (d) => { err += d; });
+        proc.on("close", (code) => {
+          if (code === 0) resolveP();
+          else reject(new Error(err || `exit ${code}`));
+        });
+      });
+      const img = await readFile(outPath);
+      res.writeHead(200, {
+        "Content-Type": "image/png",
+        "Content-Length": img.length,
+        "Access-Control-Allow-Origin": "*",
+      });
+      res.end(img);
+    } catch (e) {
+      res.writeHead(502, { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" });
       res.end(JSON.stringify({ error: e.message }));
     }
     return;

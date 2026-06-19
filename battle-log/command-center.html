@@ -492,7 +492,10 @@ body {
       <div class="dialogue-nav">
         <button id="navPrev" onclick="navDialogue(-1)" disabled>◀</button>
         <span class="nav-counter" id="navCounter">—</span>
-        <button id="navNext" onclick="navDialogue(1)" disabled>▶</button>
+        <span>
+          <button id="sfxToggle" onclick="toggleSfx()" title="Babble sound effects">🔊</button>
+          <button id="navNext" onclick="navDialogue(1)" disabled>▶</button>
+        </span>
       </div>
     </div>
     <div class="events-view" id="eventsView"></div>
@@ -561,9 +564,13 @@ function showDialogue(idx) {
     textEl.textContent = '';
     textEl.classList.add('typing');
     let charIdx = 0;
+    // Per-agent babble pitch — each council member gets a distinct "voice"
+    const BABBLE_PITCH = { red: 290, blue: 320, gold: 380, green: 420, purple: 260, cyan: 350 };
+    const basePitch = BABBLE_PITCH[entry.color] || 350;
     typewriterTimer = setInterval(() => {
       if (charIdx < entry.text.length) {
         textEl.textContent += entry.text[charIdx];
+        if (window.WCSfx) WCSfx.tick(entry.text[charIdx], basePitch); // talking babble
         charIdx++;
       } else {
         clearInterval(typewriterTimer); typewriterTimer = null;
@@ -592,7 +599,7 @@ function connectSSE() {
   evtSource = new EventSource('/events');
   evtSource.onopen = () => { document.getElementById('statusIndicator').textContent = '● Connected'; document.getElementById('statusIndicator').className = 'status-indicator connected'; fetchCurrentMode(); };
   evtSource.onmessage = (e) => { try { addEventItem(JSON.parse(e.data)); } catch {} };
-  evtSource.onerror = () => { document.getElementById('statusIndicator').textContent = '● Reconnecting...'; document.getElementById('statusIndicator').className = 'status-indicator error'; setTimeout(connectSSE, 3000); };
+  evtSource.onerror = () => { document.getElementById('statusIndicator').textContent = '● Reconnecting...'; document.getElementById('statusIndicator').className = 'status-indicator error'; evtSource.close(); setTimeout(connectSSE, 3000); };
 }
 connectSSE();
 
@@ -966,6 +973,21 @@ async function refreshBreakers() {
 }
 refreshBreakers();
 setInterval(refreshBreakers, 5000);
+</script>
+<script src="assets/sfx.js"></script>
+<script>
+// SFX toggle — Animal Crossing babble in the Dialogue Theatre
+function toggleSfx() {
+  WCSfx.setEnabled(!WCSfx.enabled);
+  syncSfxButton();
+}
+function syncSfxButton() {
+  const btn = document.getElementById('sfxToggle');
+  if (!btn) return;
+  btn.textContent = WCSfx.enabled ? '🔊' : '🔇';
+  btn.title = WCSfx.enabled ? 'Babble SFX on' : 'Babble SFX off';
+}
+syncSfxButton();
 </script>
 <script src="nav.js"></script>
 </body>

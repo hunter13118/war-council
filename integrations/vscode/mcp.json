@@ -1,0 +1,15 @@
+{
+  "servers": {
+    "war-council": {
+      "type": "stdio",
+      "command": "node",
+      "args": ["{{WAR_COUNCIL_ROOT}}/mcp-server/server.js"],
+      "env": {
+        "OLLAMA_BASE": "http://127.0.0.1:11434",
+        "REPO_ROOT": "{{WORKSPACE_ROOT}}",
+        "WC_CALLER_CLIENT": "copilot",
+        "WC_CALLER_TIER": "premium"
+      }
+    }
+  }
+}

@@ -98,6 +98,16 @@ export function executeDAG(dag, context = {}, taskExecutor) {
     nodeResults: {},
     nodeStates: {},
     errors: [],
+    // Structure snapshot so visualizers (DAG Theater) can draw REAL executions —
+    // node types, dependencies, and tiers, without the heavy args/results.
+    structure: Object.fromEntries(
+      Object.entries(dag.nodes).map(([id, n]) => [id, {
+        type: n.type || 'task',
+        dependsOn: n.dependsOn || [],
+        tier: n.config?.tier || null,
+        tool: n.config?.tool || null,
+      }]),
+    ),
   };
 
   // Initialize all node states

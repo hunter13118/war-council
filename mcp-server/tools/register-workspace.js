@@ -14,7 +14,7 @@ import { resolve } from "node:path";
 import { initRegistry, registerWorkspace, switchWorkspace, getActiveWorkspace, listWorkspaces, updateWorkspace } from "../shared/workspace-registry.js";
 import { REPO_ROOT } from "../shared/config.js";
 import { indexRepo } from "../../memory-engine/indexer.js";
-import { existsSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 
 export const schema = {
   name: "register_workspace",
@@ -70,7 +70,16 @@ export async function handler(args, ctx) {
 
   // Check if vector store exists
   const vectorStorePath = ws.vectorStorePath || resolve(wsPath, '.cline-context', 'vector-store.json');
-  const needsIndex = !existsSync(vectorStorePath) || args.force_reindex;
+  const storeEmpty = () => {
+    if (!existsSync(vectorStorePath)) return true;
+    try {
+      const data = JSON.parse(readFileSync(vectorStorePath, "utf-8"));
+      return !data.chunks?.length;
+    } catch {
+      return true;
+    }
+  };
+  const needsIndex = !existsSync(vectorStorePath) || storeEmpty() || args.force_reindex;
 
   let indexStatus = "already indexed";
   if (needsIndex) {
@@ -81,10 +90,15 @@ export async function handler(args, ctx) {
         chunkSize: 500,
         chunkOverlap: 50,
       });
-      indexStatus = `indexed ${result.chunks || 0} chunks from ${result.files || 0} files`;
-      // Update workspace metadata
+      const chunks = result.chunksCreated ?? 0;
+      const files = result.filesProcessed ?? 0;
+      const errNote = result.errors?.length ? ` (${result.errors.length} embed errors)` : "";
+      indexStatus = `indexed ${chunks} chunks from ${files} files${errNote}`;
       if (updateWorkspace) {
-        await updateWorkspace(ws.id, { lastIndexedAt: new Date().toISOString(), chunks: result.chunks || 0 });
+        await updateWorkspace(ws.id, {
+          lastIndexedAt: new Date().toISOString(),
+          chunks,
+        });
       }
     } catch (e) {
       indexStatus = `index failed: ${e.message}`;

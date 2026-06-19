@@ -1,0 +1,10 @@
+#!/bin/sh
+# War Council adherence gate — pre-push (warns by default, WC_GATE_STRICT=1 to block).
+GATE="$(git rev-parse --show-toplevel)/scripts/adherence-gate.js"
+if [ ! -f "$GATE" ]; then
+  WC_HOME="${WC_ROOT:-$(git config war-council.root 2>/dev/null)}"
+  [ -n "$WC_HOME" ] && GATE="$WC_HOME/scripts/adherence-gate.js"
+fi
+if [ -f "$GATE" ]; then
+  node "$GATE" --hook pre-push || exit 1
+fi

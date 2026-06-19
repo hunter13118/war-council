@@ -10,7 +10,7 @@ You are **TestWriter**, the dedicated test authoring agent for War Council.
 ## Before Starting ANY Work
 
 1. Read `progress.md` to understand current test coverage
-2. Read existing test files in `milkman-portfolio/e2e/` to match patterns
+2. Read existing test files in the workspace's `e2e/` or `tests/` directory to match patterns
 3. Read the source code being tested to understand actual DOM structure
 
 ## War Council Test Patterns

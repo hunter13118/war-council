@@ -1,0 +1,29 @@
+#!/bin/sh
+# War Council pre-commit — TWO gates, in order:
+#   1. ADHERENCE  (scripts/adherence-gate.js) — was the council actually consulted?
+#   2. VERIFICATION (scripts/pre-commit)      — syntax + architecture + security pipeline
+#
+# Enable:  git config core.hooksPath .githooks   (or: npm run hooks:enable)
+# Bypass:  WC_SKIP_GATE=1 git commit ...          (adherence only)
+#          WAR_COUNCIL_FULL_VERIFY=1               (verification incl. tests)
+ROOT="$(git rev-parse --show-toplevel)"
+
+GATE="$ROOT/scripts/adherence-gate.js"
+# External workspaces bootstrapped by init-workspace.js: find the council at home.
+if [ ! -f "$GATE" ]; then
+  WC_HOME="${WC_ROOT:-$(git config war-council.root 2>/dev/null)}"
+  [ -n "$WC_HOME" ] && GATE="$WC_HOME/scripts/adherence-gate.js"
+fi
+if [ -f "$GATE" ]; then
+  node "$GATE" --hook pre-commit || exit 1
+else
+  echo "[wc-gate] adherence-gate.js not found — skipping (set WC_ROOT or git config war-council.root)."
+fi
+
+# Chain the verification pipeline if present (war-council repo itself).
+VERIFY="$ROOT/scripts/pre-commit"
+if [ -f "$VERIFY" ]; then
+  sh "$VERIFY" || exit 1
+fi
+
+exit 0

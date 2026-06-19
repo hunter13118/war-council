@@ -61,8 +61,12 @@ export async function handler(args, ctx) {
   // On E2E failure: find fresh screenshots
   if (cmdRes.exitCode !== 0 && (suite === "e2e" || suite === "all")) {
     try {
-      const { readdirSync, statSync } = await import("node:fs");
-      const resultsDir = resolve(REPO_ROOT, "milkman-portfolio", "test-results");
+      const { readdirSync, statSync, existsSync } = await import("node:fs");
+      // Workspace-relative: WC_TEST_RESULTS_DIR override, else <repo>/test-results.
+      const resultsDir = process.env.WC_TEST_RESULTS_DIR
+        ? resolve(process.env.WC_TEST_RESULTS_DIR)
+        : resolve(REPO_ROOT, "test-results");
+      if (!existsSync(resultsDir)) throw new Error("no test-results dir");
       const now = Date.now();
       const freshScreenshots = [];
 

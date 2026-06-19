@@ -1,0 +1,74 @@
+/**
+ * War Council — shared theme tokens.
+ *
+ * Why this exists: the 10 dashboard pages drifted into 4+ accent palettes and
+ * 2 font systems. The portfolio aesthetic is "quirky AND advanced" — quirk
+ * must look intentional, so every page draws from the same tokens:
+ *   - Display font (HUD chrome, headings, big numbers): Press Start 2P
+ *   - Body font (data, prose, tables): JetBrains Mono
+ *   - One dark base, one accent per page from the sanctioned palette below
+ *     (same colors nav.js uses, so the drawer dot always matches the page).
+ *
+ * Adoption: <link rel="stylesheet" href="/assets/war-council-theme.css">
+ * then replace hardcoded values with var(--wc-*) incrementally.
+ */
+
+:root {
+  /* Base surfaces */
+  --wc-bg: #0a0a14;
+  --wc-bg-raised: #0d0d1a;
+  --wc-bg-panel: rgba(18, 18, 31, 0.92);
+  --wc-border: #2a2a4a;
+  --wc-border-subtle: #1e1e2e;
+
+  /* Text */
+  --wc-text: #e0e0f0;
+  --wc-text-dim: #b0b0cc;
+  --wc-text-faint: #8888aa;
+
+  /* Sanctioned accents — one per page, matching nav.js dots */
+  --wc-accent-command: #00f0ff;   /* Command Center */
+  --wc-accent-log: #44ff88;       /* Battle Log */
+  --wc-accent-wartable: #ffd700;  /* War Table */
+  --wc-accent-metrics: #a855f7;   /* Metrics HUD */
+  --wc-accent-dag: #06b6d4;       /* DAG Theater */
+  --wc-accent-graph: #10b981;     /* Knowledge Graph */
+  --wc-accent-memory: #ec4899;    /* Memory Archive */
+  --wc-accent-thresholds: #f59e0b;/* Adaptive Thresholds */
+  --wc-accent-court: #ef4444;     /* Arbitration Court */
+
+  /* Status */
+  --wc-ok: #44ff88;
+  --wc-warn: #f59e0b;
+  --wc-err: #ef4444;
+
+  /* Type */
+  --wc-font-display: 'Press Start 2P', 'JetBrains Mono', monospace;
+  --wc-font-body: 'JetBrains Mono', 'Fira Code', 'Courier New', monospace;
+
+  /* Rhythm */
+  --wc-radius: 8px;
+  --wc-gap: 12px;
+  --wc-glow: 0 0 16px;
+}
+
+/* Opt-in utility classes */
+.wc-display { font-family: var(--wc-font-display); letter-spacing: 1px; }
+.wc-body { font-family: var(--wc-font-body); }
+.wc-panel {
+  background: var(--wc-bg-panel);
+  border: 1px solid var(--wc-border);
+  border-radius: var(--wc-radius);
+}
+
+/* Loading / empty states (audit finding: blank panels look broken in demos) */
+.wc-empty {
+  color: var(--wc-text-faint);
+  font-family: var(--wc-font-body);
+  font-size: 0.75rem;
+  text-align: center;
+  padding: 24px;
+}
+.wc-empty::before { content: '◇ '; }
+@keyframes wc-pulse { 0%, 100% { opacity: 0.35; } 50% { opacity: 0.9; } }
+.wc-loading { animation: wc-pulse 1.2s ease-in-out infinite; }

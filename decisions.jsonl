@@ -1,0 +1,1 @@
+{"timestamp":"2026-06-08T06:18:33.669Z","title":"MCP Phase 3 validation test entry","rationale":"Test that log_decision appends to decisions.jsonl correctly.","alternativesRejected":"Skipping the test (rejected — TDD requires validation).","relatedFiles":["tools/war-council/server.js","tools/war-council/test-mcp-client.js"]}

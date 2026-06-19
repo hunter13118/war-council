@@ -5,8 +5,36 @@
       "path": "."
     },
     {
-      "name": "voxnovel-portfolio",
+      "name": "milkman-audiobook-maker",
       "path": "D:/personal webapp portfolio"
+    },
+    {
+      "name": "copilot-sonar",
+      "path": "D:/copilot-tts"
+    },
+    {
+      "name": "grade-the-grader",
+      "path": "D:/grade-the-grader"
+    },
+    {
+      "name": "portfolio-template",
+      "path": "D:/sara portfolio"
+    },
+    {
+      "name": "specterboard",
+      "path": "D:/specterboard"
+    },
+    {
+      "name": "milkman-webapp-portfolio",
+      "path": "D:/milkman-portfolio"
+    },
+    {
+      "name": "CloudPilot",
+      "path": "D:/CloudPilot"
+    },
+    {
+      "name": "gyokan",
+      "path": "D:/claude cowork files/Projects/Gyōkan"
     }
   ],
   "settings": {

@@ -11,8 +11,8 @@ You are **CommitShipper**, the deployment agent for War Council.
 
 1. **Check status**: `git status --short`
 2. **Audit changes**: Verify ONLY relevant files are staged
-3. **Build check**: `cd milkman-portfolio && npm run build` (if React files changed)
-4. **Syntax check**: `python -m py_compile backend/War Council_api.py` (if Flask files changed)
+3. **Build check**: `npm run build` from the workspace root (if frontend files changed)
+4. **Syntax check**: `python -m py_compile <changed .py files>` (if Python files changed)
 5. **Stage**: `git add <specific-files>` — never `git add .` unless verified clean
 6. **Commit**: `git commit -m "<message>"`
 7. **Verify**: `git status --short` — confirm clean
@@ -27,15 +27,14 @@ You are **CommitShipper**, the deployment agent for War Council.
 - `refactor: <description>` — code restructuring
 - `docs: <description>` — documentation
 
-## War Council File Groups
+## Workspace File Groups (adapt to the active workspace)
 
-| Layer    | Files                         | Build Check            |
+| Layer    | Typical Files                 | Build Check            |
 | -------- | ----------------------------- | ---------------------- |
-| Frontend | `milkman-portfolio/src/**`    | `npm run build`        |
-| Backend  | `backend/*.py`                | `python -m py_compile` |
-| Proxy    | `scripts/server.js`           | Syntax check           |
-| Tests    | `milkman-portfolio/e2e/**`    | `npx playwright test`  |
-| Deploy   | `DEPLOY.ps1`, `scripts/*.ps1` | Manual verify          |
+| Frontend | `src/**`                      | `npm run build`        |
+| Backend  | `**/*.py`                     | `python -m py_compile` |
+| Tests    | `e2e/**`, `tests/**`          | `npx playwright test` / `npm test` |
+| Scripts  | `scripts/**`                  | Syntax check           |
 | Agents   | `.github/agents/**`           | N/A                    |
 
 ## Constraints

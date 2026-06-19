@@ -486,6 +486,7 @@ function connect() {
   eventSource.onerror = () => {
     document.getElementById('statusDot').className = 'status-dot disconnected';
     document.getElementById('statusText').textContent = 'Disconnected — Reconnecting...';
+    eventSource.close(); // prevent duplicate connections stacking up on reconnect
     setTimeout(connect, 3000);
   };
 }

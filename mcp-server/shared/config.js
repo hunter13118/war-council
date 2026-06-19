@@ -2,6 +2,10 @@
  * Centralized configuration — loads arsenal.json + env overrides.
  * Single source of truth for all paths, model names, and API keys.
  */
+import { loadWarCouncilEnv } from "./load-env.js";
+
+loadWarCouncilEnv({ silent: true });
+
 import { fileURLToPath } from "node:url";
 import { dirname, resolve } from "node:path";
 import { readFileSync } from "node:fs";
@@ -16,8 +20,10 @@ export const OLLAMA_BASE = process.env.OLLAMA_BASE || arsenalConfig.defaults.oll
 export const OLLAMA_CONTEXT_LENGTH = parseInt(process.env.OLLAMA_CONTEXT_LENGTH || "32768", 10);
 export const OLLAMA_KEEP_ALIVE = process.env.OLLAMA_KEEP_ALIVE || "30m";
 
+export const WAR_COUNCIL_ROOT = resolve(__dirname, "..", "..");
+
 export const REPO_ROOT =
-  process.env.REPO_ROOT || resolve(__dirname, "..", "..");
+  process.env.REPO_ROOT || WAR_COUNCIL_ROOT;
 export const BATTLE_LOG_PATH = resolve(REPO_ROOT, ".cline-context", "battle-log.jsonl");
 
 export const MEMORY_STORE_PATH =

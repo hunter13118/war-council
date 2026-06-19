@@ -36,7 +36,7 @@ Drop in this content:
     "war-council": {
       "command": "C:\\Program Files\\nodejs\\node.exe",
       "args": [
-        "D:\\personal webapp portfolio\\tools\\war-council\\server.js"
+        "D:\\war-council\\mcp-server\\server.js"
       ],
       "env": {
         "OLLAMA_BASE": "http://127.0.0.1:11434"
@@ -88,7 +88,7 @@ The first byte must be `0x7B` (`{`), NOT `0xEF 0xBB 0xBF` (BOM).
     "war-council": {
       "type": "stdio",
       "command": "C:\\Program Files\\nodejs\\node.exe",
-      "args": ["D:\\personal webapp portfolio\\tools\\war-council\\server.js"],
+      "args": ["D:\\war-council\\mcp-server\\server.js"],
       "env": { "OLLAMA_BASE": "http://127.0.0.1:11434" },
       "disabled": false,
       "timeout": 60,

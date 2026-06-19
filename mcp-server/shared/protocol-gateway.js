@@ -24,9 +24,12 @@ let sessionState = {
   workspaceRegistered: false,
   memoryQueried: false,
   lastMemoryQueryAt: 0,
+  deliberationComplete: false,
+  lastDeliberationAt: 0,
   actionsWithoutReport: 0,
   totalCalls: 0,
   callHistory: [], // last N tool calls
+  lastRoute: null,
 };
 
 // Tools that constitute "work" (actions that should be preceded by memory_query)
@@ -45,6 +48,8 @@ const EXEMPT_TOOLS = new Set([
   "register_workspace", "switch_workspace", "list_arsenal",
   "scratchpad_read", "scratchpad_write", "run_tests",
   "memory_index_conversations", "prewarm_loadout",
+  "coding_delivery", "apply_plan", "smart_route", "conductor_prelude",
+  "council_rollback", "run_chain",
 ]);
 
 // How long memory_query stays "fresh" (5 minutes)
@@ -162,8 +167,39 @@ export function resetSession() {
     workspaceRegistered: false,
     memoryQueried: false,
     lastMemoryQueryAt: 0,
+    deliberationComplete: false,
+    lastDeliberationAt: 0,
     actionsWithoutReport: 0,
     totalCalls: 0,
     callHistory: [],
+    lastRoute: null,
   };
+}
+
+/**
+ * Record smart_route result for coding_delivery hints.
+ * @param {object} route
+ * @param {string} task
+ */
+export function markSmartRoute(route, task) {
+  sessionState.lastRoute = { ...route, task: task?.slice(0, 200), at: Date.now() };
+}
+
+/**
+ * Mark FORCE_WAR_TABLE prelude satisfied (ship prelude / conductor_prelude).
+ */
+export function markDeliberationComplete() {
+  sessionState.deliberationComplete = true;
+  sessionState.lastDeliberationAt = Date.now();
+  sessionState.memoryQueried = true;
+  sessionState.lastMemoryQueryAt = Date.now();
+}
+
+/**
+ * @returns {boolean}
+ */
+export function isDeliberationComplete() {
+  if (process.env.FORCE_WAR_TABLE !== "1") return true;
+  const fresh = (Date.now() - sessionState.lastDeliberationAt) < MEMORY_FRESHNESS_MS;
+  return sessionState.deliberationComplete && fresh;
 }

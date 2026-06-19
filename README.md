@@ -14,7 +14,7 @@ A complete toolkit for turning local LLMs into a coordinated war council:
 
 2. **War Table Dashboard** (`battle-log/`) — Real-time SSE-powered visualization of multi-model deliberation: Ace Attorney courtroom tournaments, Council Deliberation Theatre, Memory Constellation Graph, Token Economy HUD, Activity Timeline, TTS voices, ELO rankings.
 
-3. **Copilot Agent Framework** (`.github/agents/`) — 19 specialized sub-agents for VS Code Copilot, each with domain expertise. Tournament system for architectural decisions. Full TDD enforcement.
+3. **Copilot Agent Framework** (`.github/agents/`) — 12 specialized sub-agents for VS Code Copilot, each with domain expertise. Tournament system for architectural decisions. Full TDD enforcement.
 
 4. **Memory Engine** (`memory-engine/`) — RAG system with vector store, file/conversation indexing, and cosine similarity search. Prompts are auto-augmented with relevant memory chunks.
 
@@ -22,7 +22,15 @@ A complete toolkit for turning local LLMs into a coordinated war council:
 
 6. **Cloud Failover** (`mcp-server/shared/cloud.js`) — Gemini + Groq integration with rate limiting and automatic failover when Ollama is overloaded.
 
-7. **Cline/Roo Integration** (`docs/CLINE_SETUP.md`) — Wire the MCP server into Roo Code or Cline for local-first agentic coding.
+7. **Universal Client Integrations** (`integrations/` + `docs/CLIENT_COMPATIBILITY.md`) — Ready-made MCP configs for Cursor, VS Code Copilot, Cline/Roo, Claude Code/Desktop, Gemini CLI/Antigravity, and Windsurf. One command plugs the council into any workspace:
+
+   ```powershell
+   node scripts/init-workspace.js D:/path/to/your-repo --hooks
+   ```
+
+   Auto-detects which AI clients the repo uses, writes their configs with correct paths, drops AGENTS.md rules, patches .gitignore, and (with `--hooks`) installs **adherence gates** — commits above a size threshold are blocked unless the council was actually consulted (`scripts/adherence-gate.js`; bypass with `WC_SKIP_GATE=1`).
+
+8. **Complexity Fallback** — When a task exceeds local-model guardrails (`mcp-server/shared/ship-tier.js`), tools return a CALLER_HANDOFF block tailored to whichever client invoked the council (`WC_CALLER_CLIENT`), so your IDE's strong model takes over with full council context.
 
 ---
 
@@ -70,12 +78,12 @@ npm start
 # 3. (Optional) Start the War Table dashboard
 cd battle-log
 node server.js
-# Open http://localhost:3001/war-table
+# Open http://localhost:3737/war-table
 ```
 
 ## Copilot Agent Framework
 
-The `.github/agents/` directory contains 19 specialized sub-agents. Drop this entire `.github/` folder into any VS Code workspace to get:
+The `.github/agents/` directory contains 12 specialized sub-agents. Drop this entire `.github/` folder into any VS Code workspace to get:
 
 - **Conductor** — Master orchestrator, tournament judge
 - **Hypeman** — User-facing persona (rap-god / anime-villain energy)
@@ -83,7 +91,7 @@ The `.github/agents/` directory contains 19 specialized sub-agents. Drop this en
 - **TestWriter** / **TestRunner** — TDD enforcement
 - **RepoScout** — Deep codebase exploration
 - **QualityGatekeeper** — Coverage gates, blocks merges without tests
-- And 13 more domain specialists...
+- **UXCritic / VisualAuditor / E2EPlaywright / CommitShipper / ShowcaseBuilder** — design, visual QA, e2e, and shipping specialists
 
 These agents work with GitHub Copilot's chat interface. They're the "war council" — each brings domain expertise, and the Conductor coordinates them.
 
@@ -92,8 +100,10 @@ These agents work with GitHub Copilot's chat interface. They're the "war council
 ```
 war-council/
 ├── .github/
-│   ├── agents/           # 19 specialized Copilot sub-agents
+│   ├── agents/           # 12 specialized Copilot sub-agents
 │   └── copilot-instructions.md  # Master operating manual
+├── integrations/         # Ready-made MCP configs for every client
+├── .githooks/            # Adherence + verification commit gates
 ├── mcp-server/           # MCP protocol server for Ollama delegation
 │   ├── server.js         # Main MCP server (stdio transport)
 │   ├── tool-registry.js  # Auto-discovery plugin system

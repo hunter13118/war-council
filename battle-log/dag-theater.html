@@ -19,6 +19,8 @@ header .controls{margin-left:auto;display:flex;gap:0.75rem;align-items:center}
 .btn{padding:6px 14px;border-radius:6px;border:1px solid var(--border);background:var(--surface);color:var(--text);font-size:0.75rem;cursor:pointer;transition:all 0.2s}
 .btn:hover{border-color:var(--accent);box-shadow:0 0 10px rgba(168,85,247,0.2)}
 .btn.active{border-color:var(--accent);background:rgba(168,85,247,0.1)}
+.btn:disabled{opacity:0.5;cursor:not-allowed;box-shadow:none}
+.demo-badge{padding:4px 10px;border-radius:6px;border:1px solid var(--yellow);color:var(--yellow);background:rgba(245,158,11,0.1);font-size:0.68rem;letter-spacing:0.04em}
 
 /* Canvas area */
 .theater{flex:1;position:relative;overflow:hidden;height:calc(100vh - 56px);display:flex}
@@ -87,8 +89,10 @@ marker path{transition:fill 0.4s}
 <header>
   <h1>DAG THEATER</h1>
   <div class="controls">
+    <span class="demo-badge" id="demo-badge" style="display:none">DEMO — no live executions yet</span>
     <button class="btn" id="btn-demo" onclick="loadDemo()">Demo DAG</button>
     <button class="btn" id="btn-complex" onclick="loadComplex()">Complex Pipeline</button>
+    <button class="btn" id="btn-live" onclick="runLiveDAG()">▶ Run Live DAG</button>
     <button class="btn" id="btn-run" onclick="runAnimation()">▶ Animate</button>
     <button class="btn" id="btn-reset" onclick="resetDAG()">↺ Reset</button>
   </div>
@@ -472,11 +476,203 @@ function topologicalOrder(dag) {
 }
 
 // --- Controls ---
-function loadDemo() { renderDAG(DEMO_DAG); }
-function loadComplex() { renderDAG(COMPLEX_DAG); }
+function loadDemo() { stopLivePolling(); liveExecutionId = null; renderDAG(DEMO_DAG); }
+function loadComplex() { stopLivePolling(); liveExecutionId = null; renderDAG(COMPLEX_DAG); }
 
-// Auto-load demo
-loadDemo();
+// --- Live engine wiring ---
+let liveExecutionId = null;
+let livePollTimer = null;
+
+function setDemoBadge(show) {
+  $('demo-badge').style.display = show ? '' : 'none';
+}
+
+function setRunButtonBusy(busy) {
+  const btn = $('btn-live');
+  if (!btn) return;
+  btn.disabled = busy;
+  btn.textContent = busy ? '⏳ Live DAG Running…' : '▶ Run Live DAG';
+}
+
+// Adapter: engine trace {structure, dagName} → theater render format {name, nodes:[{id,label,type,tier,x,y}], edges:[{from,to}]}
+function engineToTheater(trace) {
+  const structure = trace.structure || {};
+  const ids = Object.keys(structure);
+  const depth = {};
+
+  // layer = longest path depth from roots (via dependsOn)
+  function calcDepth(id, seen) {
+    if (depth[id] !== undefined) return depth[id];
+    if (seen.has(id)) return 0; // cycle guard
+    seen.add(id);
+    const deps = (structure[id] && structure[id].dependsOn) || [];
+    let d = 0;
+    for (const dep of deps) {
+      if (structure[dep]) d = Math.max(d, calcDepth(dep, seen) + 1);
+    }
+    depth[id] = d;
+    return d;
+  }
+  ids.forEach(id => calcDepth(id, new Set()));
+
+  const layers = {};
+  ids.forEach(id => { (layers[depth[id]] = layers[depth[id]] || []).push(id); });
+
+  const nodes = [];
+  Object.keys(layers).map(Number).sort((a, b) => a - b).forEach(layer => {
+    layers[layer].forEach((id, idx) => {
+      const def = structure[id] || {};
+      nodes.push({
+        id,
+        label: def.tier ? `${id}\n(${def.tier})` : id,
+        type: def.type || 'task',
+        tier: def.tier || null,
+        x: 120 + layer * 210,
+        y: 100 + idx * 110,
+      });
+    });
+  });
+
+  const edges = [];
+  ids.forEach(id => {
+    ((structure[id] && structure[id].dependsOn) || []).forEach(d => {
+      if (structure[d]) edges.push({ from: d, to: id });
+    });
+  });
+
+  return { name: trace.dagName || 'Live DAG', nodes, edges };
+}
+
+// Apply real nodeStates through the existing state mechanism (only on change, so the timeline stays clean)
+function applyTraceStates(trace) {
+  const states = trace.nodeStates || {};
+  for (const [nodeId, state] of Object.entries(states)) {
+    if (nodeStates[nodeId] !== state) setNodeState(nodeId, state);
+  }
+}
+
+function stopLivePolling() {
+  if (livePollTimer) { clearInterval(livePollTimer); livePollTimer = null; }
+}
+
+async function pollLive(executionId) {
+  if (executionId !== liveExecutionId) return;
+  try {
+    const res = await fetch(`/dag/status/${executionId}`);
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const trace = await res.json();
+    applyTraceStates(trace);
+    if (trace.status !== 'running') {
+      stopLivePolling();
+      setRunButtonBusy(false);
+    }
+  } catch {
+    stopLivePolling();
+    setRunButtonBusy(false);
+  }
+}
+
+// Render + track a real execution. Returns false if trace lacks structure (older engine runs).
+async function watchExecution(executionId) {
+  try {
+    const res = await fetch(`/dag/status/${executionId}`);
+    if (!res.ok) return false;
+    const trace = await res.json();
+    if (!trace.structure || Object.keys(trace.structure).length === 0) return false;
+
+    if (animationTimer) { clearInterval(animationTimer); animationTimer = null; }
+    stopLivePolling();
+    liveExecutionId = executionId;
+    setDemoBadge(false);
+
+    renderDAG(engineToTheater(trace));
+    startTime = Number(new Date(trace.startedAt)) || Date.now();
+    applyTraceStates(trace);
+
+    if (trace.status === 'running') {
+      setRunButtonBusy(true);
+      livePollTimer = setInterval(() => pollLive(executionId), 2000);
+    } else {
+      setRunButtonBusy(false);
+    }
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+// POST a real 3-node pipeline to /dag/run, then watch it
+async function runLiveDAG() {
+  const btn = $('btn-live');
+  if (btn.disabled) return;
+  setRunButtonBusy(true);
+
+  const payload = {
+    dag: {
+      id: 'live-probe',
+      name: 'Live Council Probe',
+      entryNode: 'plan',
+      nodes: {
+        plan: { type: 'task', dependsOn: [], config: { tier: 'fast', args: { prompt: 'Plan, in 3 short bullet points, how to add a /healthcheck endpoint to a Node HTTP server.' } } },
+        draft: { type: 'task', dependsOn: ['plan'], config: { tier: 'fast', args: { prompt: 'Write the minimal Node code for a /healthcheck endpoint returning JSON {ok:true}.' } } },
+        review: { type: 'task', dependsOn: ['draft'], config: { tier: 'fast', args: { prompt: 'In 2 sentences, review this approach for production-readiness.' } } },
+      },
+    },
+    context: {},
+  };
+
+  try {
+    const res = await fetch('/dag/run', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+    const data = await res.json();
+    if (!res.ok || !data.executionId) throw new Error(data.error || `HTTP ${res.status}`);
+    await watchExecution(data.executionId);
+  } catch (e) {
+    addTimelineEvent('live-probe', 'failed');
+    setRunButtonBusy(false);
+  }
+}
+
+// SSE: when any DAG starts anywhere, switch the theater to it (live theatre!)
+function connectEvents() {
+  try {
+    const es = new EventSource('/events');
+    es.onmessage = (e) => {
+      try {
+        const data = JSON.parse(e.data);
+        if (data.type === 'dag_start' && data.executionId) {
+          watchExecution(data.executionId);
+        }
+      } catch {}
+    };
+    es.onerror = () => {
+      es.close(); // prevent duplicate connections stacking up on reconnect
+      setTimeout(connectEvents, 3000);
+    };
+  } catch {}
+}
+
+// --- Boot: prefer the newest real execution; fall back to demo with badge ---
+async function init() {
+  try {
+    const res = await fetch('/dag/list');
+    if (res.ok) {
+      const list = await res.json();
+      if (Array.isArray(list) && list.length > 0) {
+        const ok = await watchExecution(list[0].id);
+        if (ok) return;
+      }
+    }
+  } catch {}
+  loadDemo();
+  setDemoBadge(true);
+}
+
+init();
+connectEvents();
 </script>
 <script src="nav.js"></script>
 </body>

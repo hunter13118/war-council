@@ -19,6 +19,11 @@
     "test:mcp": "cd mcp-server && npm test",
     "install:all": "cd mcp-server && npm install && cd ../tests && npm install",
     "setup": "node scripts/setup.js",
+    "init": "node scripts/init-workspace.js",
+    "live": "node scripts/live-drive.js",
+    "capture": "node scripts/capture-dashboards.js",
+    "adherence": "node scripts/adherence-gate.js --report",
+    "hooks:enable": "git config core.hooksPath .githooks",
     "test:benchmark": "cd mcp-server && node --test tests/benchmark.test.js"
   },
   "repository": {

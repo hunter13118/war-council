@@ -160,6 +160,11 @@
 
       /* Don't fight with war-table's fixed nav */
       .nav ~ .wc-nav-burger { top: 48px; }
+
+      /* The fixed burger (36px + 10px margins) was covering page titles in the
+         top-left ("War Council" rendered as "r Council"). Pad common header
+         containers so titles clear it. */
+      body > header, body > .header { padding-left: 56px !important; }
     `;
     document.head.appendChild(style);
   }

@@ -43,6 +43,21 @@
       font-size: 0.85rem;
     }
     .search-box input:focus { outline: none; border-color: #7aa2f7; }
+    .extract-btn {
+      background: #12182b;
+      border: 1px solid #1e2a4a;
+      border-radius: 6px;
+      padding: 8px 14px;
+      color: #7aa2f7;
+      font-family: inherit;
+      font-size: 0.75rem;
+      cursor: pointer;
+      white-space: nowrap;
+      flex-shrink: 0;
+    }
+    .extract-btn:hover:not(:disabled) { border-color: #7aa2f7; }
+    .extract-btn:disabled { opacity: 0.5; cursor: wait; }
+    .extract-error { font-size: 0.7rem; color: #ff6b6b; }
     .stats-bar {
       display: flex;
       gap: 20px;
@@ -140,6 +155,8 @@
     <div class="search-box">
       <input type="text" id="search" placeholder="Search nodes... (e.g. 'confidence', 'server', 'circuit')" />
     </div>
+    <button class="extract-btn" id="extract-btn">⟳ Extract from Repo</button>
+    <span class="extract-error" id="extract-error"></span>
     <div class="stats-bar" id="stats-bar">
       <span><span class="dot" style="background:#7aa2f7"></span> Loading...</span>
     </div>
@@ -298,12 +315,11 @@
       const centerX = W / 2;
       const centerY = H / 2;
 
-      // Position nodes in a rough circle first
-      nodes.forEach((n, i) => {
-        const angle = (i / nodes.length) * Math.PI * 2;
-        const radius = 150 + Math.random() * 100;
-        n.x = centerX + Math.cos(angle) * radius;
-        n.y = centerY + Math.sin(angle) * radius;
+      // Spread initial positions across the central 60% of the canvas
+      // (a single cluster point makes the layout collapse into a huddle)
+      nodes.forEach((n) => {
+        n.x = centerX + (Math.random() - 0.5) * W * 0.6;
+        n.y = centerY + (Math.random() - 0.5) * H * 0.6;
       });
 
       // Run force simulation for N iterations
@@ -317,7 +333,8 @@
             const dx = nodes[j].x - nodes[i].x;
             const dy = nodes[j].y - nodes[i].y;
             const dist = Math.sqrt(dx * dx + dy * dy) || 1;
-            const force = 800 / (dist * dist);
+            // Stronger repulsion, capped so near-overlapping nodes don't explode outward
+            const force = Math.min(3200 / (dist * dist), 24);
             const fx = (dx / dist) * force * alpha;
             const fy = (dy / dist) * force * alpha;
             nodes[i].x -= fx;
@@ -336,7 +353,7 @@
           const dx = target.x - source.x;
           const dy = target.y - source.y;
           const dist = Math.sqrt(dx * dx + dy * dy) || 1;
-          const force = (dist - 80) * 0.01 * alpha;
+          const force = (dist - 160) * 0.01 * alpha; // longer resting link distance
           const fx = (dx / dist) * force;
           const fy = (dy / dist) * force;
           source.x += fx;
@@ -345,10 +362,10 @@
           target.y -= fy;
         }
 
-        // Center gravity
+        // Center gravity (gentle — just enough to keep the graph on-canvas)
         for (const n of nodes) {
-          n.x += (centerX - n.x) * 0.01 * alpha;
-          n.y += (centerY - n.y) * 0.01 * alpha;
+          n.x += (centerX - n.x) * 0.004 * alpha;
+          n.y += (centerY - n.y) * 0.004 * alpha;
         }
       }
 
@@ -501,6 +518,30 @@
         </div>
       `;
     }
+
+    // Re-extract the entity graph from the repo, then reload the same way as on page load
+    document.getElementById('extract-btn').addEventListener('click', async () => {
+      const btn = document.getElementById('extract-btn');
+      const errEl = document.getElementById('extract-error');
+      errEl.textContent = '';
+      btn.disabled = true;
+      const original = btn.textContent;
+      btn.textContent = 'Extracting…';
+      try {
+        const res = await fetch('/knowledge-graph/extract', { method: 'POST' });
+        const data = await res.json();
+        if (!res.ok || data.ok === false) throw new Error(data.error || `HTTP ${res.status}`);
+        selectedNode = null;
+        renderNodeDetail();
+        await loadData(); // re-fetches graph, recomputes stats, re-renders legend + layout
+      } catch (e) {
+        errEl.textContent = 'Extract failed: ' + (e.message || e);
+        setTimeout(() => { errEl.textContent = ''; }, 6000);
+      } finally {
+        btn.disabled = false;
+        btn.textContent = original;
+      }
+    });
 
     resize();
     window.addEventListener('resize', () => { resize(); render(); });

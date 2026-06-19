@@ -1,0 +1,27 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "⚔️ War Council: Enable Adherence Hooks",
+      "type": "shell",
+      "command": "git config core.hooksPath .githooks && echo Hooks enabled — commits now pass through the council gate.",
+      "problemMatcher": [],
+      "runOptions": { "runOn": "folderOpen" },
+      "presentation": { "reveal": "silent", "panel": "shared" }
+    },
+    {
+      "label": "⚔️ War Council: Start War Table Dashboard",
+      "type": "shell",
+      "command": "node {{WAR_COUNCIL_ROOT}}/battle-log/server.js",
+      "isBackground": true,
+      "problemMatcher": [],
+      "detail": "Serves http://localhost:3737 (war-table, command-center, metrics-hud, ...)"
+    },
+    {
+      "label": "⚔️ War Council: Adherence Report",
+      "type": "shell",
+      "command": "node {{WAR_COUNCIL_ROOT}}/scripts/adherence-gate.js --report",
+      "problemMatcher": []
+    }
+  ]
+}

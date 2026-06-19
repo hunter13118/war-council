@@ -2,6 +2,8 @@
 /**
  * war-council MCP server — Plugin Architecture
  *
+ * Cloud API keys: loaded from D:/war-council/.env via shared/config.js (load-env).
+ *
  * Exposes model-delegation + agentic tools for a local Ollama Conductor pattern.
  * Tools are auto-discovered from the tools/ directory via the ToolRegistry.
  *
@@ -54,27 +56,15 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
   return registry.execute(name, args || {}, ctx);
 });
 
-// ===== Startup Healthcheck =====
+// Silent healthcheck — Cursor treats any stderr as an MCP error in the UI.
 async function healthcheck() {
   try {
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), 5000);
     const res = await fetch(`${OLLAMA_BASE}/api/version`, { signal: controller.signal });
     clearTimeout(timer);
-    if (!res.ok) {
-      process.stderr.write(
-        `[war-council] WARNING: Ollama responded with status ${res.status}. Some tools may fail.\n`
-      );
-      return false;
-    }
-    const data = await res.json();
-    process.stderr.write(`[war-council] Ollama v${data.version} connected at ${OLLAMA_BASE}\n`);
-    return true;
-  } catch (err) {
-    process.stderr.write(
-      `[war-council] ERROR: Cannot reach Ollama at ${OLLAMA_BASE} — ${err.message}\n` +
-      `[war-council] Model delegation tools will fail until Ollama is running.\n`
-    );
+    return res.ok;
+  } catch {
     return false;
   }
 }
